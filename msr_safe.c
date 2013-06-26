@@ -18,7 +18,7 @@
  * and then read/write in chunks of 8 bytes.  A larger size means multiple
  * reads or writes of the same register.
  *
- * This driver uses /dev/cpu/%d/msr where %d is the minor number, and on
+ * This driver uses /dev/cpu/%d/msr_safe where %d is the minor number, and on
  * an SMP box will direct the access to CPU %d.
  */
 
@@ -43,6 +43,7 @@
 #include <asm/system.h>
 
 static struct class *msr_class;
+static int majordev;
 
 static loff_t msr_seek(struct file *file, loff_t offset, int orig)
 {
@@ -211,14 +212,14 @@ static int __cpuinit msr_device_create(int cpu)
 {
 	struct device *dev;
 
-	dev = device_create(msr_class, NULL, MKDEV(MSR_MAJOR, cpu), NULL,
-			    "msr%d", cpu);
+	dev = device_create(msr_class, NULL, MKDEV(majordev, cpu), NULL,
+			    "msr_safe%d", cpu);
 	return IS_ERR(dev) ? PTR_ERR(dev) : 0;
 }
 
 static void msr_device_destroy(int cpu)
 {
-	device_destroy(msr_class, MKDEV(MSR_MAJOR, cpu));
+	device_destroy(msr_class, MKDEV(majordev, cpu));
 }
 
 static int __cpuinit msr_class_cpu_callback(struct notifier_block *nfb,
@@ -246,7 +247,7 @@ static struct notifier_block __refdata msr_class_cpu_notifier = {
 
 static char *msr_devnode(struct device *dev, mode_t *mode)
 {
-	return kasprintf(GFP_KERNEL, "cpu/%u/msr", MINOR(dev->devt));
+	return kasprintf(GFP_KERNEL, "cpu/%u/msr_safe", MINOR(dev->devt));
 }
 
 static int __init msr_init(void)
@@ -254,13 +255,13 @@ static int __init msr_init(void)
 	int i, err = 0;
 	i = 0;
 
-	if (__register_chrdev(MSR_MAJOR, 0, NR_CPUS, "cpu/msr", &msr_fops)) {
-		printk(KERN_ERR "msr: unable to get major %d for msr\n",
-		       MSR_MAJOR);
+	majordev = __register_chrdev(0, 0, NR_CPUS, "cpu/msr_safe", &msr_fops);
+	if (majordev < 0) {
+		printk(KERN_ERR "msr_safe: unable to register device number\n");
 		err = -EBUSY;
 		goto out;
 	}
-	msr_class = class_create(THIS_MODULE, "msr");
+	msr_class = class_create(THIS_MODULE, "msr_safe");
 	if (IS_ERR(msr_class)) {
 		err = PTR_ERR(msr_class);
 		goto out_chrdev;
@@ -282,7 +283,7 @@ out_class:
 		msr_device_destroy(i);
 	class_destroy(msr_class);
 out_chrdev:
-	__unregister_chrdev(MSR_MAJOR, 0, NR_CPUS, "cpu/msr");
+	__unregister_chrdev(majordev, 0, NR_CPUS, "cpu/msr");
 out:
 	return err;
 }
@@ -293,7 +294,7 @@ static void __exit msr_exit(void)
 	for_each_online_cpu(cpu)
 		msr_device_destroy(cpu);
 	class_destroy(msr_class);
-	__unregister_chrdev(MSR_MAJOR, 0, NR_CPUS, "cpu/msr");
+	__unregister_chrdev(majordev, 0, NR_CPUS, "cpu/msr");
 	unregister_hotcpu_notifier(&msr_class_cpu_notifier);
 }
 
@@ -301,5 +302,5 @@ module_init(msr_init);
 module_exit(msr_exit)
 
 MODULE_AUTHOR("H. Peter Anvin <hpa@zytor.com>");
-MODULE_DESCRIPTION("x86 generic MSR driver");
+MODULE_DESCRIPTION("x86 sanitized MSR driver");
 MODULE_LICENSE("GPL");
