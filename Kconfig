@@ -1,0 +1,10 @@
+config X86_MSR_SAFE
+	tristate "/dev/cpu/*/msr_safe - Safe model-specific register support"
+	depends CONFIG_X86_64
+	---help---
+	This device gives sanitized access to many of the x86
+	Model-Specific Registers (MSRs).  It is a character device with
+	major 202 and minors 0 to 31 for /dev/cpu/0/msr_safe to
+	/dev/cpu/31/msr_safe.
+	MSR accesses are directed to a specific CPU on multi-processor
+	systems.
