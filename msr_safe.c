@@ -45,6 +45,41 @@
 static struct class *msr_class;
 static int majordev;
 
+struct msr_whitelist {
+	u32	reg;
+	u32	read_mask[2];
+	u32	write_mask[2];
+};
+
+#define MASK_ALL {0xFFFFFFFF, 0xFFFFFFFF}
+#define MASK_NONE {0, 0}
+#define MSR_LAST_ENTRY ~0
+#define MSR_ENTRY(reg, read, write) {reg, read, write}
+#define MSR_RW(reg) MSR_ENTRY(reg, MASK_ALL, MASK_ALL)
+#define MSR_RO(reg) MSR_ENTRY(reg, MASK_ALL, MASK_NONE)
+
+static struct msr_whitelist whitelist[] = {
+	MSR_RW(MSR_IA32_P5_MC_ADDR),
+	MSR_RW(MSR_IA32_P5_MC_TYPE),
+	MSR_RO(MSR_IA32_TSC),
+	MSR_RO(MSR_IA32_PLATFORM_ID),
+	MSR_RW(MSR_IA32_MPERF),
+	MSR_RW(MSR_IA32_APERF),
+	MSR_ENTRY(MSR_LAST_ENTRY, MASK_NONE, MASK_NONE)
+};
+
+static struct msr_whitelist *get_whitelist_entry(u64 reg)
+{
+	struct msr_whitelist *entry;
+
+	for (entry = whitelist; entry->reg != MSR_LAST_ENTRY; entry++)
+		if (entry->reg == reg)
+			return entry;
+
+	return NULL;
+}
+
+
 static loff_t msr_seek(struct file *file, loff_t offset, int orig)
 {
 	loff_t ret;
@@ -76,14 +111,29 @@ static ssize_t msr_read(struct file *file, char __user *buf,
 	int cpu = iminor(file->f_path.dentry->d_inode);
 	int err = 0;
 	ssize_t bytes = 0;
+	struct msr_whitelist *wlp;
+	u32 read_mask[] = {0, 0};
 
 	if (count % 8)
 		return -EINVAL;	/* Invalid chunk size */
+
+	wlp = get_whitelist_entry(reg);
+	if (wlp) {
+		read_mask[0] = wlp->read_mask[0];
+		read_mask[1] = wlp->read_mask[1];
+	}
+	if (capable(CAP_SYS_RAWIO))
+		read_mask[0] = read_mask[1] = ~0;
+
+	if (!read_mask[0] && !read_mask[1])
+		return -EINVAL;
 
 	for (; count; count -= 8) {
 		err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
 		if (err)
 			break;
+		data[0] &= read_mask[0];
+		data[1] &= read_mask[1];
 		if (copy_to_user(tmp, &data, 8)) {
 			err = -EFAULT;
 			break;
@@ -104,14 +154,37 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 	int cpu = iminor(file->f_path.dentry->d_inode);
 	int err = 0;
 	ssize_t bytes = 0;
+	struct msr_whitelist *wlp;
+	u32 write_mask[] = { 0, 0};
+	u32 orig_data[2];
 
 	if (count % 8)
 		return -EINVAL;	/* Invalid chunk size */
+
+	wlp = get_whitelist_entry(reg);
+	if (wlp) {
+		write_mask[0] = wlp->write_mask[0];
+		write_mask[1] = wlp->write_mask[1];
+	}
+
+	if (capable(CAP_SYS_RAWIO))
+		write_mask[0] = write_mask[1] = ~0;
+
+	if (!write_mask[0] && !write_mask[1])
+		return -EINVAL;
 
 	for (; count; count -= 8) {
 		if (copy_from_user(&data, tmp, 8)) {
 			err = -EFAULT;
 			break;
+		}
+		if (~write_mask[0] || ~write_mask[1]) {
+			err = rdmsr_safe_on_cpu(cpu, reg, &orig_data[0],
+						&orig_data[1]);
+			if (err)
+				break;
+			data[0] = orig_data[0] | (data[0] & write_mask[0]);
+			data[1] = orig_data[1] | (data[1] & write_mask[1]);
 		}
 		err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
 		if (err)
@@ -132,6 +205,10 @@ static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
 
 	switch (ioc) {
 	case X86_IOC_RDMSR_REGS:
+		if (!capable(CAP_SYS_RAWIO)) {
+			err = -EFAULT;
+			break;
+		}
 		if (!(file->f_mode & FMODE_READ)) {
 			err = -EBADF;
 			break;
@@ -148,6 +225,10 @@ static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
 		break;
 
 	case X86_IOC_WRMSR_REGS:
+		if (!capable(CAP_SYS_RAWIO)) {
+			err = -EFAULT;
+			break;
+		}
 		if (!(file->f_mode & FMODE_WRITE)) {
 			err = -EBADF;
 			break;
@@ -176,9 +257,6 @@ static int msr_open(struct inode *inode, struct file *file)
 	unsigned int cpu;
 	struct cpuinfo_x86 *c;
 	int ret = 0;
-
-	if (!capable(CAP_SYS_RAWIO))
-		return -EPERM;
 
 	lock_kernel();
 	cpu = iminor(file->f_path.dentry->d_inode);
