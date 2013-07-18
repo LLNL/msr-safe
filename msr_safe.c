@@ -214,19 +214,32 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 	return bytes ? bytes : err;
 }
 
+/* 
+ * arg is a pointer to 8 u32's in the following format:
+ * 	u32 arg[] = {eax, ecx, edx, ebc, esp, ebp, esi, edi};
+ * 	Of which:
+ * 		arg[1] (ecx) = msr number
+ * 		arg[0] (eax) = low 32 bits of msr value
+ * 		arg[2] (edx) = high 32 bits of msr value
+ * 	These reg
+ */
 static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
 {
 	u32 __user *uregs = (u32 __user *)arg;
-	u32 regs[8];
+	u32 regs[8], orig_regs[8];
 	int cpu = iminor(file->f_path.dentry->d_inode);
 	int err;
+	struct msr_whitelist *wlp;
+	u32 read_mask[] = {0, 0};
+	u32 write_mask[] = {0, 0};
 
+	if (capable(CAP_SYS_RAWIO)) {
+		read_mask[0] = read_mask[1] = ~0;
+		write_mask[0] = write_mask[1] = ~0;
+	}
+	
 	switch (ioc) {
 	case X86_IOC_RDMSR_REGS:
-		if (!capable(CAP_SYS_RAWIO)) {
-			err = -EFAULT;
-			break;
-		}
 		if (!(file->f_mode & FMODE_READ)) {
 			err = -EBADF;
 			break;
@@ -235,7 +248,18 @@ static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
 			err = -EFAULT;
 			break;
 		}
+		wlp = get_whitelist_entry(regs[1]);
+		if (wlp) {
+			read_mask[0] |= wlp->read_mask[0];
+			read_mask[1] |= wlp->read_mask[1];
+		}
+		if (!(read_mask[0] || read_mask[1])) {
+			err = -EFAULT;
+			break;
+		}
 		err = rdmsr_safe_regs_on_cpu(cpu, regs);
+		regs[0] &= read_mask[0];
+		regs[2] &= read_mask[1];
 		if (err)
 			break;
 		if (copy_to_user(uregs, &regs, sizeof regs))
@@ -243,10 +267,6 @@ static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
 		break;
 
 	case X86_IOC_WRMSR_REGS:
-		if (!capable(CAP_SYS_RAWIO)) {
-			err = -EFAULT;
-			break;
-		}
 		if (!(file->f_mode & FMODE_WRITE)) {
 			err = -EBADF;
 			break;
@@ -255,7 +275,28 @@ static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
 			err = -EFAULT;
 			break;
 		}
+		wlp = get_whitelist_entry(regs[1]);
+		if (wlp) {
+			read_mask[0] |= wlp->read_mask[0];
+			read_mask[1] |= wlp->read_mask[1];
+			write_mask[0] |= wlp->write_mask[0];
+			write_mask[1] |= wlp->write_mask[1];
+		}
+		if (!(write_mask[0] || write_mask[1])) {
+			err = -EFAULT;
+			break;
+		}
+		if (~write_mask[0] || ~write_mask[1]) {
+			memcpy(orig_regs, regs,sizeof(regs));
+			err = rdmsr_safe_regs_on_cpu(cpu, orig_regs);
+			if (err)
+				break;
+			regs[0] = orig_regs[0] | (regs[0] & write_mask[0]);
+			regs[2] = orig_regs[2] | (regs[2] & write_mask[1]);
+		}
 		err = wrmsr_safe_regs_on_cpu(cpu, regs);
+		regs[0] &= read_mask[0];
+		regs[2] &= read_mask[1];
 		if (err)
 			break;
 		if (copy_to_user(uregs, &regs, sizeof regs))
