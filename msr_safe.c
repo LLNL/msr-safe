@@ -201,8 +201,10 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 						&orig_data[1]);
 			if (err)
 				break;
-			data[0] = orig_data[0] | (data[0] & write_mask[0]);
-			data[1] = orig_data[1] | (data[1] & write_mask[1]);
+			data[0] = (orig_data[0] & ~write_mask[0]) |
+				  (data[0] & write_mask[0]);
+			data[1] = (orig_data[1] & ~write_mask[1]) |
+				  (data[1] & write_mask[1]);
 		}
 		err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
 		if (err)
@@ -291,8 +293,10 @@ static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
 			err = rdmsr_safe_regs_on_cpu(cpu, orig_regs);
 			if (err)
 				break;
-			regs[0] = orig_regs[0] | (regs[0] & write_mask[0]);
-			regs[2] = orig_regs[2] | (regs[2] & write_mask[1]);
+			regs[0] = (orig_regs[0] & ~write_mask[0]) |
+				  (regs[0] & write_mask[0]);
+			regs[2] = (orig_regs[2] & ~write_mask[1]) |
+				  (regs[2] & write_mask[1]);
 		}
 		err = wrmsr_safe_regs_on_cpu(cpu, regs);
 		regs[0] &= read_mask[0];
