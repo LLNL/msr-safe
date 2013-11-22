@@ -22,6 +22,8 @@
  * an SMP box will direct the access to CPU %d.
  */
 
+/*Patki from Denver*/
+
 #include <linux/module.h>
 
 #include <linux/types.h>
