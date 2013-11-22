@@ -56,14 +56,16 @@
 #define SMSR_MISC_PWR_MGMT		0x1AA	//RW
 #define SMSR_ENERGY_PERF_BIAS		0x1B0	//RW
 #define SMSR_PACKAGE_THERM_STATUS	0x1B1	//RW
-#define SMSR_PACKAGE_THERM_INTERRUPT
-#define SMSR_
-#define SMSR_
-#define SMSR_
-#define SMSR_
-#define SMSR_
-#define SMSR_
-#define SMSR_
+#define SMSR_PACKAGE_THERM_INTERRUPT	0x1B2	//RW
+#define SMSR_POWER_CTL			0x1FC	//RW
+#define SMSR_FIXED_CTR0			0x309	//RW
+#define SMSR_FIXED_CTR1			0x30A	//RW
+#define SMSR_FIXED_CTR2			0x30A	//RW
+#define SMSR_PERF_CAPABILITIES		0x345	//RW
+#define SMSR_FIXED_CTR_CTRL		0x38D	//RW
+#define SMSR_PERF_GLOBAL_STATUS		0x38E	//RW
+#define SMSR_PERF_GLOBAL_CTRL		0x38F	//RW
+
 #endif
 
 #endif /* MSR_SUPPLEMENTAL_H */
