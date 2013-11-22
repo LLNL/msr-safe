@@ -67,13 +67,6 @@ struct msr_whitelist {
 
 
 static struct msr_whitelist whitelist[] = {
-/*	MSR_RO(MSR_IA32_P5_MC_ADDR),
-	MSR_RO(MSR_IA32_P5_MC_TYPE),
-	MSR_RO(MSR_IA32_TSC),
-	MSR_RO(MSR_IA32_PLATFORM_ID),
-	MSR_RW(MSR_IA32_MPERF),
-	MSR_RW(MSR_IA32_APERF),
-*/
 	MSR_ENTRY(MSR_LAST_ENTRY, MASK_NONE, MASK_NONE),
 	/*Patki*/
 	MSR_RO(SMSR_TIME_STAMP_COUNTER),
