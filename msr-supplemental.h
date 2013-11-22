@@ -72,14 +72,8 @@
 #define SMSR_MSR_PKG_PERF_STATUS	0x613	//ro
 #define SMSR_DRAM_POWER_LIMIT		0x618	//RW
 #define SMSR_DRAM_ENERGY_STATUS		0x619	//ro
-#define SMSR_DRAM_PERF_STATUS
-#define SMSR_
-#define SMSR_
-#define SMSR_
-#define SMSR_
-#define SMSR_
-#define SMSR_
-#define SMSR_
+#define SMSR_DRAM_PERF_STATUS		0x61B	//ro
+#define SMSR_DRAM_POWER_INFO		0x61C	//RW
 
 #endif
 
