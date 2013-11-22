@@ -11,7 +11,7 @@
  */
 #define SMSR_TIME_STAMP_COUNTER		0x010	//ro
 #define SMSR_PLATFORM_ID		0x017	//ro
-#define SMSR_PMC0			0x0C1	//RW	
+#define SMSR_PMC0			0x0C1	//RW
 #define SMSR_PMC1			0x0C2	//RW
 #define SMSR_PMC2			0x0C3	//RW
 #define SMSR_PMC3			0x0C4	//RW
