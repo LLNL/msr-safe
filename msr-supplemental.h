@@ -11,7 +11,6 @@
  */
 #define SMSR_TIME_STAMP_COUNTER		0x010	//ro
 #define SMSR_PLATFORM_ID		0x017	//ro
-*// #define SMSR_FEATURE_CONTROL	0x034	//XXX	not safe for production use.
 #define SMSR_PMC0			0x0C1	//RW
 #define SMSR_PMC1			0x0C2	//RW
 #define SMSR_PMC2			0x0C3	//RW
@@ -21,7 +20,6 @@
 #define SMSR_PMC6			0x0C7	//RW
 #define SMSR_PMC7			0x0C8	//RW
 #define SMSR_PLATFORM_INFO		0x0CE	//ro	Turbo ratios
-*//#define SMSR_PKG_CST_CONFIG_CONTROL	0x0E2	//XXX	review required for production use.
 #define SMSR_MPERF			0x0E7	//ro
 #define SMSR_APERF			0x0E8	//ro
 #define SMSR_PERFEVTSEL0		0x186	//RW
