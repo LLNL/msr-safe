@@ -61,18 +61,6 @@ struct msr_whitelist {
 #define MSR_ENTRY(reg, read, write) {reg, read, write}
 #define MSR_RW(reg) MSR_ENTRY(reg, MASK_ALL, MASK_ALL)
 #define MSR_RO(reg) MSR_ENTRY(reg, MASK_ALL, MASK_NONE)
-#define MSR_RAPL_RW_DOMAIN(pkg) \
-		MSR_RW(MSR_RAPL_POWER_LIMIT(pkg)), \
-		MSR_RW(MSR_RAPL_ENERGY_STATUS(pkg)), \
-		MSR_RW(MSR_RAPL_POLICY(pkg)), \
-		MSR_RW(MSR_RAPL_PERF_STATUS(pkg)), \
-		MSR_RW(MSR_RAPL_POWER_INFO(pkg))
-#define MSR_RAPL_RW_DOMAIN(pkg) \
-		 MSR_RW(MSR_RAPL_POWER_LIMIT(pkg)), \
-		MSR_RW(MSR_RAPL_ENERGY_STATUS(pkg)), \
-		MSR_RW(MSR_RAPL_POLICY(pkg)), \
-		MSR_RW(MSR_RAPL_PERF_STATUS(pkg)), \
-		MSR_RW(MSR_RAPL_POWER_INFO(pkg))
 
 static struct msr_whitelist whitelist[] = {
 	MSR_RO(MSR_IA32_P5_MC_ADDR),
@@ -81,11 +69,9 @@ static struct msr_whitelist whitelist[] = {
 	MSR_RO(MSR_IA32_PLATFORM_ID),
 	MSR_RW(MSR_IA32_MPERF),
 	MSR_RW(MSR_IA32_APERF),
-	MSR_RAPL_RW_DOMAIN(PKG),
-	MSR_RAPL_RW_DOMAIN(DRAM),
-	MSR_RAPL_RW_DOMAIN(PP0),
-	MSR_RAPL_RW_DOMAIN(PP1),
 	MSR_ENTRY(MSR_LAST_ENTRY, MASK_NONE, MASK_NONE)
+	/*Patki*/
+
 };
 
 static struct msr_whitelist *get_whitelist_entry(u64 reg)
