@@ -171,33 +171,43 @@ static ssize_t msr_read(struct file *file, char __user *buf,
 	int err = 0;
 	ssize_t bytes = 0;
 	struct msr_whitelist *wlp;
-	u32 read_mask[] = {0, 0};
+/*Patki		u32 read_mask[] = {0, 0};*/
 
 	if (count % 8)
 		return -EINVAL;	/* Invalid chunk size */
 
 	wlp = get_whitelist_entry(reg);
-	if (wlp) {
+
+/*	if (wlp) {
 		read_mask[0] = wlp->read_mask[0];
 		read_mask[1] = wlp->read_mask[1];
+
+
 	}
 
 
 	if (!read_mask[0] && !read_mask[1])
 		return -EINVAL;
+*/
+	/*Patki: Check RWBit*/
+ 
+	if(wlp){
+	if(wlp->RWBit == 0){
 
-	for (; count; count -= 8) {
-		err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
-		if (err)
-			break;
-		data[0] &= read_mask[0];
-		data[1] &= read_mask[1];
-		if (copy_to_user(tmp, &data, 8)) {
-			err = -EFAULT;
-			break;
-		}
-		tmp += 2;
-		bytes += 8;
+		for (; count; count -= 8) {
+			err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
+			if (err)
+				break;
+		//	data[0] &= read_mask[0];
+		//	data[1] &= read_mask[1];
+			if (copy_to_user(tmp, &data, 8)) {
+				err = -EFAULT;
+				break;
+			}
+			tmp += 2;
+			bytes += 8;
+	}
+	}
 	}
 
 	return bytes ? bytes : err;
@@ -213,14 +223,15 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 	int err = 0;
 	ssize_t bytes = 0;
 	struct msr_whitelist *wlp;
-	u32 write_mask[] = { 0, 0};
+/* Patki	u32 write_mask[] = { 0, 0};*/
 	u32 orig_data[2];
 
 	if (count % 8)
 		return -EINVAL;	/* Invalid chunk size */
 
 	wlp = get_whitelist_entry(reg);
-	if (wlp) {
+	
+/*	if (wlp) {
 		write_mask[0] = wlp->write_mask[0];
 		write_mask[1] = wlp->write_mask[1];
 	}
@@ -228,29 +239,33 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 
 	if (!write_mask[0] && !write_mask[1])
 		return -EINVAL;
-
-	for (; count; count -= 8) {
-		if (copy_from_user(&data, tmp, 8)) {
-			err = -EFAULT;
-			break;
-		}
-		if (~write_mask[0] || ~write_mask[1]) {
-			err = rdmsr_safe_on_cpu(cpu, reg, &orig_data[0],
-						&orig_data[1]);
+*/
+	/*Patki*/
+	if(wlp){
+	if(wlp->RWBit == 1){
+		for (; count; count -= 8) {
+			if (copy_from_user(&data, tmp, 8)) {
+				err = -EFAULT;
+				break;
+			}
+		/*	if (~write_mask[0] || ~write_mask[1]) {
+				err = rdmsr_safe_on_cpu(cpu, reg, &orig_data[0],
+							&orig_data[1]);
+				if (err)
+					break;
+				data[0] = (orig_data[0] & ~write_mask[0]) |
+					  (data[0] & write_mask[0]);
+				data[1] = (orig_data[1] & ~write_mask[1]) |
+					  (data[1] & write_mask[1]);
+			}*/
+			err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
 			if (err)
 				break;
-			data[0] = (orig_data[0] & ~write_mask[0]) |
-				  (data[0] & write_mask[0]);
-			data[1] = (orig_data[1] & ~write_mask[1]) |
-				  (data[1] & write_mask[1]);
-		}
-		err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
-		if (err)
-			break;
-		tmp += 2;
-		bytes += 8;
+			tmp += 2;
+			bytes += 8;
 	}
-
+	}
+	}
 	return bytes ? bytes : err;
 }
 
