@@ -44,10 +44,13 @@
 #include <asm/msr.h>
 #include <asm/system.h>
 
+#include "msr-supplemental.h"
 
 #define _USE_ARCH_062D 1
 
-#include "msr-supplemental.h"
+#define MSR_LAST_ENTRY ~0
+#define FAKE_LAST_MSR MSR_LAST_ENTRY, 0,0,0,0
+
 
 static struct class *msr_class;
 static int majordev;
@@ -60,14 +63,12 @@ struct msr_whitelist {
 	u8	granularity;
 };
 
-#define MSR_LAST_ENTRY ~0
-#define FAKE_LAST_MSR MSR_LAST_ENTRY, 0,0,0,0
-
 static struct msr_whitelist whitelist[] = {
 //	MSR_LAST_ENTRY, MASK_NONE, MASK_NONE,
 	/*Patki*/
-	VIRTUAL_MSR_SAVE_CURRENT_VALUES,
-	VIRTUAL_MSR_RESTORE_OLD_VALUES,
+	VIRT_MSR_SAVE_CURRENT_VALUES,
+	VIRT_MSR_RESTORE_PREV_VALUES,
+	VIRT_MSR_RESTORE_SANE_VALUES,
 	SMSR_TIME_STAMP_COUNTER,
 	SMSR_PLATFORM_ID,
 	SMSR_PMC0,
@@ -306,7 +307,7 @@ static int __cpuinit msr_device_create(int cpu)
 {
 	struct device *dev;
 
-	dev = device_create(msr_class, NULL, MKDEV(majordev, cpu, NULL),
+	dev = device_create(msr_class, NULL, MKDEV(majordev, cpu), NULL,
 			    "msr_safe%d", cpu);
 	return IS_ERR(dev) ? PTR_ERR(dev) : 0;
 }
