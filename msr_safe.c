@@ -60,9 +60,14 @@ struct msr_whitelist {
 	u8	granularity;
 };
 
+#define MSR_LAST_ENTRY ~0
+#define FAKE_LAST_MSR MSR_LAST_ENTRY, 0,0,0,0
+
 static struct msr_whitelist whitelist[] = {
 //	MSR_LAST_ENTRY, MASK_NONE, MASK_NONE,
 	/*Patki*/
+	VIRTUAL_MSR_SAVE_CURRENT_VALUES,
+	VIRTUAL_MSR_RESTORE_OLD_VALUES,
 	SMSR_TIME_STAMP_COUNTER,
 	SMSR_PLATFORM_ID,
 	SMSR_PMC0,
@@ -117,7 +122,9 @@ static struct msr_whitelist whitelist[] = {
 	SMSR_DRAM_POWER_LIMIT, 
 	SMSR_DRAM_ENERGY_STATUS,
 	SMSR_DRAM_PERF_STATUS,
-	SMSR_DRAM_POWER_INFO
+	SMSR_DRAM_POWER_INFO,
+	/*Last Entry; Just for best practice and Safety as we don't want to check against NULL*/
+	FAKE_LAST_MSR
 };
 
 static struct msr_whitelist *get_whitelist_entry(u64 reg)
@@ -175,8 +182,6 @@ static ssize_t msr_read(struct file *file, char __user *buf,
 		read_mask[1] = wlp->read_mask[1];
 	}
 
-	/*Patki*/		
-	read_mask[0] = read_mask[1] = ~0;
 
 	if (!read_mask[0] && !read_mask[1])
 		return -EINVAL;
@@ -220,8 +225,6 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 		write_mask[1] = wlp->write_mask[1];
 	}
 
-	/*Patki*/
-	write_mask[0] = write_mask[1] = ~0;
 
 	if (!write_mask[0] && !write_mask[1])
 		return -EINVAL;
