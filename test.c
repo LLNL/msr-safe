@@ -3,8 +3,8 @@
 #include "test.h"
 
 
-#define BLAH 0x100, -1, 1, 0, 100
-#define BLAHBLAH 0x200, 10, 20, 30, 40
+//#define BLAH 0x100, -1, 1, 0, 100
+//#define BLAHBLAH 0x200, 10, 20, 30, 40
 
 struct testStruct{
 	int a,b,c,d,e;
