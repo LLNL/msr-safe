@@ -244,7 +244,6 @@ static int msr_open(struct inode *inode, struct file *file)
 	struct cpuinfo_x86 *c;
 	int ret = 0;
 
-	lock_kernel();
 	cpu = iminor(file->f_path.dentry->d_inode);
 
 	if (cpu >= nr_cpu_ids || !cpu_online(cpu)) {
@@ -255,7 +254,6 @@ static int msr_open(struct inode *inode, struct file *file)
 	if (!cpu_has(c, X86_FEATURE_MSR))
 		ret = -EIO;	/* MSR not supported */
 out:
-	unlock_kernel();
 	return ret;
 }
 
