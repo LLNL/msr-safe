@@ -342,7 +342,7 @@ out_class:
 		msr_device_destroy(i);
 	class_destroy(msr_class);
 out_chrdev:
-	__unregister_chrdev(majordev, 0, NR_CPUS, "cpu/msr");
+	__unregister_chrdev(majordev, 0, NR_CPUS, "cpu/msr_safe");
 out:
 	return err;
 }
@@ -353,7 +353,7 @@ static void __exit msr_exit(void)
 	for_each_online_cpu(cpu)
 		msr_device_destroy(cpu);
 	class_destroy(msr_class);
-	__unregister_chrdev(majordev, 0, NR_CPUS, "cpu/msr");
+	__unregister_chrdev(majordev, 0, NR_CPUS, "cpu/msr_safe");
 	unregister_hotcpu_notifier(&msr_class_cpu_notifier);
 }
 
