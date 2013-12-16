@@ -22,7 +22,6 @@
  * an SMP box will direct the access to CPU %d.
  */
 
-/*Patki from Denver*/
 
 #include <linux/module.h>
 
@@ -44,11 +43,6 @@
 #define _USE_ARCH_062D 1
 #include "msr-supplemental.h"
 
-
-//#define MSR_LAST_ENTRY ~0
-//#define FAKE_LAST_MSR MSR_LAST_ENTRY, 0,0,0,0
-
-
 static struct class *msr_class;
 static int majordev;
 
@@ -58,7 +52,6 @@ SMSR_ENTRIES
 } smsr_type;
 #undef SMSR_ENTRY
 
-
 #define SMSR_ENTRY(x,y) y
 static u16 whitelist[] = { SMSR_ENTRIES };
 #undef SMSR_ENTRY
@@ -66,13 +59,11 @@ static u16 whitelist[] = { SMSR_ENTRIES };
 u16 get_whitelist_entry(u16 reg)
 {
 	u16 entry;
-
 	for (entry = 0; entry < SMSR_LAST_ENTRY; entry++){
 		if ( (whitelist[entry] & SMSR_REG_MASK) == reg){
 			return reg;
 		}
 	}
-
 	return 0;
 }
 
