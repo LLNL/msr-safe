@@ -39,10 +39,15 @@ This process was.... fraught.
 
 4.	Run "make scripts" in the linux source directory to create recordmcount.
 
-4.	<asm/system.h> and <smp_lock.h> no longer exist in 3.x kernels.  Until we figure out
+5.	<asm/system.h> and <smp_lock.h> no longer exist in 3.x kernels.  Until we figure out
 	a portable locking solution, we'll need to live without locking.
 
-5.	Expected use requires only open, read and write (and close?).  ioctl and lseek do not
+6.	Expected use requires only open, read and write (and close?).  ioctl and lseek do not
 	need to be supported and that code has been removed.
 
+7.	The following warning occurs under Ubuntu but not Redhat:
+
+		msr_safe.c:328:21: warning: assignment from incompatible pointer type [enabled by default]
+
+	We'll ignore it for now.
 
