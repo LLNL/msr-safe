@@ -35,6 +35,9 @@ This process was.... fraught.
 3.	Add this symlink as well.
 
 		Module.symvers -> /usr/src/linux-headers-3.8.0-29-generic/Module.symvers
+		.config -> /usr/src/linux-headers-3.8.0-29-generic/.config
+
+4.	Run "make scripts" in the linux source directory to create recordmcount.
 
 4.	<asm/system.h> and <smp_lock.h> no longer exist in 3.x kernels.  Until we figure out
 	a portable locking solution, we'll need to live without locking.
