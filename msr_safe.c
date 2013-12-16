@@ -52,83 +52,28 @@
 static struct class *msr_class;
 static int majordev;
 
-struct msr_whitelist {
-	u32	reg;
-	u8	RWBit;
-	u8	ReadOnStartBit;
-	u64	WriteOnExitIndex;
-	u8	granularity;
-};
+#define SMSR_ENTRY(x,y) x
+typedef enum smsr{
+SMSR_ENTRIES
+} smsr_type;
+#undef SMSR_ENTRY
 
-static struct msr_whitelist whitelist[] = {
-	/* Not implemented yet.
-	{VIRT_MSR_SAVE_CURRENT_VALUES},
-	{VIRT_MSR_RESTORE_PREV_VALUES},
-	{VIRT_MSR_RESTORE_SANE_VALUES},
-	*/
-	{SMSR_TIME_STAMP_COUNTER},
-	{SMSR_PLATFORM_ID},
-	{SMSR_PMC0},
-	{SMSR_PMC1},
-	{SMSR_PMC2},
-	{SMSR_PMC3},
-	{SMSR_PMC4},
-	{SMSR_PMC5},
-	{SMSR_PMC6},
-	{SMSR_PMC7},
-	{SMSR_MPERF},
-	{SMSR_APERF},
-	{SMSR_PERFEVTSEL0},
-	{SMSR_PERFEVTSEL1},
-	{SMSR_PERFEVTSEL2},
-	{SMSR_PERFEVTSEL3},
-	{SMSR_PERFEVTSEL4},
-	{SMSR_PERFEVTSEL5},
-	{SMSR_PERFEVTSEL6},
-	{SMSR_PERFEVTSEL7},
-	{SMSR_PERF_STATUS},
-	{SMSR_PERF_CTL},
-	{SMSR_CLOCK_MODULATION},
-	{SMSR_THERM_STATUS},
-	{SMSR_MISC_ENABLE},
-	{SMSR_OFFCORE_RSP_0},
-	{SMSR_OFFCORE_RSP_1},
-	{SMSR_ENERGY_PERF_BIAS},
-	{SMSR_PACKAGE_THERM_STATUS},
-	{SMSR_FIXED_CTR0},
-	{SMSR_FIXED_CTR1},
-	{SMSR_FIXED_CTR2},
-	{SMSR_PERF_CAPABILITIES},
-	{SMSR_FIXED_CTR_CTRL},
-	{SMSR_PERF_GLOBAL_STATUS},
-	{SMSR_PERF_GLOBAL_CTRL},
-	{SMSR_PERF_GLOBAL_OVF_CTRL},
-	{SMSR_PEBS_ENABLE},
-	{SMSR_PEBS_LD_LAT},
-	{SMSR_RAPL_POWER_UNIT},
-	{SMSR_PKG_POWER_LIMIT},
-	{SMSR_PKG_ENERGY_STATUS},
-	{SMSR_PKG_POWER_INFO},
-	{SMSR_PP0_POWER_LIMIT},
-	{SMSR_PP0_ENERGY_STATUS},
-	{SMSR_MSR_PKG_PERF_STATUS}, 
-	{SMSR_DRAM_POWER_LIMIT}, 
-	{SMSR_DRAM_ENERGY_STATUS},
-	{SMSR_DRAM_PERF_STATUS},
-	{SMSR_DRAM_POWER_INFO},
-	/*Last Entry; Just for best practice and Safety as we don't want to check against NULL*/
-	{FAKE_LAST_MSR}
-};
 
-static struct msr_whitelist *get_whitelist_entry(u64 reg)
+#define SMSR_ENTRY(x,y) y
+static u16 whitelist[] = { SMSR_ENTRIES };
+#undef SMSR_ENTRY
+
+u16 get_whitelist_entry(u16 reg)
 {
-	struct msr_whitelist *entry;
+	u16 entry;
 
-	for (entry = whitelist; entry->reg != MSR_LAST_ENTRY; entry++)
-		if (entry->reg == reg)
-			return entry;
+	for (entry = 0; entry < SMSR_LAST_ENTRY; entry++){
+		if ( (whitelist[entry] & SMSR_REG_MASK) == reg){
+			return reg;
+		}
+	}
 
-	return NULL;
+	return 0;
 }
 
 static ssize_t msr_read(struct file *file, char __user *buf,
@@ -139,16 +84,15 @@ static ssize_t msr_read(struct file *file, char __user *buf,
 	u32 reg = *ppos;
 	int cpu = iminor(file->f_path.dentry->d_inode);
 	int err = 0;
-	struct msr_whitelist *wlp;
 
 	if (count != 8){
 		return -EINVAL;	/* Invalid chunk size */
 	}
 
-	wlp = get_whitelist_entry(reg);
+	reg = get_whitelist_entry( (u16)(reg & SMSR_REG_MASK) );
 
-	if(wlp){
-		err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
+	if(reg){
+		err = rdmsr_safe_on_cpu(cpu, reg & SMSR_REG_MASK, &data[0], &data[1]);
 		if (!err){
 			if (copy_to_user(tmp, &data, 8)) {
 				err = -EFAULT;
@@ -166,20 +110,18 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 	u32 reg = *ppos;
 	int cpu = iminor(file->f_path.dentry->d_inode);
 	int err = 0;
-	ssize_t bytes = 0;
-	struct msr_whitelist *wlp;
 
 	if (count != 8)
 		return -EINVAL;	/* Invalid chunk size */
 
-	wlp = get_whitelist_entry(reg);
+	reg = get_whitelist_entry( (u16)(reg & SMSR_REG_MASK) );
 	
-	if(wlp && wlp->RWBit == 1){
+	if(reg && ( reg & SMSR_RW_MASK ) ){
 		if (copy_from_user(&data, tmp, 8)) {
 			err = -EFAULT;
 		}
 		if(!err){
-			err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
+			err = wrmsr_safe_on_cpu(cpu, reg & SMSR_REG_MASK, data[0], data[1]);
 		}
 	}
 	return err ? err : 8;
