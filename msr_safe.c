@@ -40,7 +40,6 @@
 #include <linux/uaccess.h>
 
 #include <asm/processor.h>
-#include <asm/msr.h>
 #include <asm/system.h>
 
 #define _USE_ARCH_062D 1
