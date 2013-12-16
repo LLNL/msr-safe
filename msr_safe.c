@@ -61,9 +61,11 @@ struct msr_whitelist {
 };
 
 static struct msr_whitelist whitelist[] = {
+	/* Not implemented yet.
 	{VIRT_MSR_SAVE_CURRENT_VALUES},
 	{VIRT_MSR_RESTORE_PREV_VALUES},
 	{VIRT_MSR_RESTORE_SANE_VALUES},
+	*/
 	{SMSR_TIME_STAMP_COUNTER},
 	{SMSR_PLATFORM_ID},
 	{SMSR_PMC0},
@@ -137,48 +139,23 @@ static ssize_t msr_read(struct file *file, char __user *buf,
 	u32 reg = *ppos;
 	int cpu = iminor(file->f_path.dentry->d_inode);
 	int err = 0;
-	ssize_t bytes = 0;
 	struct msr_whitelist *wlp;
-/*Patki		u32 read_mask[] = {0, 0};*/
 
-	if (count % 8)
+	if (count != 8){
 		return -EINVAL;	/* Invalid chunk size */
+	}
 
 	wlp = get_whitelist_entry(reg);
 
-/*	if (wlp) {
-		read_mask[0] = wlp->read_mask[0];
-		read_mask[1] = wlp->read_mask[1];
-
-
-	}
-
-
-	if (!read_mask[0] && !read_mask[1])
-		return -EINVAL;
-*/
-	/*Patki: Check RWBit*/
- 
 	if(wlp){
-	if(wlp->RWBit == 0){
-
-		for (; count; count -= 8) {
-			err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
-			if (err)
-				break;
-		//	data[0] &= read_mask[0];
-		//	data[1] &= read_mask[1];
+		err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
+		if (!err){
 			if (copy_to_user(tmp, &data, 8)) {
 				err = -EFAULT;
-				break;
 			}
-			tmp += 2;
-			bytes += 8;
+		}
 	}
-	}
-	}
-
-	return bytes ? bytes : err;
+	return err ? err : 8;
 }
 
 static ssize_t msr_write(struct file *file, const char __user *buf,
@@ -191,50 +168,21 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 	int err = 0;
 	ssize_t bytes = 0;
 	struct msr_whitelist *wlp;
-/* Patki	u32 write_mask[] = { 0, 0};*/
-//	u32 orig_data[2];
 
-	if (count % 8)
+	if (count != 8)
 		return -EINVAL;	/* Invalid chunk size */
 
 	wlp = get_whitelist_entry(reg);
 	
-/*	if (wlp) {
-		write_mask[0] = wlp->write_mask[0];
-		write_mask[1] = wlp->write_mask[1];
-	}
-
-
-	if (!write_mask[0] && !write_mask[1])
-		return -EINVAL;
-*/
-	/*Patki*/
-	if(wlp){
-	if(wlp->RWBit == 1){
-		for (; count; count -= 8) {
-			if (copy_from_user(&data, tmp, 8)) {
-				err = -EFAULT;
-				break;
-			}
-		/*	if (~write_mask[0] || ~write_mask[1]) {
-				err = rdmsr_safe_on_cpu(cpu, reg, &orig_data[0],
-							&orig_data[1]);
-				if (err)
-					break;
-				data[0] = (orig_data[0] & ~write_mask[0]) |
-					  (data[0] & write_mask[0]);
-				data[1] = (orig_data[1] & ~write_mask[1]) |
-					  (data[1] & write_mask[1]);
-			}*/
+	if(wlp && wlp->RWBit == 1){
+		if (copy_from_user(&data, tmp, 8)) {
+			err = -EFAULT;
+		}
+		if(!err){
 			err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
-			if (err)
-				break;
-			tmp += 2;
-			bytes += 8;
+		}
 	}
-	}
-	}
-	return bytes ? bytes : err;
+	return err ? err : 8;
 }
 
 
@@ -360,6 +308,7 @@ static void __exit msr_exit(void)
 module_init(msr_init);
 module_exit(msr_exit)
 
+MODULE_AUTHOR("Jim Foraker <foraker1@llnl.gov>");
 MODULE_AUTHOR("Barry Rountree <rountree@llnl.gov>");
 MODULE_DESCRIPTION("x86 sanitized MSR driver");
 MODULE_LICENSE("GPL");
