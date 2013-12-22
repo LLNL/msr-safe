@@ -52,26 +52,20 @@ struct smsr_entry{
 				//   including all the ones we care about.
 				//   Use 32 bits for compatibility.
 
-	u16	permissions;	// Inclusion in the whitelist implies 
-				//   read permission.  1=Writeable.
-				//   (Strictly speaking we could rely on
-				//   just the mask values, but this is 
-				//   easier to read.)
-
 	u32	write_mask_0;	// Prevent writing to reserved bits and
 	u32	write_mask_1;	//   reading/writing sensitive bits of
 	u32	read_mask_0;	//   MISC_ENABLE and similar.
 	u32	read_mask_1;
 };
 
-#define SMSR_ENTRY(a,b,c,d,e,f,g) a
+#define SMSR_ENTRY(a,b,c,d,e,f) a
 typedef enum smsr{
 SMSR_ENTRIES
 } smsr_t;
 #undef SMSR_ENTRY
 
 
-#define SMSR_ENTRY(a,b,c,d,e,f,g) b,c,d,e,f,g
+#define SMSR_ENTRY(a,b,c,d,e,f) b,c,d,e,f
 struct smsr_entry whitelist[] = { SMSR_ENTRIES };
 #undef SMSR_ENTRY
 
@@ -134,7 +128,8 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 
 	idx = get_whitelist_entry( reg );
 	
-	if(reg && ( reg ) ){
+	// If the write masks are zero, don't bother writing.
+	if(idx && (whitelist[idx].write_mask_0 | whitelist[idx].write_mask_1 )) {
 		if (copy_from_user(&data, tmp, 8)) {
 			err = -EFAULT;
 		}
