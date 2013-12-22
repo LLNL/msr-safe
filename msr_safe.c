@@ -64,19 +64,20 @@ struct smsr_entry{
 	u32	read_mask_1;
 };
 
-#define SMSR_ENTRY(x,y) x
+#define SMSR_ENTRY(a,b,c,d,e,f,g) a
 typedef enum smsr{
 SMSR_ENTRIES
-} smsr_type;
+} smsr_t;
 #undef SMSR_ENTRY
 
-#define SMSR_ENTRY(x,y) y
-static const struct smsr_entry whitelist[] = { SMSR_ENTRIES };
+
+#define SMSR_ENTRY(a,b,c,d,e,f,g) b,c,d,e,f,g
+struct smsr_entry whitelist[] = { SMSR_ENTRIES };
 #undef SMSR_ENTRY
 
 u16 get_whitelist_entry(loff_t reg)
 {
-	smsr entry;
+	smsr_t entry;
 	for (entry = 0; entry < SMSR_LAST_ENTRY; entry++){
 		if ( whitelist[entry].reg == reg){
 			return entry;
@@ -90,7 +91,7 @@ static ssize_t msr_read(struct file *file, char __user *buf,
 {
 	u32 __user *tmp = (u32 __user *) buf;
 	u32 data[2];
-	smsr idx;
+	smsr_t idx;
 	loff_t reg = *ppos;
 	int cpu = iminor(file->f_path.dentry->d_inode);
 	int err = 0;
@@ -121,7 +122,7 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 {
 	const u32 __user *tmp = (const u32 __user *)buf;
 	u32 data[2];
-	smsr idx;
+	smsr_t idx;
 	loff_t reg = *ppos;
 	int cpu = iminor(file->f_path.dentry->d_inode);
 	int err = 0;
@@ -131,16 +132,16 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 	if (count != 8)
 		return -EINVAL;	/* Invalid chunk size */
 
-	idx = get_whitelist_entry( (u16)(reg & SMSR_REG_MASK) );
+	idx = get_whitelist_entry( reg );
 	
-	if(reg && ( reg & SMSR_RW_MASK ) ){
+	if(reg && ( reg ) ){
 		if (copy_from_user(&data, tmp, 8)) {
 			err = -EFAULT;
 		}
 		if(!err){
 			data[0] &= whitelist[idx].write_mask_0;
 			data[1] &= whitelist[idx].write_mask_1;
-			err = wrmsr_safe_on_cpu(cpu, reg & SMSR_REG_MASK, data[0], data[1]);
+			err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
 		}
 	}
 	return err ? err : 8;
