@@ -40,11 +40,29 @@
 
 #include <asm/processor.h>
 
-#define _USE_ARCH_062D 1
+#define _USE_ARCH_062D 
 #include "msr-supplemental.h"
+#undef _USE_ARCH_062D
 
 static struct class *msr_class;
 static int majordev;
+
+struct smsr_entry{
+	loff_t 	reg;		// Almost all MSR addresses are 16-bit values,
+				//   including all the ones we care about.
+				//   Use 32 bits for compatibility.
+
+	u16	permissions;	// Inclusion in the whitelist implies 
+				//   read permission.  1=Writeable.
+				//   (Strictly speaking we could rely on
+				//   just the mask values, but this is 
+				//   easier to read.)
+
+	u32	write_mask_0;	// Prevent writing to reserved bits and
+	u32	write_mask_1;	//   reading/writing sensitive bits of
+	u32	read_mask_0;	//   MISC_ENABLE and similar.
+	u32	read_mask_1;
+};
 
 #define SMSR_ENTRY(x,y) x
 typedef enum smsr{
@@ -53,15 +71,15 @@ SMSR_ENTRIES
 #undef SMSR_ENTRY
 
 #define SMSR_ENTRY(x,y) y
-static u16 whitelist[] = { SMSR_ENTRIES };
+static const struct smsr_entry whitelist[] = { SMSR_ENTRIES };
 #undef SMSR_ENTRY
 
-u16 get_whitelist_entry(u16 reg)
+u16 get_whitelist_entry(loff_t reg)
 {
-	u16 entry;
+	smsr entry;
 	for (entry = 0; entry < SMSR_LAST_ENTRY; entry++){
-		if ( (whitelist[entry] & SMSR_REG_MASK) == reg){
-			return reg;
+		if ( whitelist[entry].reg == reg){
+			return entry;
 		}
 	}
 	return 0;
@@ -72,19 +90,24 @@ static ssize_t msr_read(struct file *file, char __user *buf,
 {
 	u32 __user *tmp = (u32 __user *) buf;
 	u32 data[2];
-	u32 reg = *ppos;
+	smsr idx;
+	loff_t reg = *ppos;
 	int cpu = iminor(file->f_path.dentry->d_inode);
 	int err = 0;
 
+	// "Count" doesn't have any meaning here, as we
+	// never want to read more than one msr at at time.
 	if (count != 8){
 		return -EINVAL;	/* Invalid chunk size */
 	}
 
-	reg = get_whitelist_entry( (u16)(reg & SMSR_REG_MASK) );
+	idx = get_whitelist_entry( reg );
 
 	if(reg){
-		err = rdmsr_safe_on_cpu(cpu, reg & SMSR_REG_MASK, &data[0], &data[1]);
+		err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
 		if (!err){
+			data[0] &= whitelist[idx].read_mask_0;
+			data[1] &= whitelist[idx].read_mask_1;
 			if (copy_to_user(tmp, &data, 8)) {
 				err = -EFAULT;
 			}
@@ -98,20 +121,25 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 {
 	const u32 __user *tmp = (const u32 __user *)buf;
 	u32 data[2];
-	u32 reg = *ppos;
+	smsr idx;
+	loff_t reg = *ppos;
 	int cpu = iminor(file->f_path.dentry->d_inode);
 	int err = 0;
 
+	// "Count" doesn't have any meaning here, as we
+	// never want to write more than one msr at at time.
 	if (count != 8)
 		return -EINVAL;	/* Invalid chunk size */
 
-	reg = get_whitelist_entry( (u16)(reg & SMSR_REG_MASK) );
+	idx = get_whitelist_entry( (u16)(reg & SMSR_REG_MASK) );
 	
 	if(reg && ( reg & SMSR_RW_MASK ) ){
 		if (copy_from_user(&data, tmp, 8)) {
 			err = -EFAULT;
 		}
 		if(!err){
+			data[0] &= whitelist[idx].write_mask_0;
+			data[1] &= whitelist[idx].write_mask_1;
 			err = wrmsr_safe_on_cpu(cpu, reg & SMSR_REG_MASK, data[0], data[1]);
 		}
 	}
