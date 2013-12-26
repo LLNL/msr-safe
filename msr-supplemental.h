@@ -50,9 +50,9 @@
  * 	MPERF/APERF			Restrict to RO.  See Section 14.2.		
  * 	 Thread		RW (RO)
  *
- *	PERFEVTSELn	RW		See Section 18.2.2.2 (Architectural Perforamnce Monitoring
- *					Version 3 Facilities).  Bits 63:32 are reserved.  Note that bit
- *                                      17 enables counting Ring 0 events; we may want to restrict this.
+ *	PERFEVTSELn			See Section 18.2.2.2 (Architectural Perforamnce Monitoring
+ *	 0-3 Thread	RW		Version 3 Facilities).  Bits 63:32 are reserved.  Note that bit
+ *       4-7 Core       RW		17 enables counting Ring 0 events; we may want to restrict this.
  *	
  *	PERF_STATUS	RO		See Section 14.1.1.  Table 35-12 contains a duplicate 
  *	 Package			entry for this MSR.  Interpreting both, bits 0-15 are
@@ -70,37 +70,60 @@
  *					operation by setting bit 32 of the IA32_PERF_CTL (0199H),
  *					using a read-modify-write sequence on the MSR."  
  *
+ *	CLOCK_MODULATION		See 14.5.3.1 (Sandy Bridge uses the Clock Modualtion 
+ *	 Thread		RW 		Extension).  Bits 4:0 are used.
  *
+ * 	THERM_INTERRUPT			See 14.5.5.2.  Bits 4:0 and 24:8 are used; the rest
+ *	 Core		RW		are reserved.
+ *
+ * 	THERM_STATUS			See 14.5.5.2.  
+ * 	 Core		Special			Bit  Configuration
+ * 	 					00    	RO 
+ * 	 					01    	R/WC0 (clear by writing 0)
+ * 	 					02    	RO
+ * 	 					03    	R/WC0 
+ * 	 					04    	RO
+ * 	 					05    	R/WC0 
+ * 	 					06    	RO
+ * 	 					07    	R/WC0 
+ * 	 					08    	RO
+ * 	 					09    	R/WC0 
+ * 	 					10    	RO
+ * 	 					11    	R/WC0 
+ * 	 					22:16 	RO
+ * 						26:23 	Reserved
+ * 	 					30:27 	RO
+ * 	 					31    	RO
+ * 	 					63:32 	Reserved
+ *
+ *	MISC_ENABLE				
+ * 	 Thread		RW			0 	Fast-String Enable (Section 7.3.9.3).
+ * 	 					6:1	Reserved
+ * 	 Thread		RO			7	Performance Monitoring Available (Section 18.4.4.3)
+ *						10:8	Reserved
+ *	 Thread		RO			11	Branch Trace Storage Unavailable (Section 17.4.9)
+ *	 Thread		RO			12	PEBS Sampling Unavailable (Section 18.4.4.3)
+ *	 					15:13	Reserved
+ *	 Package	RW			16	Enable Speedstep (Section 14.1)
+ *	 					17	???
+ *	 Thread		RW			18	Enable Monitor FSM (See Table 35-2; do not write)
+ *	 					21:19	Reserved
+ *	 Thread		RW			22	Limit CPUID Maxval (See Table 35-2; do not write)
+ *	 Thread		RW			23	xTPR Message Disable
+ *	 					24:33	Reserved
+ *	 Thread		RW			34	XD Bit Disable (See Table 35-2; do not write)
+ *	 					37:35	Reserved
+ *	 Package	RW			38	Turbo Mode Disable (Section 14.3.2.1)
+ *	 					63:39	Reserved
+ *
+ *	OFFCORE_RSP_0/1				Off-core Response Performance Monitoring.
+ *						See section 18.9.5.  Bits 37:15 and 11:0 are used.
+ *	 Thread		RW
  */
 
 /*	    Name		       Address  Low	      High	    Low	   	   High
  *	    					Read	      Read	    Write	   Write
- *	    					Mask	      Mask	    Mask	   Mask
- */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+ *	    					Mask	      Mask	    Mask	   Mask        */
 #define SMSR_ENTRIES \
 SMSR_ENTRY( NO_SUCH_SMSR,		{0x000, 0x0,          0x0,          0x0,           0x0          }),\
 SMSR_ENTRY( SMSR_TIME_STAMP_COUNTER,	{0x010,	SMSR_READALL, SMSR_READALL, SMSR_RO,       SMSR_NOWRITE }),\
@@ -126,6 +149,7 @@ SMSR_ENTRY( SMSR_PERFEVTSEL7,		{0x18D,	SMSR_READALL, SMSR_NOREAD,  SMSR_WRITEALL
 SMSR_ENTRY( SMSR_PERF_STATUS,		{0x198,	SMSR_READALL, SMSR_READALL, SMSR_RO,       SMSR_RO      }),\
 SMSR_ENTRY( SMSR_PERF_CTL,		{0x199,	SMSR_READALL, SMSR_READALL, SMSR_WRITEALL, SMSR_WRITEALL}),\
 SMSR_ENTRY( SMSR_CLOCK_MODULATION,	{0x19A,	SMSR_READALL, SMSR_READALL, SMSR_WRITEALL, SMSR_WRITEALL}),\
+SMSR_ENTRY( SMSR_THERM_INTERRUPT,	{0x19B,	SMSR_READALL, SMSR_READALL, SMSR_RO,       SMSR_RO      }),\
 SMSR_ENTRY( SMSR_THERM_STATUS,		{0x19C,	SMSR_READALL, SMSR_READALL, SMSR_RO,       SMSR_RO      }),\
 SMSR_ENTRY( SMSR_MISC_ENABLE,		{0x1A0,	SMSR_READALL, SMSR_READALL, SMSR_WRITEALL, SMSR_WRITEALL}),\
 SMSR_ENTRY( SMSR_OFFCORE_RSP_0,		{0x1A6,	SMSR_READALL, SMSR_READALL, SMSR_WRITEALL, SMSR_WRITEALL}),\
