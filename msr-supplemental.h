@@ -117,8 +117,21 @@
  *	 					63:39	Reserved
  *
  *	OFFCORE_RSP_0/1				Off-core Response Performance Monitoring.
- *						See section 18.9.5.  Bits 37:15 and 11:0 are used.
- *	 Thread		RW
+ *	 Thread		RW			See section 18.9.5.  Bits 37:15 and 11:0 are used.
+ *	
+ *	ENERGY_PERF_BIAS			Section 14.3.4.  Used bits 3:0.
+ *	 Package	RW
+ *
+ *	PACKAGE_THERM_STATUS			See section 14.6.  
+ *	 Package	RW			This is another complex one with serveral RWC0 bits.	
+ *
+ *	FIXED_CTRn				See section 18.2.2.  
+ * 	 Thread		RW			
+ *
+ * 	PERF_CAPABILITIES			LBR and PEBS record formats, 12:0.
+ * 	 Thread		RO
+ *
+ *
  */
 
 /*	    Name		       Address  Low	      High	    Low	   	   High
