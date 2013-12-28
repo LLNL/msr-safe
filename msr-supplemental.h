@@ -194,6 +194,58 @@
  *	PEBS_LD_LAT				Section 18.7.1.2, bits 15:0.
  *	 Thread		RW
  *	 0xFFFF 0x0
+ *
+ *	RAPL_POWER_UNIT				Section 14.7.1
+ *	 Package	RO
+ *	 0x0 0x0
+ *
+ *	PKG_POWER_LIMIT				Section 14.7.3
+ *	 Package	RW			Bits 23:0, 55:32.  Bit 63 locks the results
+ *	 0x00FFFFFF 0x00FFFFFF			until the next reboot, so don't allow user
+ *	 					access to that bit.
+ *
+ *	PKG_ENERGY_STATUS			Section 14.7.3
+ *	 Package	RO
+ *	 0x0 0x0
+ *
+ *	PKG_POWER_INFO				Section 14.7.3
+ *	 Package	RO
+ *	 0x0 0x0
+ *
+ *	PP0_POWER_LIMIT				Section 14.7.4
+ *	 Package	RW			Bits 23:0.  Do not allow access to lock bit 31.
+ *	 0x00FFFFFF 0x0
+ *
+ *	PP0_ENERGY_STATUS			Section 14.7.4
+ *	 Package	RO
+ *	 0x0 0x0
+ *
+ *	---- Leaving Table 35-12, entering Table 35-14 ---
+ *
+ * 	TURBO_RATIO_LIMIT			Not discussed in the documentation (???).
+ * 	 Package	RW			Writable if MSR_PLATFORM_INFO.[28] == 1, otherwise RO
+ * 	 0xFFFFFFFF 0xFFFFFFFF
+ *
+ * 	PKG_PERF_STATUS				Section 14.7.3
+ * 	 Package	RO
+ * 	 0x0 0x0
+ *
+ * 	DRAM_POWER_LIMIT			Section 14.7.5
+ *	 Package	RW			Bits 23:0.  Do not allow access to lock bit 31.
+ *	 0x00FFFFFF 0x0
+ *
+ *	DRAM_ENERGY_STATUS			Section 14.7.5
+ *	 Package	RO
+ *	 0x0 0x0
+ *
+ *	DRAM_PERF_STATUS			Section 14.7.5
+ *	 Package	RO
+ *	 0x0 0x0
+ *
+ *	DRAM_POWER_INFO				Section 14.7.5
+ *	 Package	RO 			Table incorrectly lists as RW
+ *	 0x0 0x0
+ *
  */	 
 
 /*	    Name		       Address  Low   	      High
@@ -242,18 +294,19 @@ SMSR_ENTRY( SMSR_PERF_GLOBAL_CTRL,	{0x38F,	0x00000003, 0x00000007 }),\
 SMSR_ENTRY( SMSR_PERF_GLOBAL_OVF_CTRL,	{0x390,	0x00000003, 0xC0000007 }),\
 SMSR_ENTRY( SMSR_PEBS_ENABLE,		{0x3F1,	0x0000000F, 0x0000000F }),\
 SMSR_ENTRY( SMSR_PEBS_LD_LAT,		{0x3F6,	0x0000FFFF, 0x0        }),\
-SMSR_ENTRY( SMSR_RAPL_POWER_UNIT,	{0x606,	SMSR_RO,       SMSR_RO      }),\
-SMSR_ENTRY( SMSR_PKG_POWER_LIMIT,	{0x610,	SMSR_WRITEALL, SMSR_WRITEALL}),\
-SMSR_ENTRY( SMSR_PKG_ENERGY_STATUS,	{0x611,	SMSR_RO,       SMSR_RO      }),\
-SMSR_ENTRY( SMSR_PKG_POWER_INFO,	{0x612,	SMSR_RO,       SMSR_RO      }),\
-SMSR_ENTRY( SMSR_PP0_POWER_LIMIT,	{0x638,	SMSR_WRITEALL, SMSR_WRITEALL}),\
-SMSR_ENTRY( SMSR_PP0_ENERGY_STATUS,	{0x639,	SMSR_RO,       SMSR_RO      }),\
-SMSR_ENTRY( SMSR_MSR_PKG_PERF_STATUS,	{0x613,	SMSR_RO,       SMSR_RO      }),\
-SMSR_ENTRY( SMSR_DRAM_POWER_LIMIT,	{0x618,	SMSR_WRITEALL, SMSR_WRITEALL}),\
-SMSR_ENTRY( SMSR_DRAM_ENERGY_STATUS,	{0x619,	SMSR_RO,       SMSR_RO      }),\
-SMSR_ENTRY( SMSR_DRAM_PERF_STATUS,	{0x61B,	SMSR_RO,       SMSR_RO      }),\
-SMSR_ENTRY( SMSR_DRAM_POWER_INFO,	{0x61C,	SMSR_RO,       SMSR_RO      }),\
-SMSR_ENTRY( SMSR_LAST_ENTRY, 		{0x000, 0x0,           0x0          })
+SMSR_ENTRY( SMSR_RAPL_POWER_UNIT,	{0x606,	0x0,        0x0        }),\
+SMSR_ENTRY( SMSR_PKG_POWER_LIMIT,	{0x610,	0x00FFFFFF, 0x00FFFFFF }),\
+SMSR_ENTRY( SMSR_PKG_ENERGY_STATUS,	{0x611,	0x0,        0x0        }),\
+SMSR_ENTRY( SMSR_PKG_POWER_INFO,	{0x612,	0x0,        0x0        }),\
+SMSR_ENTRY( SMSR_PP0_POWER_LIMIT,	{0x638,	0x00FFFFFF, 0x0        }),\
+SMSR_ENTRY( SMSR_PP0_ENERGY_STATUS,	{0x639,	0x0,        0x0        }),\
+SMSR_ENTRY( SMSR_TURBO_RATIO_LIMIT,	{0x1AD, 0xFFFFFFFF, 0xFFFFFFFF }),\
+SMSR_ENTRY( SMSR_MSR_PKG_PERF_STATUS,	{0x613,	0x0,        0x0        }),\
+SMSR_ENTRY( SMSR_DRAM_POWER_LIMIT,	{0x618,	0x00FFFFFF, 0x0        }),\
+SMSR_ENTRY( SMSR_DRAM_ENERGY_STATUS,	{0x619,	0x0,        0x0        }),\
+SMSR_ENTRY( SMSR_DRAM_PERF_STATUS,	{0x61B,	0x0,        0x0        }),\
+SMSR_ENTRY( SMSR_DRAM_POWER_INFO,	{0x61C,	0x0,        0x0        }),\
+SMSR_ENTRY( SMSR_LAST_ENTRY, 		{0x000, 0x0,           0x0     })
 
 #endif //_USE_ARCH_062D
 
