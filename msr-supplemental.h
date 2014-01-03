@@ -11,8 +11,6 @@
 
 #ifdef _USE_ARCH_062D
 
-/* TODO:  uncore? */
-
 /* 
  * I assume that no MSR on this list contains sensitive information.  Reads
  * will return the unmodified contents of the entire MSR.
@@ -248,9 +246,9 @@
  *
  */	 
 
-/*	    Name		       Address  Low   	      High
- *	    					Write	      Write
- *	    					Mask	      Mask        */
+/*	    Name		       Address  Low   	    High
+ *	    					Write	    Write
+ *	    					Mask	    Mask        */
 #define SMSR_ENTRIES \
 SMSR_ENTRY( NO_SUCH_SMSR,		{0x000, 0x0,        0x0        }),\
 SMSR_ENTRY( SMSR_TIME_STAMP_COUNTER,	{0x010,	0x0,        0x0        }),\
@@ -274,7 +272,7 @@ SMSR_ENTRY( SMSR_PERFEVTSEL5,		{0x18B,	0xFFFFFFFF, 0x0        }),\
 SMSR_ENTRY( SMSR_PERFEVTSEL6,		{0x18C,	0xFFFFFFFF, 0x0        }),\
 SMSR_ENTRY( SMSR_PERFEVTSEL7,		{0x18D,	0xFFFFFFFF, 0x0        }),\
 SMSR_ENTRY( SMSR_PERF_STATUS,		{0x198,	0x0,        0x0        }),\
-SMSR_ENTRY( SMSR_PERF_CTL,		{0x199,	0x0       , 0x00000001 }),\
+SMSR_ENTRY( SMSR_PERF_CTL,		{0x199,	0x0,        0x00000001 }),\
 SMSR_ENTRY( SMSR_CLOCK_MODULATION,	{0x19A,	0x00000007, 0x0        }),\
 SMSR_ENTRY( SMSR_THERM_INTERRUPT,	{0x19B,	0x01FFFF0F, 0x0        }),\
 SMSR_ENTRY( SMSR_THERM_STATUS,		{0x19C,	0x00000AAA, 0x0        }),\
@@ -306,7 +304,7 @@ SMSR_ENTRY( SMSR_DRAM_POWER_LIMIT,	{0x618,	0x00FFFFFF, 0x0        }),\
 SMSR_ENTRY( SMSR_DRAM_ENERGY_STATUS,	{0x619,	0x0,        0x0        }),\
 SMSR_ENTRY( SMSR_DRAM_PERF_STATUS,	{0x61B,	0x0,        0x0        }),\
 SMSR_ENTRY( SMSR_DRAM_POWER_INFO,	{0x61C,	0x0,        0x0        }),\
-SMSR_ENTRY( SMSR_LAST_ENTRY, 		{0x000, 0x0,           0x0     })
+SMSR_ENTRY( SMSR_LAST_ENTRY, 		{0x000, 0x0,        0x0        })
 
 #endif //_USE_ARCH_062D
 

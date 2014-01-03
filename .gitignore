@@ -6,4 +6,5 @@ Module.symvers
 *.o
 *.ko
 *.mod.c
+*.unsigned
 modules.order
