@@ -78,6 +78,24 @@ u16 get_whitelist_entry(loff_t reg)
 	return 0;
 }
 
+static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
+{
+	// Force access through read and write only.
+	(void)file;
+	(void)ioc;
+	(void)arg;
+	return -ENOTTY;
+}
+
+static loff_t msr_seek(struct file *file, loff_t offset, int orig)
+{
+	// seek doesn't make sense for registers.
+	(void)file;
+	(void)offset;
+	(void)orig;
+	return -EINVAL;
+}
+
 static ssize_t msr_read(struct file *file, char __user *buf,
 			size_t count, loff_t *ppos)
 {
@@ -166,6 +184,9 @@ static const struct file_operations msr_fops = {
 	.read = msr_read,
 	.write = msr_write,
 	.open = msr_open,
+	.llseek = msr_seek,		// always returns -EINVAL
+	.unlocked_ioctl = msr_ioctl,	// always returns -ENOTTY
+	.compat_ioctl = msr_ioctl,	// always returns -ENOTTY
 };
 
 static int __cpuinit msr_device_create(int cpu)
