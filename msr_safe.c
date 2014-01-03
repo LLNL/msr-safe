@@ -54,18 +54,16 @@ struct smsr_entry{
 
 	u32	write_mask_0;	// Prevent writing to reserved bits and
 	u32	write_mask_1;	//   reading/writing sensitive bits of
-	u32	read_mask_0;	//   MISC_ENABLE and similar.
-	u32	read_mask_1;
 };
 
-#define SMSR_ENTRY(a,b,c,d,e,f) a
+#define SMSR_ENTRY(a,b,c,d) a
 typedef enum smsr{
 SMSR_ENTRIES
 } smsr_t;
 #undef SMSR_ENTRY
 
 
-#define SMSR_ENTRY(a,b,c,d,e,f) b,c,d,e,f
+#define SMSR_ENTRY(a,b,c,d) b,c,d
 struct smsr_entry whitelist[] = { SMSR_ENTRIES };
 #undef SMSR_ENTRY
 
@@ -101,8 +99,6 @@ static ssize_t msr_read(struct file *file, char __user *buf,
 	if(reg){
 		err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
 		if (!err){
-			data[0] &= whitelist[idx].read_mask_0;
-			data[1] &= whitelist[idx].read_mask_1;
 			if (copy_to_user(tmp, &data, 8)) {
 				err = -EFAULT;
 			}
