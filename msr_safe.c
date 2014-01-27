@@ -128,7 +128,7 @@ static ssize_t msr_read(struct file *file, char __user *buf,
 
 	idx = get_whitelist_entry( reg );
 
-	if(reg){
+	if(idx){
 		err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
 		if (!err){
 			if (copy_to_user(tmp, &data, 8)) {
