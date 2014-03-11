@@ -46,7 +46,7 @@
  * Relevant tables are:
  * 	Page 35-102
  * 	Section 35.8 MSRs in Intel Processor Family Based on Intel Microarchitecture Sandy Bridge
- * 	Table 35-12 MSRs Suppored by Intel Processors based on Intel microarchitecture code name Sandy Bridge
+ * 	Table 35-11 and Table 35-12 MSRs Suppored by Intel Processors based on Intel microarchitecture code name Sandy Bridge
  *
  * 	Page 35-121
  * 	Section 35.8.2 MSRs in Intel Xeon Processor E5 Family 
@@ -56,7 +56,7 @@
  * 	Section 35.1
  * 	Table 35-2 IA-32 Architectural MSRs
  *
- * Architectural information should only be used when indicated by tables 35-12 and 35-14.
+ * Architectural information should only be used when indicated by tables 35-11, 35-12 and 35-14.
  *
  *	IA32_TIME_STAMP_COUNTER		See section 17.13.  Restrict to RO.
  *	 Thread		RW (RO)		
@@ -161,6 +161,10 @@
  * 	 Package 	RW			Bits 2:0, 4, and 24:8 are writable, but bit 4 controls
  * 	0x01FFFF07 0x0				generation of the critical temperature interrupt, so
  * 	 					we'll leave that out.
+ * 	
+ * 	TEMPERATURE_TARGET			See Table 35-11.
+ * 	 Unique		RO			Bits 23:16 are readable, but the rest are reserved. 
+ *	0x0 0x0
  *
  *	FIXED_CTRn				See section 18.2.2.  
  * 	 Thread		RW			
@@ -277,6 +281,7 @@ SMSR_ENTRY( SMSR_CLOCK_MODULATION,	{0x19A,	0x00000007, 0x0        }),\
 SMSR_ENTRY( SMSR_THERM_INTERRUPT,	{0x19B,	0x01FFFF0F, 0x0        }),\
 SMSR_ENTRY( SMSR_THERM_STATUS,		{0x19C,	0x00000AAA, 0x0        }),\
 SMSR_ENTRY( SMSR_MISC_ENABLE,		{0x1A0,	0x00010000, 0x00000040 }),\
+SMSR_ENTRY( SMSR_TEMPERATURE_TARGET,	{0x1A2,	       0x0, 0x0        }),\
 SMSR_ENTRY( SMSR_OFFCORE_RSP_0,		{0x1A6,	0xFFFF8FFF, 0x0000003F }),\
 SMSR_ENTRY( SMSR_OFFCORE_RSP_1,		{0x1A7,	0xFFFF8FFF, 0x0000003F }),\
 SMSR_ENTRY( SMSR_ENERGY_PERF_BIAS,	{0x1B0,	0xF,        0x0        }),\
