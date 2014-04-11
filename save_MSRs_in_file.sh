@@ -5,10 +5,10 @@
 # Currently storing output in MSR_original_config.txt
 # If you would like a date on your file, please use:
 #
-# file="MSR_original_config_$(date +%Y_%m_%d).txt";
+ file="MSR_original_config_$(date +%Y_%m_%d).txt";
 # 
 
-file="MSR_original_config.txt"
+#file="MSR_original_config.txt"
 
 # Store MSRS into file MSR_original_config.txt
 #							The data below can be found in msr-safe/msr-supplemental.h
