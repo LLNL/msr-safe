@@ -15,8 +15,8 @@ main() {
 	if [ $ARG1 == "-r" ] && [ $ARG2 == "-f" ] && [ $file  != "" ]
 	then
 		echo "Reading into file $file";
-		#readMSRS;
-		testingPrintf;
+		readMSRS;
+		#testingPrintf;
 	elif [ $ARG1 == "-w" ] && [ $ARG2 == "-f" ] && [ $file  != "" ]
 	then
 		echo "Writing from file $file";
@@ -37,7 +37,7 @@ do
 	if [ ${array[2]} != "0x" ] 
 	then
 		# Writing each MSR back to it's value from the configuration file. 
-		echo "wrmsr -p${array[0]} ${array[1]} ${array[2]}";
+		echo "$(wrmsr -p${array[0]} ${array[1]} ${array[2]})";
 	fi
 done < $file
 
