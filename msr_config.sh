@@ -110,10 +110,26 @@ do
 	result="0x${result}"
 	printf "%3d 0x187 %17s SMSR_PERFEVTSEL1: Controls matching performance counter.\n" $threadID $result >> $file 
 
-	echo "$threadID 0x188 0x$(rdmsr -p$threadID 0x188)" >> 	$file			#SMSR_PERFEVTSEL2,		0x188,	0xFFFFFFFF, 0x0        
-	echo "$threadID 0x189 0x$(rdmsr -p$threadID 0x189)" >> 	$file			#SMSR_PERFEVTSEL3,		0x189,	0xFFFFFFFF, 0x0        
-	echo "$threadID 0x18A 0x$(rdmsr -p$threadID 0x18A)" >> 	$file			#SMSR_PERFEVTSEL4,		0x18A,	0xFFFFFFFF, 0x0        
-	echo "$threadID 0x18B 0x$(rdmsr -p$threadID 0x18B)" >> 	$file			#SMSR_PERFEVTSEL5,		0x18B,	0xFFFFFFFF, 0x0        
+	#	SMSR_PERFEVTSEL2,		0x188		0xFFFFFFFF, 0x0        
+	result=$(rdmsr -p$threadID 0x188)
+	result="0x${result}"
+	printf "%3d 0x188 %17s SMSR_PERFEVTSEL2: Controls matching performance counter.\n" $threadID $result >> $file
+
+	#	SMSR_PERFEVTSEL3,		0x189		0xFFFFFFFF, 0x0        
+	result=$(rdmsr -p$threadID 0x189)
+	result="0x${result}"
+	printf "%3d 0x189 %17s SMSR_PERFEVTSEL3: Controls matching performance counter.\n" $threadID $result >> $file
+
+	#	SMSR_PERFEVTSEL4,		0x18A,	0xFFFFFFFF, 0x0        
+	result=$(rdmsr -p$threadID 0x18A)
+	result="0x${result}"
+	printf "%3d 0x18A %17s SMSR_PERFEVTSEL4: Controls matching performance counter.\n" $threadID $result >> $file
+
+	#	SMSR_PERFEVTSEL5,		0x18B,	0xFFFFFFFF, 0x0        
+	result=$(rdmsr -p$threadID 0x18B)
+	result="0x${result}"
+	printf "%3d 0x18B %17s SMSR_PERFEVTSEL5: Controls matching performance counter.\n" $threadID $result >> $file
+
 	echo "$threadID 0x18C 0x$(rdmsr -p$threadID 0x18C)" >> 	$file			#SMSR_PERFEVTSEL6,		0x18C,	0xFFFFFFFF, 0x0        
 	echo "$threadID 0x18D 0x$(rdmsr -p$threadID 0x18D)" >> 	$file			#SMSR_PERFEVTSEL7,		0x18D,	0xFFFFFFFF, 0x0        
 	
@@ -136,7 +152,6 @@ do
 	echo "$threadID 0x30B 0x$(rdmsr -p$threadID 0x30B)" >> 	$file			#SMSR_FIXED_CTR2,		0x30B,	0xFFFFFFFF, 0xFFFFFFFF 
 	echo "$threadID 0x38D 0x$(rdmsr -p$threadID 0x38D)" >> 	$file			#SMSR_FIXED_CTR_CTRL,		0x38D,	0x00000BBB, 0x0        
 	
-	echo "$threadID 0x38E 0x$(rdmsr -p$threadID 0x38E)" >> 	$file			#SMSR_PERF_GLOBAL_STATUS,	0x38E,	0x00000003, 0xC0000007 
 	echo "$threadID 0x38F 0x$(rdmsr -p$threadID 0x38F)" >> 	$file			#SMSR_PERF_GLOBAL_CTRL,		0x38F,	0x00000003, 0x00000007 
 	echo "$threadID 0x390 0x$(rdmsr -p$threadID 0x390)" >> 	$file			#SMSR_PERF_GLOBAL_OVF_CTRL,	0x390,	0x00000003, 0xC0000007 
 	echo "$threadID 0x3F1 0x$(rdmsr -p$threadID 0x3F1)" >> 	$file			#SMSR_PEBS_ENABLE,		0x3F1,	0x0000000F, 0x0000000F 
