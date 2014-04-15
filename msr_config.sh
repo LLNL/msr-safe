@@ -130,38 +130,126 @@ do
 	result="0x${result}"
 	printf "%3d 0x18B %17s SMSR_PERFEVTSEL5: Controls matching performance counter.\n" $threadID $result >> $file
 
-	echo "$threadID 0x18C 0x$(rdmsr -p$threadID 0x18C)" >> 	$file			#SMSR_PERFEVTSEL6,		0x18C,	0xFFFFFFFF, 0x0        
-	echo "$threadID 0x18D 0x$(rdmsr -p$threadID 0x18D)" >> 	$file			#SMSR_PERFEVTSEL7,		0x18D,	0xFFFFFFFF, 0x0        
+	#	SMSR_PERFEVTSEL6,		0x18C,	0xFFFFFFFF, 0x0        
+	result=$(rdmsr -p$threadID 0x18C)
+	result="0x${result}"
+	printf "%3d 0x18C %17s SMSR_PERFEVTSEL6: Controls matching performance counter.\n" $threadID $result >> $file
+
+	#	SMSR_PERFEVTSEL7,		0x18D,	0xFFFFFFFF, 0x0        
+	result=$(rdmsr -p$threadID 0x18D)
+	result="0x${result}"
+	printf "%3d 0x18D %17s SMSR_PERFEVTSEL7: Controls matching performance counter.\n" $threadID $result >> $file
 	
-	echo "$threadID 0x199 0x$(rdmsr -p$threadID 0x199)" >> 	$file			#SMSR_PERF_CTL,			0x199,	0x0,        0x00000001 
-	echo "$threadID 0x19A 0x$(rdmsr -p$threadID 0x19A)" >> 	$file			#SMSR_CLOCK_MODULATION,		0x19A,	0x00000007, 0x0        
-	echo "$threadID 0x19B 0x$(rdmsr -p$threadID 0x19B)" >> 	$file			#SMSR_THERM_INTERRUPT,		0x19B,	0x01FFFF0F, 0x0        
-	echo "$threadID 0x19C 0x$(rdmsr -p$threadID 0x19C)" >> 	$file			#SMSR_THERM_STATUS,		0x19C,	0x00000AAA, 0x0        
-	echo "$threadID 0x1A0 0x$(rdmsr -p$threadID 0x1A0)" >> 	$file			#SMSR_MISC_ENABLE,		0x1A0,	0x00010000, 0x00000040 
-	echo "$threadID 0x1A2 0x$(rdmsr -p$threadID 0x1A2)" >> 	$file			#SMSR_TEMPERATURE_TARGET,	0x1A2,	       0x0, 0x0        
+	#	SMSR_PERF_CTL,			0x199,	0x0,        0x00000001 
+	result=$(rdmsr -p$threadID 0x199)
+	result="0x${result}"
+	printf "%3d 0x199 %17s SMSR_PERF_CTRL: Control for performance counters.\n" $threadID $result >> $file
+
+	#	SMSR_CLOCK_MODULATION,		0x19A,	0x00000007, 0x0        
+	result=$(rdmsr -p$threadID 0x19A)
+	result="0x${result}"
+	printf "%3d 0x19A %17s SMSR_CLOCK_MODULATION: Control for clock modulation.\n" $threadID $result >> $file
+
+	#	SMSR_THERM_INTERRUPT,		0x19B,	0x01FFFF0F, 0x0        
+	result=$(rdmsr -p$threadID 0x19B)
+	result="0x${result}"
+	printf "%3d 0x19B %17s SMSR_THERM_INTERRUPT: Control for thermal interrupts.\n" $threadID $result >> $file
+
+	#	SMSR_THERM_STATUS,		0x19C,	0x00000AAA, 0x0        
+	result=$(rdmsr -p$threadID 0x19C)
+	result="0x${result}"
+	printf "%3d 0x19C %17s SMSR_THERM_STATUS: Thermal status register.\n" $threadID $result >> $file
+
+	#	SMSR_MISC_ENABLE,		0x1A0,	0x00010000, 0x00000040 
+	result=$(rdmsr -p$threadID 0x1A0)
+	result="0x${result}"
+	printf "%3d 0x1A0 %17s SMSR_MISC_ENABLE: Various enables in this register.\n" $threadID $result >> $file
+
+	#	SMSR_OFFCORE_RSP_0,		0x1A6,	0xFFFF8FFF, 0x0000003F 
+	result=$(rdmsr -p$threadID 0x1A6)
+	result="0x${result}"
+	printf "%3d 0x1A6 %17s SMSR_OFFCORE_RSP_0: description here.\n" $threadID $result >> $file
+
+	#	SMSR_OFFCORE_RSP_1,		0x1A7,	0xFFFF8FFF, 0x0000003F 
+	result=$(rdmsr -p$threadID 0x1A7)
+	result="0x${result}"
+	printf "%3d 0x1A7 %17s SMSR_OFFCORE_RSP_1: description here.\n" $threadID $result >> $file
 	
-	echo "$threadID 0x1A6 0x$(rdmsr -p$threadID 0x1A6)" >> 	$file			#SMSR_OFFCORE_RSP_0,		0x1A6,	0xFFFF8FFF, 0x0000003F 
-	echo "$threadID 0x1A7 0x$(rdmsr -p$threadID 0x1A7)" >> 	$file			#SMSR_OFFCORE_RSP_1,		0x1A7,	0xFFFF8FFF, 0x0000003F 
+	#	SMSR_ENERGY_PERF_BIAS,		0x1B0,	0xF,        0x0        
+	result=$(rdmsr -p$threadID 0x1B0)
+	result="0x${result}"
+	printf "%3d 0x1B0 %17s SMSR_ENERGY_PERF_BIAS: description here.\n" $threadID $result >> $file
+
+	#	SMSR_PACKAGE_THERM_STATUS,	0x1B1,	0x00000555, 0x0        
+	result=$(rdmsr -p$threadID 0x1B1)
+	result="0x${result}"
+	printf "%3d 0x1B1 %17s SMSR_PACKAGE_THERM_STATUS: Thermal status for package granularity.\n" $threadID $result >> $file
+
+	#	SMSR_PACKAGE_THERM_INTERRUPT,	0x1B2,0x01FFFF07, 0x0        
+	result=$(rdmsr -p$threadID 0x1B2)
+	result="0x${result}"
+	printf "%3d 0x1B2 %17s SMSR_PACKAGE_THERM_INTERRUPT: Thermal interrupt control for package granularity.\n" $threadID $result >> $file
 	
-	echo "$threadID 0x1B0 0x$(rdmsr -p$threadID 0x1B0)" >> 	$file			#SMSR_ENERGY_PERF_BIAS,		0x1B0,	0xF,        0x0        
-	echo "$threadID 0x1B1 0x$(rdmsr -p$threadID 0x1B1)" >> 	$file			#SMSR_PACKAGE_THERM_STATUS,	0x1B1,	0x00000555, 0x0        
-	echo "$threadID 0x1B2 0x$(rdmsr -p$threadID 0x1B2)" >> 	$file			#SMSR_PACKAGE_THERM_INTERRUPT,	0x1B2,0x01FFFF07, 0x0        
+	#	SMSR_FIXED_CTR0,		0x309,	0xFFFFFFFF, 0xFFFFFFFF 
+	result=$(rdmsr -p$threadID 0x309)
+	result="0x${result}"
+	printf "%3d 0x309 %17s SMSR_FIXED_CTR0: Fixed counter 0.\n" $threadID $result >> $file
+
+	#	SMSR_FIXED_CTR1,		0x30A,	0xFFFFFFFF, 0xFFFFFFFF 
+	result=$(rdmsr -p$threadID 0x30A)
+	result="0x${result}"
+	printf "%3d 0x30A %17s SMSR_FIXED_CTR1: Fixed counter 1.\n" $threadID $result >> $file
+
+	#	SMSR_FIXED_CTR2,		0x30B,	0xFFFFFFFF, 0xFFFFFFFF 
+	result=$(rdmsr -p$threadID 0x30B)
+	result="0x${result}"
+	printf "%3d 0x30B %17s SMSR_FIXED_CTR2: Fixed counter 2.\n" $threadID $result >> $file
+
+	#	SMSR_FIXED_CTR_CTRL,		0x38D,	0x00000BBB, 0x0        
+	result=$(rdmsr -p$threadID 0x38D)
+	result="0x${result}"
+	printf "%3d 0x38D %17s SMSR_FIXED_CTR_CRL: Control for the fixed counters.\n" $threadID $result >> $file
 	
-	echo "$threadID 0x309 0x$(rdmsr -p$threadID 0x309)" >> 	$file			#SMSR_FIXED_CTR0,		0x309,	0xFFFFFFFF, 0xFFFFFFFF 
-	echo "$threadID 0x30A 0x$(rdmsr -p$threadID 0x30A)" >> 	$file			#SMSR_FIXED_CTR1,		0x30A,	0xFFFFFFFF, 0xFFFFFFFF 
-	echo "$threadID 0x30B 0x$(rdmsr -p$threadID 0x30B)" >> 	$file			#SMSR_FIXED_CTR2,		0x30B,	0xFFFFFFFF, 0xFFFFFFFF 
-	echo "$threadID 0x38D 0x$(rdmsr -p$threadID 0x38D)" >> 	$file			#SMSR_FIXED_CTR_CTRL,		0x38D,	0x00000BBB, 0x0        
+	#	SMSR_PERF_GLOBAL_CTRL,		0x38F,	0x00000003, 0x00000007 
+	result=$(rdmsr -p$threadID 0x38F)
+	result="0x${result}"
+	printf "%3d 0x38F %17s SMSR_PERF_GLOBAL_CTRL: Global control for performance counters.\n"  $threadID $result >> $file
+
+	#	SMSR_PERF_GLOBAL_OVF_CTRL,	0x390,	0x00000003, 0xC0000007 
+	result=$(rdmsr -p$threadID 0x390)
+	result="0x${result}"
+	printf "%3d 0x390 %17s SMSR_PERF_GLOBAL_OVFPCTRL: Global control for performance counter overflows.\n" $threadID $result >> $file
+
+	#	SMSR_PEBS_ENABLE,		0x3F1,	0x0000000F, 0x0000000F 
+	result=$(rdmsr -p$threadID 0x3F1)
+	result="0x${result}"
+	printf "%3d 0x3F1 %17s SMSR_PEBS_ENABLE: PEBS enable.\n" $threadID $result >> $file
+
+	#	SMSR_PEBS_LD_LAT,		0x3F6,	0x0000FFFF, 0x0        
+	result=$(rdmsr -p$threadID 0x3F6)
+	result="0x${result}"
+	printf "%3d 0x3F6 %17s SMSR_PEBS_LD_LAT: description here.\n" $threadID $result >> $file
 	
-	echo "$threadID 0x38F 0x$(rdmsr -p$threadID 0x38F)" >> 	$file			#SMSR_PERF_GLOBAL_CTRL,		0x38F,	0x00000003, 0x00000007 
-	echo "$threadID 0x390 0x$(rdmsr -p$threadID 0x390)" >> 	$file			#SMSR_PERF_GLOBAL_OVF_CTRL,	0x390,	0x00000003, 0xC0000007 
-	echo "$threadID 0x3F1 0x$(rdmsr -p$threadID 0x3F1)" >> 	$file			#SMSR_PEBS_ENABLE,		0x3F1,	0x0000000F, 0x0000000F 
-	echo "$threadID 0x3F6 0x$(rdmsr -p$threadID 0x3F6)" >> 	$file			#SMSR_PEBS_LD_LAT,		0x3F6,	0x0000FFFF, 0x0        
+	#	SMSR_PKG_POWER_LIMIT,		0x610,	0x00FFFFFF, 0x00FFFFFF 
+	result=$(rdmsr -p$threadID 0x610)
+	result="0x${result}"
+	printf "%3d 0x610 %17s SMSR_PKG_POWER_LIMIT: Power capping can be done with this register.\n" $threadID $result >> $file
+
+	#	SMSR_PP0_POWER_LIMIT,		0x638,	0x00FFFFFF, 0x0        
+	result=$(rdmsr -p$threadID 0x638)
+	result="0x${result}"
+	printf "%3d 0x638 %17s SMSR_PP0_POWER_LIMIT: description here.\n" $threadID $result >> $file
+
 	
-	echo "$threadID 0x610 0x$(rdmsr -p$threadID 0x610)" >> 	$file			#SMSR_PKG_POWER_LIMIT,		0x610,	0x00FFFFFF, 0x00FFFFFF 
-	echo "$threadID 0x638 0x$(rdmsr -p$threadID 0x638)" >> 	$file			#SMSR_PP0_POWER_LIMIT,		0x638,	0x00FFFFFF, 0x0        
-	
-	echo "$threadID 0x1AD 0x$(rdmsr -p$threadID 0x1AD)" >> 	$file			#SMSR_TURBO_RATIO_LIMIT,	0x1AD, 0xFFFFFFFF, 0xFFFFFFFF 
-	echo "$threadID 0x618 0x$(rdmsr -p$threadID 0x618)" >> 	$file			#SMSR_DRAM_POWER_LIMIT,		0x618,	0x00FFFFFF, 0x0        
+	#	SMSR_TURBO_RATIO_LIMIT,	0x1AD, 0xFFFFFFFF, 0xFFFFFFFF 
+	result=$(rdmsr -p$threadID 0x1AD)
+	result="0x${result}"
+	printf "%3d 0x1Ad %17s SMSR_TURBO_RATIO_LIMIT: description here.\n" $threadID $result >> $file
+
+	#	SMSR_DRAM_POWER_LIMIT,		0x618,	0x00FFFFFF, 0x0        
+	result=$(rdmsr -p$threadID 0x618)
+	result="0x${result}"
+	printf "%3d 0x618 %17s SMSR_DRAM_POWER_LIMIT: Power capping for DRAM can be done with this register.\n" $threadID $result >> $file
 	threadID=$[$threadID +1];
 done
 
