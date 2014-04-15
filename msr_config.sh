@@ -15,7 +15,8 @@ main() {
 	if [ $ARG1 == "-r" ] && [ $ARG2 == "-f" ] && [ $file  != "" ]
 	then
 		echo "Reading into file $file";
-		readMSRS;
+		#readMSRS;
+		testingPrintf;
 	elif [ $ARG1 == "-w" ] && [ $ARG2 == "-f" ] && [ $file  != "" ]
 	then
 		echo "Writing from file $file";
@@ -36,10 +37,16 @@ do
 	if [ ${array[2]} != "0x" ] 
 	then
 		# Writing each MSR back to it's value from the configuration file. 
-		echo "$(wrmsr -p${array[0]} ${array[1]} ${array[2]})";
+		echo "wrmsr -p${array[0]} ${array[1]} ${array[2]}";
 	fi
 done < $file
 
+}
+
+testingPrintf() {
+	x=$(rdmsr 0x0C1)	
+	x="0x${x}"
+	printf "%3d 0x0C1 %17s description\n" 1 $x >> $file
 }
 
 readMSRS() {
@@ -49,19 +56,60 @@ for i in /dev/cpu/*/msr_safe
 do
 	# Store MSRS into file MSR_original_config.txt
 	#							The data below can be found in msr-safe/msr-supplemental.h
-	#								
-	#     ThreadID  Address  	 Execute Read		File to Save in		Which MSR 			Address		Mask	
-	echo "$threadID 0x0C1 0x$(rdmsr -p$threadID 0x0C1)" >> 	$file		 	#SMSR_PMC0,			0x0C1,	0xFFFFFFFF, 0xFFFFFFFF 
-	echo "$threadID 0x0C2 0x$(rdmsr -p$threadID 0x0C2)" >> 	$file			#SMSR_PMC1,			0x0C2,	0xFFFFFFFF, 0xFFFFFFFF 
-	echo "$threadID 0x0C3 0x$(rdmsr -p$threadID 0x0C3)" >> 	$file			#SMSR_PMC2,			0x0C3,	0xFFFFFFFF, 0xFFFFFFFF 
-	echo "$threadID 0x0C4 0x$(rdmsr -p$threadID 0x0C4)" >> 	$file			#SMSR_PMC3,			0x0C4,	0xFFFFFFFF, 0xFFFFFFFF 
-	echo "$threadID 0x0C5 0x$(rdmsr -p$threadID 0x0C5)" >> 	$file			#SMSR_PMC4,			0x0C5,	0xFFFFFFFF, 0xFFFFFFFF 
-	echo "$threadID 0x0C6 0x$(rdmsr -p$threadID 0x0C6)" >> 	$file			#SMSR_PMC5,			0x0C6,	0xFFFFFFFF, 0xFFFFFFFF 
-	echo "$threadID 0x0C7 0x$(rdmsr -p$threadID 0x0C7)" >> 	$file			#SMSR_PMC6,			0x0C7,	0xFFFFFFFF, 0xFFFFFFFF 
-	echo "$threadID 0x0C8 0x$(rdmsr -p$threadID 0x0C8)" >> 	$file			#SMSR_PMC7,			0x0C8,	0xFFFFFFFF, 0xFFFFFFFF 
+	#
+	#	MSR Name			Address		Mask in msr-safe
+	#
+	#	SMSR_PMC0,			0x0C1		0xFFFFFFFF, 0xFFFFFFFF 
+	result=$(rdmsr -p$threadID 0x0C1)
+	result="0x${result}"
+	printf "%3d 0x0C1 %17s SMSR_PMC0: A counter register.\n" $threadID $result >> $file
+
+	#	SMSR_PMC1,			0x0C2		0xFFFFFFFF, 0xFFFFFFFF 
+	result=$(rdmsr -p$threadID 0x0C2)
+	result="0x${result}"
+	printf "%3d 0x0C2 %17s SMSR_PMC1: A counter register.\n" $threadID $result >> $file
+
+	#	SMSR_PMC2,			0x0C3		0xFFFFFFFF, 0xFFFFFFFF 
+	result=$(rdmsr -p$threadID 0x0C3)
+	result="0x${result}"
+	printf "%3d 0x0C3 %17s SMSR_PMC2: A counter register.\n" $threadID $result >> $file
+
+	#	SMSR_PMC3,			0x0C4		0xFFFFFFFF, 0xFFFFFFFF 
+	result=$(rdmsr -p$threadID 0x0C4)
+	result="0x${result}"
+	printf "%3d 0x0C4 %17s SMSR_PMC3: A counter register.\n" $threadID $result >> $file
+
+	#	SMSR_PMC4,			0x0C5		0xFFFFFFFF, 0xFFFFFFFF 
+	result=$(rdmsr -p$threadID 0x0C5)
+	result="0x${result}"
+	printf "%3d 0x0C5 %17s SMSR_PMC4: A counter register.\n" $threadID $result >> $file
+
+	#	SMSR_PMC5,			0x0C6		0xFFFFFFFF, 0xFFFFFFFF 
+	result=$(rdmsr -p$threadID 0x0C6)
+	result="0x${result}"
+	printf "%3d 0x0C6 %17s SMSR_PMC5: A counter register.\n" $threadID $result >> $file
+
+	#	SMSR_PMC6,			0x0C7		0xFFFFFFFF, 0xFFFFFFFF 
+	result=$(rdmsr -p$threadID 0x0C7)
+	result="0x${result}"
+	printf "%3d 0x0C7 %17s SMSR_PMC6: A counter register.\n" $threadID $result >> $file
+
+	#	SMSR_PMC7,			0x0C8		0xFFFFFFFF, 0xFFFFFFFF 
+	result=$(rdmsr -p$threadID 0x0C8)
+	result="0x${result}"
+	printf "%3d 0x0C8 %17s SMSR_PMC7: A counter register.\n" $threadID $result >> $file
 	
-	echo "$threadID 0x186 0x$(rdmsr -p$threadID 0x186)" >> 	$file			#SMSR_PERFEVTSEL0,		0x186,	0xFFFFFFFF, 0x0        
-	echo "$threadID 0x187 0x$(rdmsr -p$threadID 0x187)" >> 	$file			#SMSR_PERFEVTSEL1,		0x187,	0xFFFFFFFF, 0x0        
+	#	SMSR_PERFEVTSEL0		0x186		0xFFFFFFFF, 0x0   
+	result=$(rdmsr -p$threadID 0x186)
+	result="0x${result}"
+	printf "%3d 0x186 %17s SMSR_PERFEVTSEL0: Controls matching performance counter.\n" $threadID $result >> $file        
+
+
+	#	SMSR_PERFEVTSEL1,		0x187		0xFFFFFFFF, 0x0        
+	result=$(rdmsr -p$threadID 0x187)
+	result="0x${result}"
+	printf "%3d 0x187 %17s SMSR_PERFEVTSEL1: Controls matching performance counter.\n" $threadID $result >> $file 
+
 	echo "$threadID 0x188 0x$(rdmsr -p$threadID 0x188)" >> 	$file			#SMSR_PERFEVTSEL2,		0x188,	0xFFFFFFFF, 0x0        
 	echo "$threadID 0x189 0x$(rdmsr -p$threadID 0x189)" >> 	$file			#SMSR_PERFEVTSEL3,		0x189,	0xFFFFFFFF, 0x0        
 	echo "$threadID 0x18A 0x$(rdmsr -p$threadID 0x18A)" >> 	$file			#SMSR_PERFEVTSEL4,		0x18A,	0xFFFFFFFF, 0x0        
