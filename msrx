@@ -4,25 +4,31 @@ usage() {
 echo "msrx:  Write or dump a subset of model-specific registers."
 echo "       Distributed with libmsr/msr-safe."
 echo "       Note:  this utility depends on the msr kernel module"
-echo "       and the msrtools utilities readmsr and writemsr."
+echo "       and the msrtools utilities readmsr and writemsr. Unless"
+echo "       default permission in /dev/cpu/*/msr have been changed,"
+echo "       this utility must be run as root."
+echo ""
 echo ""
 echo "-i[=INFILE] 	--infile[=INFILE]	file specifying new values to write to the MSRs."
-echo "-o[=OUTFILE]	--outfile[=OUTFILE] 	file recording existing values of the MSRs."
+echo "-o[=OUTFILE]	--outfile[=OUTFILE] 	file to record existing MSR values."
 echo "-h 		--help "
 echo ""
 echo ""
-echo "Examples"
+echo "EXAMPLES"
+echo ""
 echo ""
 echo "sh msrx -i=INFILE"
 echo "		Read (CoreID, Address, Value) tuples from stdin (default) or"
 echo "		specified filename.  Fields are space-separated and any "
 echo "		remaining fields are ignored.  A line containing"
 echo "			13 0x0C1 0"
-echo "		would write the value 0 to address 0x0C1 on device /dev/cpu/13/msr."
+echo "		writes the value 0 to address 0x0C1 on device /dev/cpu/13/msr."
+echo ""
 echo ""
 echo "sh msrx -o=OUTFILE"
 echo "		Dumps the (Core ID, MSR address, value) tuple for all predefined MSRs"
 echo "		across all Core IDs to stdout (default) or the specified file."
+echo ""
 echo ""
 echo "sh msrx -o=backup -i=new.config -o=validate"
 echo "		Dumps the existing MSR values to \"backup\", loads a new set of msr"
@@ -34,7 +40,7 @@ echo "		NOTE:  This functionality depends on \"getopt\" not reordering paramters
 
 
 write_msrs() {
-file=${OUTFILE}
+file=${INFILE}
 while read line
 do
 	array=($line) # This stores each line in an array
@@ -43,8 +49,8 @@ do
 	if [ ${array[2]} != "0x" ] 
 	then
 		# Writing each MSR back to it's value from the configuration file. 
-		# echo "$(wrmsr -p${array[0]} ${array[1]} ${array[2]})";
-		echo "writing ${array} from ${INFILE} to MSRs"
+		echo " ${array[0]} ${array[1]} ${array[2]}"
+		echo "$(wrmsr -p${array[0]} ${array[1]} ${array[2]})" > /dev/null 2>&1;
 	fi
 done < ${INFILE}
 }
@@ -53,7 +59,7 @@ done < ${INFILE}
 
 read_msrs() {
 threadID=0
-
+file=${OUTFILE}
 for i in /dev/cpu/*/msr_safe
 do
 	#
@@ -80,24 +86,24 @@ do
 	printf "%3d 0x0C4 %17s SMSR_PMC3: Perfmance counter 3 accumulator.\n" $threadID $result >> $file
 
 	#	SMSR_PMC4,			0x0C5		0xFFFFFFFF, 0xFFFFFFFF 
-	result=$(rdmsr -p$threadID 0x0C5)
-	result="0x${result}"
-	printf "%3d 0x0C5 %17s SMSR_PMC4: Perfmance counter 4 accumulator.\n" $threadID $result >> $file
+###	result=$(rdmsr -p$threadID 0x0C5)
+###	result="0x${result}"
+###	printf "%3d 0x0C5 %17s SMSR_PMC4: Perfmance counter 4 accumulator.\n" $threadID $result >> $file
 
 	#	SMSR_PMC5,			0x0C6		0xFFFFFFFF, 0xFFFFFFFF 
-	result=$(rdmsr -p$threadID 0x0C6)
-	result="0x${result}"
-	printf "%3d 0x0C6 %17s SMSR_PMC5: Perfmance counter 5 accumulator.\n" $threadID $result >> $file
+###	result=$(rdmsr -p$threadID 0x0C6)
+###	result="0x${result}"
+###	printf "%3d 0x0C6 %17s SMSR_PMC5: Perfmance counter 5 accumulator.\n" $threadID $result >> $file
 
 	#	SMSR_PMC6,			0x0C7		0xFFFFFFFF, 0xFFFFFFFF 
-	result=$(rdmsr -p$threadID 0x0C7)
-	result="0x${result}"
-	printf "%3d 0x0C7 %17s SMSR_PMC6: Perfmance counter 6 accumulator.\n" $threadID $result >> $file
+###	result=$(rdmsr -p$threadID 0x0C7)
+###	result="0x${result}"
+###	printf "%3d 0x0C7 %17s SMSR_PMC6: Perfmance counter 6 accumulator.\n" $threadID $result >> $file
 
 	#	SMSR_PMC7,			0x0C8		0xFFFFFFFF, 0xFFFFFFFF 
-	result=$(rdmsr -p$threadID 0x0C8)
-	result="0x${result}"
-	printf "%3d 0x0C8 %17s SMSR_PMC7: Perfmance counter 7 accumulator.\n" $threadID $result >> $file
+###	result=$(rdmsr -p$threadID 0x0C8)
+###	result="0x${result}"
+###	printf "%3d 0x0C8 %17s SMSR_PMC7: Perfmance counter 7 accumulator.\n" $threadID $result >> $file
 	
 	#	SMSR_PERFEVTSEL0		0x186		0xFFFFFFFF, 0x0   
 	result=$(rdmsr -p$threadID 0x186)
@@ -121,24 +127,24 @@ do
 	printf "%3d 0x189 %17s SMSR_PERFEVTSEL3: Performance counter 3 event select\n" $threadID $result >> $file
 
 	#	SMSR_PERFEVTSEL4,		0x18A,		0xFFFFFFFF, 0x0        
-	result=$(rdmsr -p$threadID 0x18A)
-	result="0x${result}"
-	printf "%3d 0x18A %17s SMSR_PERFEVTSEL4: Performance counter 4 event select\n" $threadID $result >> $file
+###	result=$(rdmsr -p$threadID 0x18A)
+###	result="0x${result}"
+###	printf "%3d 0x18A %17s SMSR_PERFEVTSEL4: Performance counter 4 event select\n" $threadID $result >> $file
 
 	#	SMSR_PERFEVTSEL5,		0x18B		0xFFFFFFFF, 0x0        
-	result=$(rdmsr -p$threadID 0x18B)
-	result="0x${result}"
-	printf "%3d 0x18B %17s SMSR_PERFEVTSEL5: Performance counter 5 event select\n" $threadID $result >> $file
+###	result=$(rdmsr -p$threadID 0x18B)
+###	result="0x${result}"
+###	printf "%3d 0x18B %17s SMSR_PERFEVTSEL5: Performance counter 5 event select\n" $threadID $result >> $file
 
 	#	SMSR_PERFEVTSEL6,		0x18C		0xFFFFFFFF, 0x0        
-	result=$(rdmsr -p$threadID 0x18C)
-	result="0x${result}"
-	printf "%3d 0x18C %17s SMSR_PERFEVTSEL6: Performance counter 6 event select\n" $threadID $result >> $file
+###	result=$(rdmsr -p$threadID 0x18C)
+###	result="0x${result}"
+###	printf "%3d 0x18C %17s SMSR_PERFEVTSEL6: Performance counter 6 event select\n" $threadID $result >> $file
 
 	#	SMSR_PERFEVTSEL7,		0x18D		0xFFFFFFFF, 0x0        
-	result=$(rdmsr -p$threadID 0x18D)
-	result="0x${result}"
-	printf "%3d 0x18D %17s SMSR_PERFEVTSEL7: Performance counter 7 event select\n" $threadID $result >> $file
+###	result=$(rdmsr -p$threadID 0x18D)
+###	result="0x${result}"
+###	printf "%3d 0x18D %17s SMSR_PERFEVTSEL7: Performance counter 7 event select\n" $threadID $result >> $file
 	
 	#	SMSR_PERF_CTL,			0x199		0x0, 0x00000001 
 	result=$(rdmsr -p$threadID 0x199)
@@ -256,7 +262,7 @@ done
 }
 
 
-TEMP=`getopt -o hi::o:: --long version,help,infile::,outfile:: -n "msrx" -- "$@"`
+TEMP=`getopt -a -o hi::o:: --long version,help,infile::,outfile:: -n "msrx" -- "$@"`
 eval set -- "$TEMP"	
 while true; do		
 	case "$1" in
@@ -265,16 +271,15 @@ while true; do
 				'') INFILE=/proc/${$}/fd/0 ; shift 2 ;;	
 				*)  INFILE=$2 ;		     shift 2 ;;
 			esac 
-			echo "calling write";;
-			#write_msrs;;
+			write_msrs;;
 
 		-o|--outfile)
 			case "$2" in 
 				'') OUTFILE=/proc/${$}/fd/1 ; shift 2 ;;
 				*)  OUTFILE=$2 ;              shift 2 ;;
 			esac 
-			echo "calling read";;
-			#read_msrs;;
+			echo "Writing to ${OUTFILE}"
+			read_msrs;;
 
 		-h|--help)
 			usage;
