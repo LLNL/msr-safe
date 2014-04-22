@@ -25,3 +25,5 @@ dist: clean
 install:
 	mkdir -p $(RPM_BUILD_ROOT)/lib/modules/$(KERNVER)/updates
 	install msr_safe.ko $(RPM_BUILD_ROOT)/lib/modules/$(KERNVER)/updates
+	mkdir -p $(RPM_BUILD_ROOT)/usr/sbin
+	install msrx $(RPM_BUILD_ROOT)/usr/sbin
