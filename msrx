@@ -43,6 +43,11 @@ write_msrs() {
 file=${INFILE}
 while read line
 do
+	# strip comments
+	line=`echo ${line} | sed -e 's/#.*//'`
+	# skip empty lines
+	[[ -z "${line}" ]] && continue
+
 	array=($line) # This stores each line in an array
 
 	# If a value was not read from one of the addresses, it will not write that MSR back
