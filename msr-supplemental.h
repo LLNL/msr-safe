@@ -142,7 +142,7 @@
  *	 					24:33	Reserved
  *	 Thread		RW			34	XD Bit Disable (See Table 35-2; do not write)
  *	 					37:35	Reserved
- *	 Package	RW			38	Turbo Mode Disable (Section 14.3.2.1)
+ *	 Package	R			38	Turbo Mode Disable (Section 14.3.2.1; BIOS writes)
  *	 					63:39	Reserved
  *
  *	OFFCORE_RSP_0/1				Off-core Response Performance Monitoring.
@@ -300,7 +300,7 @@ SMSR_ENTRY( SMSR_PEBS_LD_LAT,		{0x3F6,	0x0000FFFF, 0x0        }),\
 SMSR_ENTRY( SMSR_RAPL_POWER_UNIT,	{0x606,	0x0,        0x0        }),\
 SMSR_ENTRY( SMSR_PKG_POWER_LIMIT,	{0x610,	0x00FFFFFF, 0x00FFFFFF }),\
 SMSR_ENTRY( SMSR_PKG_ENERGY_STATUS,	{0x611,	0x0,        0x0        }),\
-SMSR_ENTRY( SMSR_PKG_POWER_INFO,	{0x612,	0x0,        0x0        }),\
+SMSR_ENTRY( SMSR_PKG_POWER_INFO,	{0x614,	0x0,        0x0        }),\
 SMSR_ENTRY( SMSR_PP0_POWER_LIMIT,	{0x638,	0x00FFFFFF, 0x0        }),\
 SMSR_ENTRY( SMSR_PP0_ENERGY_STATUS,	{0x639,	0x0,        0x0        }),\
 SMSR_ENTRY( SMSR_TURBO_RATIO_LIMIT,	{0x1AD, 0xFFFFFFFF, 0xFFFFFFFF }),\
