@@ -118,7 +118,7 @@ static ssize_t msr_read(struct file *file, char __user *buf,
 	smsr_t idx;
 	loff_t reg = *ppos;
 	int cpu = iminor(file->f_path.dentry->d_inode);
-	int err = 0;
+	int err = -EACCES; //Initialize to Permission Denied
 
 	// "Count" doesn't have any meaning here, as we
 	// never want to read more than one msr at at time.
@@ -134,6 +134,9 @@ static ssize_t msr_read(struct file *file, char __user *buf,
 			if (copy_to_user(tmp, &data, 8)) {
 				err = -EFAULT;
 			}
+			else {
+				err = 0; //Success
+			}
 		}
 	}
 	return err ? err : 8;
@@ -147,7 +150,7 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 	smsr_t idx;
 	loff_t reg = *ppos;
 	int cpu = iminor(file->f_path.dentry->d_inode);
-	int err = 0;
+	int err = -EACCES;
 
 	// "Count" doesn't have any meaning here, as we
 	// never want to write more than one msr at at time.
@@ -155,16 +158,21 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 		return -EINVAL;	/* Invalid chunk size */
 
 	idx = get_whitelist_entry( reg );
-	
-	// If the write masks are zero, don't bother writing.
-	if(idx && (whitelist[idx].write_mask_0 | whitelist[idx].write_mask_1 )) {
-		if (copy_from_user(&data, tmp, 8)) {
-			err = -EFAULT;
-		}
-		if(!err){
-			data[0] &= whitelist[idx].write_mask_0;
-			data[1] &= whitelist[idx].write_mask_1;
-			err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
+
+	if(idx){	
+		
+		// If the write masks are zero, don't bother writing.
+		if((whitelist[idx].write_mask_0 | whitelist[idx].write_mask_1 )) {
+			if (copy_from_user(&data, tmp, 8)) {
+				err = -EFAULT;
+			}
+			if(!err){
+				data[0] &= whitelist[idx].write_mask_0;
+				data[1] &= whitelist[idx].write_mask_1;
+				err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
+			}
+		} else {
+			err = -EROFS;	//Read only MSR
 		}
 	}
 	return err ? err : 8;
