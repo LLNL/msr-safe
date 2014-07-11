@@ -9,6 +9,74 @@
 #define SMSR_READALL  (0xFFFFFFFF)
 #define SMSR_WRITEALL (0xFFFFFFFF)
 
+//ArchDefines------------------------------------------------------------------------------
+
+#ifdef _USE_ARCH_063F
+#define _USE_TABLE_35_24
+//INCOMPLETE because for next gen Haswell
+#endif // _USE_ARCH_063F
+
+#ifdef _USE_ARCH_0646		//Haswell
+#define _USE_TABLE_35_23
+#define _USE_TABLE_35_22
+#define _USE_TABLE_35_21
+#define _USE_TABLE_35_18
+#define _USE_TABLE_35_16
+#define _USE_TABLE_35_15
+#endif // _USE_ARCH_0646
+
+#ifdef _USE_ARCH_0645		//Haswell
+#define _USE_TABLE_35_23
+#define _USE_TABLE_35_21
+#define _USE_TABLE_35_18
+#define _USE_TABLE_35_16
+#define _USE_TABLE_35_15
+#endif // _USE_ARCH_0645
+
+#ifdef _USE_ARCH_063C		//Haswell
+#define _USE_TABLE_35_23
+#define _USE_TABLE_35_21
+#define _USE_TABLE_35_18
+#define _USE_TABLE_35_16
+#define _USE_TABLE_35_15
+#endif // _USE_ARCH_063C
+
+#ifdef _USE_ARCH_063E		//Ivy Bridge
+#define _USE_TABLE_35_20
+#define _USE_TABLE_35_19
+#define _USE_TABLE_35_15
+#endif // _USE_ARCH_063E
+
+#ifdef _USE_ARCH_IvyBridge	//Ivy Bridge
+#define _USE_TABLE_35_18
+#define _USE_TABLE_35_16
+#define _USE_TABLE_35_15
+#endif // _USE_IvyBridge
+
+#ifdef _USE_ARCH_062D		//Sandy Bridge 
+#define _USE_TABLE_25_17
+#define _USE_TABLE_35_15
+#define _USE_TABLE_35_2
+#endif // _USE_ARCH_062D
+
+#ifdef _USE_ARCH_062A		//Sandy Bridge 
+#define _USE_TABLE_35_16
+#define _USE_TABLE_35_15
+#define _USE_TABLE_35_2
+#endif // _USE_ARCH_062A
+
+//Haswell------------------------------------------------------------------------------
+
+#ifdef _USE_TABLE_35_24
+/* Table 35-24 : MSRs In Next Generation Intel Xeon Processors 
+ * (Based on Haswell Microarchitecture)
+ *
+ * CPUID signature 06_3F
+ *
+ */
+//NO ADDITIONAL REGISTERS THAT WE USE IN THIS TABLE YET
+
+#endif //Table 35-24
 
 //------------------------------------------------------------------------------
 
@@ -54,7 +122,7 @@ SMSR_ENTRY( SMSR_PERFEVTSEL3,		{0x189,	0xFFFFFFFF, 0x0        }),
 
 #endif //Table 35-21
 
-//------------------------------------------------------------------------------
+//IvyBridge------------------------------------------------------------------------------
 
 #ifdef _USE_TABLE_35_20
 /* Table 35-20 : Intel Xeon Processor E7 v2 Family 
@@ -98,7 +166,7 @@ SMSR_ENTRY( SMSR_DRAM_POWER_INFO,	{0x61C,	0x0,        0x0        }),
 
 #endif //Table 35-18
 
-//------------------------------------------------------------------------------
+//SandyBridge------------------------------------------------------------------------------
 
 #ifdef _USE_TABLE_35_17
 /* Table 35-17 : Intel Xeon Processor E5 Family 
@@ -197,7 +265,7 @@ SMSR_ENTRY( SMSR_PP0_ENERGY_STATUS,	{0x639,	0x0,        0x0        }),
 
 #endif	//Table 35-15
 
-//------------------------------------------------------------------------------
+//Architectural------------------------------------------------------------------------------
 
 #ifdef _USE_TABLE_35_2 		
 /* Table 35-2 Architectural MSRs		
