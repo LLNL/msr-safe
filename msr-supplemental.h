@@ -9,6 +9,51 @@
 #define SMSR_READALL  (0xFFFFFFFF)
 #define SMSR_WRITEALL (0xFFFFFFFF)
 
+
+//------------------------------------------------------------------------------
+
+#ifdef _USE_TABLE_35_23
+/* Table 35-23 : MSRs in 4th Generation Intel Core Processor Family
+ * (Based on Haswell Microarchitecture)
+ *
+ * CPUID signatures 06_3CH/06_45H/06_46H
+ *
+ */
+//NO ADDITIONAL REGISTERS THAT WE USE IN THIS TABLE YET
+
+#endif //Table 35-23
+
+//------------------------------------------------------------------------------
+
+#ifdef _USE_TABLE_35_22
+/* Table 35-22 : Additional MSRs Supported by 4th Generation Intel Core Processors
+ * (Based on Haswell microarchitecture)
+ *
+ * CPUID signature 06_45H
+ *
+ */
+
+//NO ADDITIONAL REGISTERS THAT WE USE IN THIS TABLE YET
+
+#endif //Table 35-22
+
+//------------------------------------------------------------------------------
+
+#ifdef _USE_TABLE_35_21
+/* Table 35-21 : 4th Generation Intel Core Processors
+ * (Based on Haswell Microarchitecture)
+ *
+ * CPUID signatures 06_3CH/06_45H/06_46H
+ *
+ */
+#define SMSR_ENTRIES \
+SMSR_ENTRY( SMSR_PERFEVTSEL0,		{0x186,	0xFFFFFFFF, 0x0        }),\
+SMSR_ENTRY( SMSR_PERFEVTSEL1,		{0x187,	0xFFFFFFFF, 0x0        }),\
+SMSR_ENTRY( SMSR_PERFEVTSEL2,		{0x188,	0xFFFFFFFF, 0x0        }),\
+SMSR_ENTRY( SMSR_PERFEVTSEL3,		{0x189,	0xFFFFFFFF, 0x0        }),
+
+#endif //Table 35-21
+
 //------------------------------------------------------------------------------
 
 #ifdef _USE_TABLE_35_20
@@ -94,7 +139,7 @@ SMSR_ENTRY( SMSR_TURBO_RATIO_LIMIT,	{0x1AD, 0xFFFFFFFF, 0xFFFFFFFF }),
  *
  * CPUID signature 06_2DH and 06_2AH
  * Additional MSRs that are specific to 06_2AH are in
- * Table 35-16. 
+ * Table 35-15. 
  *
  */
 #define SMSR_ENTRIES \
