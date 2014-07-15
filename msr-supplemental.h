@@ -84,13 +84,13 @@
 #ifdef _USE_ARCH_062D		//Sandy Bridge 
 #define _USE_TABLE_35_17
 #define _USE_TABLE_35_15
-#define _USE_TABLE_35_2
+//#define _USE_TABLE_35_2
 #endif // _USE_ARCH_062D
 
 #ifdef _USE_ARCH_062A		//Sandy Bridge 
 #define _USE_TABLE_35_16
 #define _USE_TABLE_35_15
-#define _USE_TABLE_35_2
+//#define _USE_TABLE_35_2
 #endif // _USE_ARCH_062A
 
 //The format for the following is as follows:
@@ -386,11 +386,15 @@ SMSR_ENTRY( SMSR_PEBS_ENABLE,		{0x3F1,	0x0000000F, 0x0000000F }),
 #endif // _USE_IvyBridge
 
 #ifdef _USE_ARCH_062D		//Sandy Bridge 
-#define SMSR_ENTRIES ENTRY1 TMP3 TMP1 TMP0 ENTRY_END
+#define SMSR_ENTRIES ENTRY1 TMP3 TMP1 ENTRY_END
+//Taking out architectural table
+//#define SMSR_ENTRIES ENTRY1 TMP3 TMP1 TMP0 ENTRY_END
 #endif // _USE_ARCH_062D
 
 #ifdef _USE_ARCH_062A		//Sandy Bridge 
-#define SMSR_ENTRIES ENTRY1 TMP2 TMP1 TMP0 ENTRY_END
+#define SMSR_ENTRIES ENTRY1 TMP2 TMP1 ENTRY_END
+//Taking out architectural table
+//#define SMSR_ENTRIES ENTRY1 TMP2 TMP1 TMP0 ENTRY_END
 #endif // _USE_ARCH_062A
 
 /* 
