@@ -9,7 +9,35 @@
 #define SMSR_READALL  (0xFFFFFFFF)
 #define SMSR_WRITEALL (0xFFFFFFFF)
 
+#define ENTRY1 SMSR_ENTRY( NO_SUCH_SMSR,		{0x000, 0x0,        0x0        }),
+
 //ArchDefines------------------------------------------------------------------------------
+/* Tables below match up to TMP MACROs that need to be strug together in the end with
+ * ENTRY1 and the END_ENTRY. These will make up the whitelist. 
+ *
+ * The TMPs are matched up with the tables as follows:
+ *	-------------------------
+ *	| Table		TMP#	|
+ *	-------------------------
+ *	| 2		0	|
+ *	-------------------------
+ *	| 15		1	|
+ *	-------------------------
+ *	| 16		2	|
+ *	-------------------------
+ *	| 17		3	|
+ *	-------------------------
+ *	|			|
+ *	-------------------------
+ *	| 19		5	|
+ *	-------------------------
+ *	|			|
+ *	-------------------------
+ *	| 21		7	|
+ *	-------------------------
+ *
+ *
+ */
 
 #ifdef _USE_ARCH_063F
 #define _USE_TABLE_35_24
@@ -54,7 +82,7 @@
 #endif // _USE_IvyBridge
 
 #ifdef _USE_ARCH_062D		//Sandy Bridge 
-#define _USE_TABLE_25_17
+#define _USE_TABLE_35_17
 #define _USE_TABLE_35_15
 #define _USE_TABLE_35_2
 #endif // _USE_ARCH_062D
@@ -64,6 +92,11 @@
 #define _USE_TABLE_35_15
 #define _USE_TABLE_35_2
 #endif // _USE_ARCH_062A
+
+//The format for the following is as follows:
+/*	    Name		       Address  Low   	    High
+ *	    					Write	    Write
+ *	    					Mask	    Mask        */
 
 //Haswell------------------------------------------------------------------------------
 
@@ -114,7 +147,7 @@
  * CPUID signatures 06_3CH/06_45H/06_46H
  *
  */
-#define SMSR_ENTRIES \
+#define TMP7 \
 SMSR_ENTRY( SMSR_PERFEVTSEL0,		{0x186,	0xFFFFFFFF, 0x0        }),\
 SMSR_ENTRY( SMSR_PERFEVTSEL1,		{0x187,	0xFFFFFFFF, 0x0        }),\
 SMSR_ENTRY( SMSR_PERFEVTSEL2,		{0x188,	0xFFFFFFFF, 0x0        }),\
@@ -145,7 +178,7 @@ SMSR_ENTRY( SMSR_PERFEVTSEL3,		{0x189,	0xFFFFFFFF, 0x0        }),
  * CPUID signature06_3EH
  *
  */
-#define SMSR_ENTRIES \
+#define TMP5 \
 SMSR_ENTRY( SMSR_DRAM_POWER_LIMIT,	{0x618,	0x00FFFFFF, 0x0        }),\
 SMSR_ENTRY( SMSR_DRAM_ENERGY_STATUS,	{0x619,	0x0,        0x0        }),\
 SMSR_ENTRY( SMSR_DRAM_PERF_STATUS,	{0x61B,	0x0,        0x0        }),\
@@ -175,7 +208,7 @@ SMSR_ENTRY( SMSR_DRAM_POWER_INFO,	{0x61C,	0x0,        0x0        }),
  * CPUID signature 06_2D
  *
  */
-#define SMSR_ENTREIS \
+#define TMP3 \
 SMSR_ENTRY( SMSR_TURBO_RATIO_LIMIT,	{0x1AD, 0xFFFFFFFF, 0xFFFFFFFF }),\
 \
 SMSR_ENTRY( SMSR_MSR_PKG_PERF_STATUS,	{0x613,	0x0,        0x0        }),\
@@ -195,7 +228,7 @@ SMSR_ENTRY( SMSR_DRAM_POWER_INFO,	{0x61C,	0x0,        0x0        }),
  * These are specific to the 2nd generation with CPUID signature 06_2AH
  *
  */
-#define SMSR_ENTRIES \
+#define TMP2 \
 SMSR_ENTRY( SMSR_TURBO_RATIO_LIMIT,	{0x1AD, 0xFFFFFFFF, 0xFFFFFFFF }),
 
 #endif //Table 35-16
@@ -210,7 +243,7 @@ SMSR_ENTRY( SMSR_TURBO_RATIO_LIMIT,	{0x1AD, 0xFFFFFFFF, 0xFFFFFFFF }),
  * Table 35-15. 
  *
  */
-#define SMSR_ENTRIES \
+#define TMP1 \
 SMSR_ENTRY( SMSR_TIME_STAMP_COUNTER,	{0x010,	0x0,        0x0        }),\
 SMSR_ENTRY( SMSR_PLATFORM_ID,		{0x017,	0x0,        0x0        }),\
 SMSR_ENTRY( SMSR_PMC0,			{0x0C1,	0xFFFFFFFF, 0xFFFFFFFF }),\
@@ -273,8 +306,7 @@ SMSR_ENTRY( SMSR_PP0_ENERGY_STATUS,	{0x639,	0x0,        0x0        }),
  * 
  */
 
-#define SMSR_ENTRIES \
-SMSR_ENTRY( NO_SUCH_SMSR,		{0x000, 0x0,        0x0        }),\
+#define TMP0 \
 SMSR_ENTRY( SMSR_TIME_STAMP_COUNTER,	{0x010,	0x0,        0x0        }),\
 SMSR_ENTRY( SMSR_PLATFORM_ID,		{0x017,	0x0,        0x0        }),\
 SMSR_ENTRY( SMSR_PMC0,			{0x0C1,	0xFFFFFFFF, 0xFFFFFFFF }),\
@@ -312,10 +344,54 @@ SMSR_ENTRY( SMSR_FIXED_CTR_CTRL,	{0x38D,	0x00000BBB, 0x0        }),\
 SMSR_ENTRY( SMSR_PERF_GLOBAL_STATUS,	{0x38E,	0x0       , 0x0        }),\
 SMSR_ENTRY( SMSR_PERF_GLOBAL_CTRL,	{0x38F,	0x00000003, 0x00000007 }),\
 SMSR_ENTRY( SMSR_PERF_GLOBAL_OVF_CTRL,	{0x390,	0x00000003, 0xC0000007 }),\
-SMSR_ENTRY( SMSR_PEBS_ENABLE,		{0x3F1,	0x0000000F, 0x0000000F }),\
-SMSR_ENTRY( SMSR_LAST_ENTRY, 		{0x000, 0x0,        0x0        })
+SMSR_ENTRY( SMSR_PEBS_ENABLE,		{0x3F1,	0x0000000F, 0x0000000F }),
+
 #endif 	//Table 35-2
 
+#define ENTRY_END SMSR_ENTRY( SMSR_LAST_ENTRY, 		{0x000, 0x0,        0x0        })
+
+#ifdef _USE_ARCH_063F
+#define SMSR_ENTRIES ENTRY1 ENTRY_END
+//Table35_24 does not have a TMP defined
+//INCOMPLETE because for next gen Haswell
+#endif // _USE_ARCH_063F
+
+#ifdef _USE_ARCH_0646		//Haswell
+#define SMSR_ENTRIES ENTRY1 TMP7 TMP2 TMP1 ENTRY_END
+//Table35_23 does not have a TMP defined
+//Table35_22 does not have a TMP defined
+//Table35_18 does not have a TMP defined
+#endif // _USE_ARCH_0646
+
+#ifdef _USE_ARCH_0645		//Haswell
+#define SMSR_ENTRIES ENTRY1 TMP7 TMP2 TMP1 ENTRY_END
+//Table35_23 does not have a TMP defined
+//Table35_18 does not have a TMP defined
+#endif // _USE_ARCH_0645
+
+#ifdef _USE_ARCH_063C		//Haswell
+#define SMSR_ENTRIES ENTRY1 TMP7 TMP2 TMP1 ENTRY_END
+//Table35_23 does not have a TMP defined
+//Table35_18 does not have a TMP defined
+#endif // _USE_ARCH_063C
+
+#ifdef _USE_ARCH_063E		//Ivy Bridge
+#define SMSR_ENTRIES ENTRY1 TMP5 TMP1 ENTRY_END
+//Table35_20 does not have a TMP defined
+#endif // _USE_ARCH_063E
+
+#ifdef _USE_ARCH_IvyBridge	//Ivy Bridge
+#define SMSR_ENTRIES ENTRY1 TMP2 TMP1 ENTRY_END
+//Table35_18 does not have a TMP defined
+#endif // _USE_IvyBridge
+
+#ifdef _USE_ARCH_062D		//Sandy Bridge 
+#define SMSR_ENTRIES ENTRY1 TMP3 TMP1 TMP0 ENTRY_END
+#endif // _USE_ARCH_062D
+
+#ifdef _USE_ARCH_062A		//Sandy Bridge 
+#define SMSR_ENTRIES ENTRY1 TMP2 TMP1 TMP0 ENTRY_END
+#endif // _USE_ARCH_062A
 
 /* 
  * I assume that no MSR on this list contains sensitive information.  Reads
@@ -556,8 +632,5 @@ SMSR_ENTRY( SMSR_LAST_ENTRY, 		{0x000, 0x0,        0x0        })
  *
  */	 
 
-/*	    Name		       Address  Low   	    High
- *	    					Write	    Write
- *	    					Mask	    Mask        */
 
 #endif /* MSR_SUPPLEMENTAL_H */
