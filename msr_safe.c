@@ -40,9 +40,9 @@
 
 #include <asm/processor.h>
 
-#define _USE_ARCH_062D 
+#define _USE_ARCH_063E 
 #include "msr-supplemental.h"
-#undef _USE_ARCH_062D
+#undef _USE_ARCH_063E
 
 static struct class *msr_class;
 static int majordev;
