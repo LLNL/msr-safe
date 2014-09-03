@@ -165,8 +165,7 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 		if((whitelist[idx].write_mask_0 | whitelist[idx].write_mask_1 )) {
 			if (copy_from_user(&data, tmp, 8)) {
 				err = -EFAULT;
-			}
-			if(!err){
+			} else {
 				data[0] &= whitelist[idx].write_mask_0;
 				data[1] &= whitelist[idx].write_mask_1;
 				err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
