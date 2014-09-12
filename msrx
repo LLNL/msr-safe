@@ -1,5 +1,5 @@
 #!/bin/bash
-export PATH="$PATH:/bin:/usr/bin:/sbin:/usr/sbin"
+export PATH="$PATH:/bin:/usr/bin:/sbin:/usr/sbin:$HOME/msr-tools"
 
 usage() {
 echo "msrx:  Write or dump a subset of model-specific registers."
@@ -82,8 +82,11 @@ do
 	
 	#	SMSR_PERF_GLOBAL_CTRL,		0x38F 		0x00000003, 0x00000007 
 	result=$(rdmsr -p$threadID 0x38F)
-	result="0x${result}"
-	printf "%3d 0x38F %17s SMSR_PERF_GLOBAL_CTRL: Global performance counter control.\n"  $threadID $result >> $file
+	prefix="0x"
+	result=${prefix}${result}
+	let "mask = 0xFFFFFFF8FFFFFFFF"
+	let "result=$result & $mask"
+	printf "%3d 0x38F %#17x SMSR_PERF_GLOBAL_CTRL: Global performance counter control.\n"  $threadID $result >> $file
 
 	#	SMSR_PERF_GLOBAL_OVF_CTRL,	0x390		0x00000003, 0xC0000007 
 	result=$(rdmsr -p$threadID 0x390)
@@ -148,23 +151,35 @@ do
 
 	#	SMSR_PMC0,			0x0C1		0xFFFFFFFF, 0xFFFFFFFF 
 	result=$(rdmsr -p$threadID 0x0C1)
-	result="0x${result}"
-	printf "%3d 0x0C1 %17s SMSR_PMC0: Perfmance counter 0 accumulator.\n" $threadID $result >> $file
+	prefix="0x"
+	result=${prefix}${result}
+	let "mask = 0x0"
+	let "result=$result & $mask"
+	printf "%3d 0x0C1 %#17x SMSR_PMC0: Perfmance counter 0 accumulator.\n" $threadID $result >> $file
 
 	#	SMSR_PMC1,			0x0C2		0xFFFFFFFF, 0xFFFFFFFF 
 	result=$(rdmsr -p$threadID 0x0C2)
-	result="0x${result}"
-	printf "%3d 0x0C2 %17s SMSR_PMC1: Perfmance counter 1 accumulator.\n" $threadID $result >> $file
+	prefix="0x"
+	result=${prefix}${result}
+	let "mask = 0x0"
+	let "result=$result & $mask"
+	printf "%3d 0x0C2 %#17x SMSR_PMC1: Perfmance counter 1 accumulator.\n" $threadID $result >> $file
 
 	#	SMSR_PMC2,			0x0C3		0xFFFFFFFF, 0xFFFFFFFF 
 	result=$(rdmsr -p$threadID 0x0C3)
-	result="0x${result}"
-	printf "%3d 0x0C3 %17s SMSR_PMC2: Perfmance counter 2 accumulator.\n" $threadID $result >> $file
+	prefix="0x"
+	result=${prefix}${result}
+	let "mask = 0x0"
+	let "result=$result & $mask"
+	printf "%3d 0x0C3 %#17x SMSR_PMC2: Perfmance counter 2 accumulator.\n" $threadID $result >> $file
 
 	#	SMSR_PMC3,			0x0C4		0xFFFFFFFF, 0xFFFFFFFF 
 	result=$(rdmsr -p$threadID 0x0C4)
-	result="0x${result}"
-	printf "%3d 0x0C4 %17s SMSR_PMC3: Perfmance counter 3 accumulator.\n" $threadID $result >> $file
+	prefix="0x"
+	result=${prefix}${result}
+	let "mask = 0x0"
+	let "result=$result & $mask"
+	printf "%3d 0x0C4 %#17x SMSR_PMC3: Perfmance counter 3 accumulator.\n" $threadID $result >> $file
 
 	#	SMSR_PMC4,			0x0C5		0xFFFFFFFF, 0xFFFFFFFF 
 ###	result=$(rdmsr -p$threadID 0x0C5)
@@ -229,18 +244,27 @@ do
 
 	#	SMSR_FIXED_CTR0,		0x309		0xFFFFFFFF, 0xFFFFFFFF 
 	result=$(rdmsr -p$threadID 0x309)
-	result="0x${result}"
-	printf "%3d 0x309 %17s SMSR_FIXED_CTR0: Fixed counter 0.\n" $threadID $result >> $file
+	prefix="0x"
+	result=${prefix}${result}
+	let "mask = 0x0"
+	let "result=$result & $mask"
+	printf "%3d 0x309 %#17x SMSR_FIXED_CTR0: Fixed counter 0.\n" $threadID $result >> $file
 
 	#	SMSR_FIXED_CTR1,		0x30A		0xFFFFFFFF, 0xFFFFFFFF 
 	result=$(rdmsr -p$threadID 0x30A)
-	result="0x${result}"
-	printf "%3d 0x30A %17s SMSR_FIXED_CTR1: Fixed counter 1.\n" $threadID $result >> $file
+	prefix="0x"
+	result=${prefix}${result}
+	let "mask = 0x0"
+	let "result=$result & $mask"
+	printf "%3d 0x30A %#17x SMSR_FIXED_CTR1: Fixed counter 1.\n" $threadID $result >> $file
 
 	#	SMSR_FIXED_CTR2,		0x30B 		0xFFFFFFFF, 0xFFFFFFFF 
 	result=$(rdmsr -p$threadID 0x30B)
-	result="0x${result}"
-	printf "%3d 0x30B %17s SMSR_FIXED_CTR2: Fixed counter 2.\n" $threadID $result >> $file
+	prefix="0x"
+	result=${prefix}${result}
+	let "mask = 0x0"
+	let "result=$result & $mask"
+	printf "%3d 0x30B %#17x SMSR_FIXED_CTR2: Fixed counter 2.\n" $threadID $result >> $file
 
 	#	SMSR_PEBS_LD_LAT,		0x3F6		0x0000FFFF, 0x0        
 	result=$(rdmsr -p$threadID 0x3F6)
