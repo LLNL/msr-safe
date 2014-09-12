@@ -98,10 +98,13 @@ do
 	result="0x${result}"
 	printf "%3d 0x3F1 %17s SMSR_PEBS_ENABLE: PEBS control\n" $threadID $result >> $file
 
-	#	SMSR_PERF_CTRL,			0x199		0x0, 0x00000001 
+	#	SMSR_PERF_CTL,			0x199		0x0, 0x0 
 	result=$(rdmsr -p$threadID 0x199)
-	result="0x${result}"
-	printf "%3d 0x199 %17s SMSR_PERF_CTRL: Performance counter control\n" $threadID $result >> $file
+	prefix="0x"
+	result=${prefix}${result}
+	let "mask = 0x0"
+	let "result=$result & $mask"
+	printf "%3d 0x199 %#17x SMSR_PERF_CTL: Performance counter control\n" $threadID $result >> $file
 
 	#	SMSR_CLOCK_MODULATION,		0x19A		0x00000007, 0x0        
 	result=$(rdmsr -p$threadID 0x19A)
