@@ -350,51 +350,62 @@ SMSR_ENTRY( SMSR_PEBS_ENABLE,		{0x3F1,	0x0000000F, 0x0000000F }),
 
 #define ENTRY_END SMSR_ENTRY( SMSR_LAST_ENTRY, 		{0x000, 0x0,        0x0        })
 
+//To use if architecture not recognized
+#ifdef _USE_ARCH_EMPTY
+#define SMSR_EMPTY ENTRY1 ENTRY_END
+#endif
+
 #ifdef _USE_ARCH_063F
-#define SMSR_ENTRIES ENTRY1 ENTRY_END
+#define SMSR_063F ENTRY1 ENTRY_END
 //Table35_24 does not have a TMP defined
 //INCOMPLETE because for next gen Haswell
 #endif // _USE_ARCH_063F
 
 #ifdef _USE_ARCH_0646		//Haswell
-#define SMSR_ENTRIES ENTRY1 TMP7 TMP2 TMP1 ENTRY_END
+#define SMSR_0646 TMP2 TMP1
+// Temporarily removing TMP7 because matches PEFVEVTSEL
+// in TMP1
 //Table35_23 does not have a TMP defined
 //Table35_22 does not have a TMP defined
 //Table35_18 does not have a TMP defined
 #endif // _USE_ARCH_0646
 
 #ifdef _USE_ARCH_0645		//Haswell
-#define SMSR_ENTRIES ENTRY1 TMP7 TMP2 TMP1 ENTRY_END
+#define SMSR_0645 TMP2 TMP1
+// Temporarily removing TMP7 because matches PEFVEVTSEL
+// in TMP1
 //Table35_23 does not have a TMP defined
 //Table35_18 does not have a TMP defined
 #endif // _USE_ARCH_0645
 
 #ifdef _USE_ARCH_063C		//Haswell
-#define SMSR_ENTRIES ENTRY1 TMP7 TMP2 TMP1 ENTRY_END
+#define SMSR_063C TMP2 TMP1
+// Temporarily removing TMP7 because matches PEFVEVTSEL
+// in TMP1
 //Table35_23 does not have a TMP defined
 //Table35_18 does not have a TMP defined
 #endif // _USE_ARCH_063C
 
 #ifdef _USE_ARCH_063E		//Ivy Bridge
-#define SMSR_ENTRIES ENTRY1 TMP5 TMP1 ENTRY_END
+#define SMSR_063E TMP5 TMP1
 //Table35_20 does not have a TMP defined
 #endif // _USE_ARCH_063E
 
 #ifdef _USE_ARCH_IvyBridge	//Ivy Bridge
-#define SMSR_ENTRIES ENTRY1 TMP2 TMP1 ENTRY_END
+#define SMSR_IvyBridge TMP2 TMP1
 //Table35_18 does not have a TMP defined
 #endif // _USE_IvyBridge
 
 #ifdef _USE_ARCH_062D		//Sandy Bridge 
-#define SMSR_ENTRIES ENTRY1 TMP3 TMP1 ENTRY_END
+#define SMSR_062D TMP3 TMP1
 //Taking out architectural table
-//#define SMSR_ENTRIES ENTRY1 TMP3 TMP1 TMP0 ENTRY_END
+//#define SMSR_ENTRIES TMP3 TMP1 TMP0 ENTRY_END
 #endif // _USE_ARCH_062D
 
 #ifdef _USE_ARCH_062A		//Sandy Bridge 
-#define SMSR_ENTRIES ENTRY1 TMP2 TMP1 ENTRY_END
+#define SMSR_062A TMP2 TMP1
 //Taking out architectural table
-//#define SMSR_ENTRIES ENTRY1 TMP2 TMP1 TMP0 ENTRY_END
+//#define SMSR_ENTRIES TMP2 TMP1 TMP0 ENTRY_END
 #endif // _USE_ARCH_062A
 
 /* 

@@ -37,12 +37,10 @@
 #include <linux/cpu.h>
 #include <linux/notifier.h>
 #include <linux/uaccess.h>
-
 #include <asm/processor.h>
 
-#define _USE_ARCH_063E 
-#include "msr-supplemental.h"
-#undef _USE_ARCH_063E
+#define MASK_RANGE(m,n) ((((uint32_t)1<<((m)-(n)+1))-1)<<(n))
+#define MASK_VAL(x,m,n) (((uint32_t)(x)&MASK_RANGE((m),(n)))>>(n))
 
 static struct class *msr_class;
 static int majordev;
@@ -56,20 +54,201 @@ struct smsr_entry{
 	u32	write_mask_1;	//   reading/writing sensitive bits of
 };
 
-#define SMSR_ENTRY(a,b,c,d) a
+//-- Define all architectures and make a whitelist for each --- 
+#define _USE_ARCH_062D 
+#define _USE_ARCH_062A 
+#define _USE_ARCH_063E 
+#define _USE_ARCH_063C
+#define _USE_ARCH_0645
+#define _USE_ARCH_0646
+#define _USE_ARCH_EMPTY
+#include "msr-supplemental.h"
+#undef _USE_ARCH_062D
+#undef _USE_ARCH_062A
+#undef _USE_ARCH_063E
+#undef _USE_ARCH_063C
+#undef _USE_ARCH_0645
+#undef _USE_ARCH_0646
+#undef _USE_ARCH_EMPTY
+
 typedef enum smsr{
-SMSR_ENTRIES
+//Entry1
+#define SMSR_ENTRY(a,b,c,d) a
+ENTRY1
+#undef SMSR_ENTRY
+
+//Sandy Bridge
+#define SMSR_ENTRY(a,b,c,d) p062D_## a
+SMSR_062D
+#undef SMSR_ENTRY
+
+//Sandy Bridge
+#define SMSR_ENTRY(a,b,c,d) p062A_## a
+SMSR_062A
+#undef SMSR_ENTRY
+
+//Ivy Bridge
+#define SMSR_ENTRY(a,b,c,d) p063E_## a
+SMSR_063E
+#undef SMSR_ENTRY
+
+//Haswell
+#define SMSR_ENTRY(a,b,c,d) p063C_## a
+SMSR_063C
+#undef SMSR_ENTRY
+
+//Haswell
+#define SMSR_ENTRY(a,b,c,d) p0645_## a
+SMSR_0645
+#undef SMSR_ENTRY
+
+//Haswell
+#define SMSR_ENTRY(a,b,c,d) p0646_## a
+SMSR_0646
+#undef SMSR_ENTRY
+
+//Ending Entry
+#define SMSR_ENTRY(a,b,c,d) a
+ENTRY_END
+#undef SMSR_ENTRY
+
 } smsr_t;
-#undef SMSR_ENTRY
 
-
+//Empty set
 #define SMSR_ENTRY(a,b,c,d) b,c,d
-struct smsr_entry whitelist[] = { SMSR_ENTRIES };
+struct smsr_entry whitelist_EMPTY[] = { SMSR_EMPTY };
 #undef SMSR_ENTRY
+
+//Sandy Bridge
+#define SMSR_ENTRY(a,b,c,d) b,c,d
+struct smsr_entry whitelist_062D[] = { ENTRY1 SMSR_062D ENTRY_END };
+#undef SMSR_ENTRY
+
+//Sandy Bridge
+#define SMSR_ENTRY(a,b,c,d) b,c,d
+struct smsr_entry whitelist_062A[] = { ENTRY1 SMSR_062A ENTRY_END };
+#undef SMSR_ENTRY
+
+//Ivy Bridge
+#define SMSR_ENTRY(a,b,c,d) b,c,d
+struct smsr_entry whitelist_063E[] = { ENTRY1 SMSR_063E ENTRY_END };
+#undef SMSR_ENTRY
+
+//Haswell
+#define SMSR_ENTRY(a,b,c,d) b,c,d
+struct smsr_entry whitelist_063C[] = { ENTRY1 SMSR_063C ENTRY_END };
+#undef SMSR_ENTRY
+
+//Haswell
+#define SMSR_ENTRY(a,b,c,d) b,c,d
+struct smsr_entry whitelist_0645[] = { ENTRY1 SMSR_0645 ENTRY_END };
+#undef SMSR_ENTRY
+
+//Haswell
+#define SMSR_ENTRY(a,b,c,d) b,c,d
+struct smsr_entry whitelist_0646[] = { ENTRY1 SMSR_0646 ENTRY_END };
+#undef SMSR_ENTRY
+
+static int init=0;
+struct smsr_entry *whitelist=NULL;
+
+//------------------------------------------------------------
+static void 
+get_cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx)
+{
+        asm volatile(
+                "xchg %%ebx, %%edi\n\tcpuid\n\txchg %%ebx, %%edi"
+                        :"=a" (*eax), "=D" (*ebx), "=c" (*ecx), "=d" (*edx)
+                        :"a" (leaf)
+                );  
+}
+
+static int
+getArch (void)
+{
+	uint32_t regs[4];
+	uint32_t cpu_type, cpu_model, cpu_family, cpu_stepping; 
+	uint32_t cpu_family_extended, cpu_model_extended;
+	uint32_t cpu_family_adjusted, cpu_model_adjusted;
+	char string[80];
+	const char *arches[8];
+        int arrayLength=7;
+	int i;
+
+	get_cpuid( 1, &regs[0], &regs[1], &regs[2], &regs[3] );
+	// EAX
+	cpu_family 		= MASK_VAL(regs[0],11, 8);
+       	cpu_family_extended 	= MASK_VAL(regs[0],27,20);
+	cpu_model		= MASK_VAL(regs[0], 7, 4);
+	cpu_model_extended	= MASK_VAL(regs[0],19,16);
+	cpu_type		= MASK_VAL(regs[0],13,12);
+	cpu_stepping		= MASK_VAL(regs[0], 3, 0);
+
+	if(cpu_family == 0xF){
+		cpu_family_adjusted = cpu_family + cpu_family_extended;
+	}else{
+		cpu_family_adjusted = cpu_family;
+	}
+
+	if(cpu_family == 0x6 || cpu_family == 0xF){
+		cpu_model_adjusted = (cpu_model_extended << 4) + cpu_model;
+	}else{
+		cpu_model_adjusted = cpu_model;
+	}
+	
+	sprintf(string, "%02x_%X", cpu_family_adjusted, cpu_model_adjusted);
+
+	arches[0]= "";		//EMPTY
+	arches[1]= "06_2D";	//Sandy Bridge
+        arches[2]= "06_2A";	//Sandy Bridge
+        arches[3]= "06_3E";	//Ivy Bridge
+        arches[4]= "06_3C";	//Haswell
+        arches[5]= "06_45";	//Haswell
+        arches[6]= "06_46";	//Haswell
+                                                                      
+                                                                      
+        for(i=1; i< arrayLength; i++)
+        {
+        	if(strncmp(string,arches[i], strlen(arches[i])) == 0)
+        		return i;	//Matches
+        }
+
+	return 0;	//Does not match known architectures
+}
 
 u16 get_whitelist_entry(loff_t reg)
 {
+	int arch;
 	smsr_t entry;
+	if(!init)
+	{
+		init=1;
+		arch=getArch();
+		switch(arch) {
+		case 1:
+			whitelist=whitelist_062D;
+			break;
+		case 2:
+			whitelist=whitelist_062A;
+			break;
+		case 3:
+			whitelist=whitelist_063E;
+			break;
+		case 4:
+			whitelist=whitelist_063C;
+			break;
+		case 5:
+			whitelist=whitelist_0645;
+			break;
+		case 6:
+			whitelist=whitelist_0646;
+			break;
+		default:
+			whitelist=whitelist_EMPTY;
+			break;
+		}
+	}
+		
 	for (entry = 0; entry < SMSR_LAST_ENTRY; entry++){
 		if ( whitelist[entry].reg == reg){
 			return entry;
@@ -256,7 +435,7 @@ static int __init msr_init(void)
 {
 	int i, err = 0;
 	i = 0;
-
+	
 	majordev = __register_chrdev(0, 0, NR_CPUS, "cpu/msr_safe", &msr_fops);
 	if (majordev < 0) {
 		printk(KERN_ERR "msr_safe: unable to register device number\n");
