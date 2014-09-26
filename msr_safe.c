@@ -52,6 +52,8 @@ struct smsr_entry{
 
 	u32	write_mask_0;	// Prevent writing to reserved bits and
 	u32	write_mask_1;	//   reading/writing sensitive bits of
+
+	int	arch;		// Architecture number
 };
 
 //-- Define all architectures and make a whitelist for each --- 
@@ -115,41 +117,42 @@ ENTRY_END
 } smsr_t;
 
 //Empty set
-#define SMSR_ENTRY(a,b,c,d) b,c,d
+#define SMSR_ENTRY(a,b,c,d) b,c,d,0}
 struct smsr_entry whitelist_EMPTY[] = { SMSR_EMPTY };
 #undef SMSR_ENTRY
 
 //Sandy Bridge
-#define SMSR_ENTRY(a,b,c,d) b,c,d
+#define SMSR_ENTRY(a,b,c,d) b,c,d,1}
 struct smsr_entry whitelist_062D[] = { ENTRY1 SMSR_062D ENTRY_END };
 #undef SMSR_ENTRY
 
 //Sandy Bridge
-#define SMSR_ENTRY(a,b,c,d) b,c,d
+#define SMSR_ENTRY(a,b,c,d) b,c,d,2}
 struct smsr_entry whitelist_062A[] = { ENTRY1 SMSR_062A ENTRY_END };
 #undef SMSR_ENTRY
 
 //Ivy Bridge
-#define SMSR_ENTRY(a,b,c,d) b,c,d
+#define SMSR_ENTRY(a,b,c,d) b,c,d,3}
 struct smsr_entry whitelist_063E[] = { ENTRY1 SMSR_063E ENTRY_END };
 #undef SMSR_ENTRY
 
 //Haswell
-#define SMSR_ENTRY(a,b,c,d) b,c,d
+#define SMSR_ENTRY(a,b,c,d) b,c,d,4}
 struct smsr_entry whitelist_063C[] = { ENTRY1 SMSR_063C ENTRY_END };
 #undef SMSR_ENTRY
 
 //Haswell
-#define SMSR_ENTRY(a,b,c,d) b,c,d
+#define SMSR_ENTRY(a,b,c,d) b,c,d,5}
 struct smsr_entry whitelist_0645[] = { ENTRY1 SMSR_0645 ENTRY_END };
 #undef SMSR_ENTRY
 
 //Haswell
-#define SMSR_ENTRY(a,b,c,d) b,c,d
+#define SMSR_ENTRY(a,b,c,d) b,c,d,6}
 struct smsr_entry whitelist_0646[] = { ENTRY1 SMSR_0646 ENTRY_END };
 #undef SMSR_ENTRY
 
 static int init=0;
+static int arch=0;
 struct smsr_entry *whitelist=NULL;
 
 //------------------------------------------------------------
@@ -218,7 +221,6 @@ getArch (void)
 
 u16 get_whitelist_entry(loff_t reg)
 {
-	int arch;
 	smsr_t entry;
 	if(!init)
 	{
@@ -248,9 +250,9 @@ u16 get_whitelist_entry(loff_t reg)
 			break;
 		}
 	}
-		
+
 	for (entry = 0; entry < SMSR_LAST_ENTRY; entry++){
-		if ( whitelist[entry].reg == reg){
+		if ( whitelist[entry].reg == reg && whitelist[entry].arch == arch ){
 			return entry;
 		}
 	}
