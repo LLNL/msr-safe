@@ -37,6 +37,7 @@
 #include <linux/cpu.h>
 #include <linux/notifier.h>
 #include <linux/uaccess.h>
+
 #include <asm/processor.h>
 
 #define MASK_RANGE(m,n) ((((uint32_t)1<<((m)-(n)+1))-1)<<(n))
@@ -155,7 +156,28 @@ static int init=0;
 static int arch=0;
 struct smsr_entry *whitelist=NULL;
 
-//------------------------------------------------------------
+//-- End define architectures and setup whitelists ----------------------------------------------------------
+
+//-- Begin setup for sysfs ----------------------------------------------------------------------------------
+static char *Version = "1.3.0";
+
+static ssize_t show_version(struct class *cls, char *buf)
+{
+	sprintf(buf, "%s\n", Version);
+	return strlen(buf) + 1;
+}
+
+static struct class_attribute class_attr[] = { 
+	__ATTR(version, 0644, show_version, NULL), __ATTR_NULL };
+
+static struct class smsr_class =
+{
+	.name = "smsr",
+	.owner = THIS_MODULE,
+	.class_attrs = class_attr
+};
+
+//-- End setup for sysfs ------------------------------------------------------------------------------------
 static void 
 get_cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx)
 {
@@ -436,6 +458,7 @@ static char *msr_devnode(struct device *dev, mode_t *mode)
 static int __init msr_init(void)
 {
 	int i, err = 0;
+	int status;
 	i = 0;
 	
 	majordev = __register_chrdev(0, 0, NR_CPUS, "cpu/msr_safe", &msr_fops);
@@ -458,6 +481,11 @@ static int __init msr_init(void)
 	register_hotcpu_notifier(&msr_class_cpu_notifier);
 
 	err = 0;
+	// Add smsr class
+	status = class_register(&smsr_class);
+	if (status < 0)
+		printk("Registering smsr class failed\n");
+	
 	goto out;
 
 out_class:
@@ -474,6 +502,10 @@ out:
 static void __exit msr_exit(void)
 {
 	int cpu = 0;
+	// Unregister smsr class
+	class_unregister(&smsr_class);
+
+	// Rest of the clean up
 	for_each_online_cpu(cpu)
 		msr_device_destroy(cpu);
 	class_destroy(msr_class);
