@@ -47,14 +47,16 @@ static struct class *msr_class;
 static int majordev;
 
 struct smsr_entry{
-	loff_t 	reg;		// Almost all MSR addresses are 16-bit values,
+	loff_t 		reg;	// Almost all MSR addresses are 16-bit values,
 				//   including all the ones we care about.
 				//   Use 32 bits for compatibility.
 
-	u32	write_mask_0;	// Prevent writing to reserved bits and
-	u32	write_mask_1;	//   reading/writing sensitive bits of
+	u32		write_mask_0;	// Prevent writing to reserved bits and
+	u32		write_mask_1;	//   reading/writing sensitive bits of
 
-	int	arch;		// Architecture number
+	int		arch;		// Architecture number
+	const char*	strReg;		// Address of msr in string format
+	const char*	strName;	// Name of register
 };
 
 //-- Define all architectures and make a whitelist for each --- 
@@ -118,37 +120,37 @@ ENTRY_END
 } smsr_t;
 
 //Empty set
-#define SMSR_ENTRY(a,b,c,d) b,c,d,0}
+#define SMSR_ENTRY(a,b,c,d) {b,c,d,0,#b,#a}
 struct smsr_entry whitelist_EMPTY[] = { SMSR_EMPTY };
 #undef SMSR_ENTRY
 
 //Sandy Bridge
-#define SMSR_ENTRY(a,b,c,d) b,c,d,1}
+#define SMSR_ENTRY(a,b,c,d) {b,c,d,1,#b,#a}
 struct smsr_entry whitelist_062D[] = { ENTRY1 SMSR_062D ENTRY_END };
 #undef SMSR_ENTRY
 
 //Sandy Bridge
-#define SMSR_ENTRY(a,b,c,d) b,c,d,2}
+#define SMSR_ENTRY(a,b,c,d) {b,c,d,2,#b,#a}
 struct smsr_entry whitelist_062A[] = { ENTRY1 SMSR_062A ENTRY_END };
 #undef SMSR_ENTRY
 
 //Ivy Bridge
-#define SMSR_ENTRY(a,b,c,d) b,c,d,3}
+#define SMSR_ENTRY(a,b,c,d) {b,c,d,3,#b,#a}
 struct smsr_entry whitelist_063E[] = { ENTRY1 SMSR_063E ENTRY_END };
 #undef SMSR_ENTRY
 
 //Haswell
-#define SMSR_ENTRY(a,b,c,d) b,c,d,4}
+#define SMSR_ENTRY(a,b,c,d) {b,c,d,4,#b,#a}
 struct smsr_entry whitelist_063C[] = { ENTRY1 SMSR_063C ENTRY_END };
 #undef SMSR_ENTRY
 
 //Haswell
-#define SMSR_ENTRY(a,b,c,d) b,c,d,5}
+#define SMSR_ENTRY(a,b,c,d) {b,c,d,5,#b,#a}
 struct smsr_entry whitelist_0645[] = { ENTRY1 SMSR_0645 ENTRY_END };
 #undef SMSR_ENTRY
 
 //Haswell
-#define SMSR_ENTRY(a,b,c,d) b,c,d,6}
+#define SMSR_ENTRY(a,b,c,d) {b,c,d,6,#b,#a}
 struct smsr_entry whitelist_0646[] = { ENTRY1 SMSR_0646 ENTRY_END };
 #undef SMSR_ENTRY
 
@@ -167,8 +169,28 @@ static ssize_t show_version(struct class *cls, char *buf)
 	return strlen(buf) + 1;
 }
 
+static ssize_t show_avail(struct class *cls, char *buf)
+{
+	smsr_t entry;
+	for (entry = 0; entry < SMSR_LAST_ENTRY; entry++){
+		if ( (whitelist[entry].reg != 0x000) && (whitelist[entry].arch == arch) ){
+			strlcat(buf, whitelist[entry].strReg, PAGE_SIZE);
+			strlcat(buf, " ", PAGE_SIZE);
+			strlcat(buf, whitelist[entry].strName, PAGE_SIZE);
+			strlcat(buf, "\n", PAGE_SIZE);
+		}
+	
+	}
+	
+	return strlen(buf) + 1;
+}
+
 static struct class_attribute class_attr[] = { 
-	__ATTR(version, 0644, show_version, NULL), __ATTR_NULL };
+	__ATTR(version, 0644, show_version, NULL),
+	__ATTR(avail, 0644, show_avail, NULL),
+	__ATTR_NULL
+};
+
 
 static struct class smsr_class =
 {
@@ -178,6 +200,7 @@ static struct class smsr_class =
 };
 
 //-- End setup for sysfs ------------------------------------------------------------------------------------
+
 static void 
 get_cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx)
 {
@@ -244,34 +267,6 @@ getArch (void)
 u16 get_whitelist_entry(loff_t reg)
 {
 	smsr_t entry;
-	if(!init)
-	{
-		init=1;
-		arch=getArch();
-		switch(arch) {
-		case 1:
-			whitelist=whitelist_062D;
-			break;
-		case 2:
-			whitelist=whitelist_062A;
-			break;
-		case 3:
-			whitelist=whitelist_063E;
-			break;
-		case 4:
-			whitelist=whitelist_063C;
-			break;
-		case 5:
-			whitelist=whitelist_0645;
-			break;
-		case 6:
-			whitelist=whitelist_0646;
-			break;
-		default:
-			whitelist=whitelist_EMPTY;
-			break;
-		}
-	}
 
 	for (entry = 0; entry < SMSR_LAST_ENTRY; entry++){
 		if ( whitelist[entry].reg == reg && whitelist[entry].arch == arch ){
@@ -481,6 +476,36 @@ static int __init msr_init(void)
 	register_hotcpu_notifier(&msr_class_cpu_notifier);
 
 	err = 0;
+	// Check architecture
+	if(!init)
+	{
+		init=1;
+		arch=getArch();
+		switch(arch) {
+		case 1:
+			whitelist=whitelist_062D;
+			break;
+		case 2:
+			whitelist=whitelist_062A;
+			break;
+		case 3:
+			whitelist=whitelist_063E;
+			break;
+		case 4:
+			whitelist=whitelist_063C;
+			break;
+		case 5:
+			whitelist=whitelist_0645;
+			break;
+		case 6:
+			whitelist=whitelist_0646;
+			break;
+		default:
+			whitelist=whitelist_EMPTY;
+			break;
+		}
+	}
+	
 	// Add smsr class
 	status = class_register(&smsr_class);
 	if (status < 0)
@@ -516,7 +541,6 @@ static void __exit msr_exit(void)
 module_init(msr_init);
 module_exit(msr_exit)
 
-MODULE_AUTHOR("Jim Foraker <foraker1@llnl.gov>");
-MODULE_AUTHOR("Barry Rountree <rountree@llnl.gov>");
+MODULE_AUTHOR("Kathleen Shoga <shoga1@llnl.gov>");
 MODULE_DESCRIPTION("x86 sanitized MSR driver");
 MODULE_LICENSE("GPL");
