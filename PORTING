@@ -1,0 +1,83 @@
+/*
+ * 
+ * Copyright (c) 2011, 2012, 2013, 2014 by Lawrence Livermore National Security, LLC. LLNL-CODE-645430 
+ * Produced at the Lawrence Livermore National Laboratory.
+ * Written by Kathleen Shoga and Barry Rountree (shoga1|rountree@llnl.gov).
+ * All rights reserved.
+ *
+ * This file is part of msr-safe.
+ *
+ * msr-safe is free software: you can redistribute it and/or 
+ * modify it under the terms of the GNU Lesser General Public 
+ * License as published by the Free Software Foundation, either 
+ * version 3 of the License, or (at your option) any
+ * later version.
+ *
+ * msr-safe is distributed in the hope that it will be useful, but 
+ * WITHOUT ANY WARRANTY; without even the implied warranty of 
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public 
+ * License along
+ * with msr-safe. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * This material is based upon work supported by the U.S. Department
+ * of Energy's Lawrence Livermore National Laboratory. Office of 
+ * Science, under Award number DE-AC52-07NA27344.
+ *
+ */
+
+msr_safe was developed on a Redhat derivative Sandy Bridge system.
+
+Linux cab690 2.6.32-358.14.1.3chaos.ch5.1.1.x86_64 #1 SMP Mon Oct 7 13:06:43 PDT 2013 x86_64 x86_64 x86_64 GNU/Linux
+
+I then ported it to an Ubuntu Haswell system.
+
+Linux haswell 3.8.0-29-generic #42-Ubuntu SMP Tue Aug 13 19:40:39 UTC 2013 x86_64 x86_64 x86_64 GNU/Linux
+
+This process was.... fraught.
+
+1.  	Redhat expects kernel source code in 
+
+		/usr/src/kernels/`uname -r`
+
+		i.e.
+
+		/usr/src/kernels/2.6.32-358.14.1.3chaos.ch5.1.1.x86_64
+
+	Ubuntu unpacks kernel source in a slightly different location, e.g.,
+
+		/usr/src/linux-source-3.8.0/linux-source-3.8.0
+	
+	(mind the duplicate directory name).
+
+	On Ubuntu, solve via a symlink:
+
+		/usr/src/kernels/3.8.0-29-generic -> ../linux-source-3.8.0/linux-source-3.8.0
+
+
+2.	Add these symlinks to the Ubuntu kernel source directory.
+
+		include/generated -> /usr/src/linux-headers-3.8.0-29-generic/include/generated
+		include/config -> /usr/src/linux-headers-3.8.0-29-generic/include/config
+
+3.	Add this symlink as well.
+
+		Module.symvers -> /usr/src/linux-headers-3.8.0-29-generic/Module.symvers
+		.config -> /usr/src/linux-headers-3.8.0-29-generic/.config
+
+4.	Run "make scripts" in the linux source directory to create recordmcount.
+
+5.	<asm/system.h> and <smp_lock.h> no longer exist in 3.x kernels.  Until we figure out
+	a portable locking solution, we'll need to live without locking.
+
+6.	Expected use requires only open, read and write (and close?).  ioctl and lseek do not
+	need to be supported and that code has been removed.
+
+7.	The following warning occurs under Ubuntu but not Redhat:
+
+		msr_safe.c:328:21: warning: assignment from incompatible pointer type [enabled by default]
+
+	We'll ignore it for now.
+
