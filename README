@@ -34,6 +34,13 @@ registers in Intel processors.
 INSTALLATION:
 make
 
+SETUP:
+Once installed, the /dev/cpu/*/msr_safe files will be set up with only root allowed to read/write.
+The mode bits are meant to be changed depending on the security needs per system. 
+
+For example, one could make a group called "msr" and change the permissions to allow group access 
+to the whitelisted msr_safe registers.
+
 Notes:
 
 The version can be found by using:
