@@ -35,9 +35,10 @@ DISTRO=$(shell lsb_release -a | grep 'Distributor ID' | cut -d':' -f2 | tr [A-Z]
 
 ifeq ($(findstring ubuntu, $(DISTRO)),ubuntu)
 	KERNDIR=/usr/src/linux-headers-$(KERNVER)
-else ifeq ($(findstring redhat, $(DISTRO),redhat)
-	KERNDIR=/usr/src/kernels/$(KERNVER)
 else
+ifeq ($(findstring redhat, $(DISTRO)),redhat)
+	KERNDIR=/usr/src/kernels/$(KERNVER)
+endif
 endif
 
 default:
