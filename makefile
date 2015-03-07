@@ -30,13 +30,22 @@
 VERSION=$(shell grep Version META | sed -e "s/Version:[ \t]*\(.*\)/\1/")
 RELEASE=test
 KERNVER=$(shell uname -r)
-KERNDIR=/usr/src/kernels/$(KERNVER)
+KERNDIR ?=/usr/src/kernels/$(KERNVER)
+DISTRO=$(shell lsb_release -a | grep 'Distributor ID' | cut -d':' -f2 | tr [A-Z] [a-z] | sed -r 's/[[:space:]]*//g')
+
+ifeq ($(findstring ubuntu, $(DISTRO)),ubuntu)
+	KERNDIR=/usr/src/linux-headers-$(KERNVER)
+else
+ifeq ($(findstring redhat, $(DISTRO)),redhat)
+	KERNDIR=/usr/src/kernels/$(KERNVER)
+endif
+endif
 
 default:
 	make RELEASE=$(VERSION)-$(RELEASE)$(KERNVER) -C $(KERNDIR) M=`pwd`
 
 clean:
-	make -C /usr/src/kernels/`uname -r` M=`pwd` clean
+	make -C $(KERNDIR) M=`pwd` clean
 	rm -f *.tgz
 
 dist: clean
