@@ -2,7 +2,13 @@
 #define MSR_SUPPLEMENTAL_H
 
 /* TLCC2 machines are based on Sandy Bridge Server processors, family 06 model 2D.*/
+/* Catalyst cluster based on 06_3E Ivy Bridge. */
 
+// Uncore performance counters listed in			
+//   Intel Xeon Processor E5 v2	and E7 v2 Product Families	
+//   Uncore Performance Monitoring Reference Manual	
+//   Reference number 329468-002
+//   February 2014		
 
 #define SMSR_NOWRITE  (0x0)
 #define SMSR_NOREAD   (0x0)
@@ -295,54 +301,6 @@ SMSR_ENTRY( SMSR_PKG_ENERGY_STATUS,	0x611,	0x0,        0x0       ),\
 SMSR_ENTRY( SMSR_PKG_POWER_INFO,	0x614,	0x0,        0x0       ),\
 SMSR_ENTRY( SMSR_PP0_POWER_LIMIT,	0x638,	0x00FFFFFF, 0x0       ),\
 SMSR_ENTRY( SMSR_PP0_ENERGY_STATUS,	0x639,	0x0,        0x0       ),\
-SMSR_ENTRY( SMSR_C0_MSR_PMON_BOX_CTL,	0x0D04,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C1_MSR_PMON_BOX_CTL,	0x0D24,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C2_MSR_PMON_BOX_CTL,	0x0D44,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C3_MSR_PMON_BOX_CTL,	0x0D64,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C4_MSR_PMON_BOX_CTL,	0x0D84,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C5_MSR_PMON_BOX_CTL,	0x0DA4,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C6_MSR_PMON_BOX_CTL,	0x0DC4,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C7_MSR_PMON_BOX_CTL,	0x0DE4,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C0_MSR_PMON_BOX_FILTER,0x0D14,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C1_MSR_PMON_BOX_FILTER,0x0D34,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C2_MSR_PMON_BOX_FILTER,0x0D54,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C3_MSR_PMON_BOX_FILTER,0x0D74,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C4_MSR_PMON_BOX_FILTER,0x0D94,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C5_MSR_PMON_BOX_FILTER,0x0DB4,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C6_MSR_PMON_BOX_FILTER,0x0DD4,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C7_MSR_PMON_BOX_FILTER,0x0DF4,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C0_MSR_PMON_CTL0,	0x0D10,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C1_MSR_PMON_CTL0,	0x0D30,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C2_MSR_PMON_CTL0,	0x0D50,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C3_MSR_PMON_CTL0,	0x0D70,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C4_MSR_PMON_CTL0,	0x0D90,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C5_MSR_PMON_CTL0,	0x0DB0,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C6_MSR_PMON_CTL0,	0x0DD0,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C7_MSR_PMON_CTL0,	0x0DF0,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C0_MSR_PMON_CTL1,	0x0D11,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C1_MSR_PMON_CTL1,	0x0D31,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C2_MSR_PMON_CTL1,	0x0D51,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C3_MSR_PMON_CTL1,	0x0D71,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C4_MSR_PMON_CTL1,	0x0D91,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C5_MSR_PMON_CTL1,	0x0DB1,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C6_MSR_PMON_CTL1,	0x0DD1,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C7_MSR_PMON_CTL1,	0x0DF1,	0xFFFFFFFF, 0xFFFFFFFF),\
-SMSR_ENTRY( SMSR_C0_MSR_PMON_CTR0,	0x0D16,	0x0       , 0x0       ),\
-SMSR_ENTRY( SMSR_C1_MSR_PMON_CTR0,	0x0D36,	0x0       , 0x0       ),\
-SMSR_ENTRY( SMSR_C2_MSR_PMON_CTR0,	0x0D56,	0x0       , 0x0       ),\
-SMSR_ENTRY( SMSR_C3_MSR_PMON_CTR0,	0x0D76,	0x0       , 0x0       ),\
-SMSR_ENTRY( SMSR_C4_MSR_PMON_CTR0,	0x0D96,	0x0       , 0x0       ),\
-SMSR_ENTRY( SMSR_C5_MSR_PMON_CTR0,	0x0DB6,	0x0       , 0x0       ),\
-SMSR_ENTRY( SMSR_C6_MSR_PMON_CTR0,	0x0DD6,	0x0       , 0x0       ),\
-SMSR_ENTRY( SMSR_C7_MSR_PMON_CTR0,	0x0DF6,	0x0       , 0x0       ),\
-SMSR_ENTRY( SMSR_C0_MSR_PMON_CTR1,	0x0D17,	0x0       , 0x0       ),\
-SMSR_ENTRY( SMSR_C1_MSR_PMON_CTR1,	0x0D37,	0x0       , 0x0       ),\
-SMSR_ENTRY( SMSR_C2_MSR_PMON_CTR1,	0x0D57,	0x0       , 0x0       ),\
-SMSR_ENTRY( SMSR_C3_MSR_PMON_CTR1,	0x0D77,	0x0       , 0x0       ),\
-SMSR_ENTRY( SMSR_C4_MSR_PMON_CTR1,	0x0D97,	0x0       , 0x0       ),\
-SMSR_ENTRY( SMSR_C5_MSR_PMON_CTR1,	0x0DB7,	0x0       , 0x0       ),\
-SMSR_ENTRY( SMSR_C6_MSR_PMON_CTR1,	0x0DD7,	0x0       , 0x0       ),\
-SMSR_ENTRY( SMSR_C7_MSR_PMON_CTR1,	0x0DF7,	0x0       , 0x0       ),
 
 #endif	//Table 35-15
 
@@ -395,6 +353,69 @@ SMSR_ENTRY( SMSR_PERF_GLOBAL_OVF_CTRL,	0x390,	0x00000003, 0xC0000007),\
 SMSR_ENTRY( SMSR_PEBS_ENABLE,		0x3F1,	0x0000000F, 0x0000000F),
 
 #endif 	//Table 35-2
+
+//------------------------------------------------------------------------------
+
+#ifdef _USE_E5v2_E7v2_UNCORE
+/* Table 35-15 : Sandy Bridge
+ *
+ * CPUID signature 06_2DH and 06_2AH
+ * Additional MSRs that are specific to 06_2AH are in
+ * Table 35-15. 
+ *
+ */
+#define TMP1 \
+
+
+SMSR_ENTRY( SMSR_C0_MSR_PMON_BOX_CTL,	0x0D04,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C1_MSR_PMON_BOX_CTL,	0x0D24,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C2_MSR_PMON_BOX_CTL,	0x0D44,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C3_MSR_PMON_BOX_CTL,	0x0D64,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C4_MSR_PMON_BOX_CTL,	0x0D84,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C5_MSR_PMON_BOX_CTL,	0x0DA4,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C6_MSR_PMON_BOX_CTL,	0x0DC4,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C7_MSR_PMON_BOX_CTL,	0x0DE4,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C0_MSR_PMON_BOX_FILTER,0x0D14,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C1_MSR_PMON_BOX_FILTER,0x0D34,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C2_MSR_PMON_BOX_FILTER,0x0D54,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C3_MSR_PMON_BOX_FILTER,0x0D74,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C4_MSR_PMON_BOX_FILTER,0x0D94,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C5_MSR_PMON_BOX_FILTER,0x0DB4,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C6_MSR_PMON_BOX_FILTER,0x0DD4,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C7_MSR_PMON_BOX_FILTER,0x0DF4,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C0_MSR_PMON_CTL0,	0x0D10,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C1_MSR_PMON_CTL0,	0x0D30,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C2_MSR_PMON_CTL0,	0x0D50,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C3_MSR_PMON_CTL0,	0x0D70,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C4_MSR_PMON_CTL0,	0x0D90,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C5_MSR_PMON_CTL0,	0x0DB0,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C6_MSR_PMON_CTL0,	0x0DD0,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C7_MSR_PMON_CTL0,	0x0DF0,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C0_MSR_PMON_CTL1,	0x0D11,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C1_MSR_PMON_CTL1,	0x0D31,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C2_MSR_PMON_CTL1,	0x0D51,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C3_MSR_PMON_CTL1,	0x0D71,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C4_MSR_PMON_CTL1,	0x0D91,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C5_MSR_PMON_CTL1,	0x0DB1,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C6_MSR_PMON_CTL1,	0x0DD1,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C7_MSR_PMON_CTL1,	0x0DF1,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C0_MSR_PMON_CTR0,	0x0D16,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C1_MSR_PMON_CTR0,	0x0D36,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C2_MSR_PMON_CTR0,	0x0D56,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C3_MSR_PMON_CTR0,	0x0D76,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C4_MSR_PMON_CTR0,	0x0D96,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C5_MSR_PMON_CTR0,	0x0DB6,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C6_MSR_PMON_CTR0,	0x0DD6,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C7_MSR_PMON_CTR0,	0x0DF6,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C0_MSR_PMON_CTR1,	0x0D17,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C1_MSR_PMON_CTR1,	0x0D37,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C2_MSR_PMON_CTR1,	0x0D57,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C3_MSR_PMON_CTR1,	0x0D77,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C4_MSR_PMON_CTR1,	0x0D97,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C5_MSR_PMON_CTR1,	0x0DB7,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C6_MSR_PMON_CTR1,	0x0DD7,	0xFFFFFFFF, 0xFFFFFFFF),\
+SMSR_ENTRY( SMSR_C7_MSR_PMON_CTR1,	0x0DF7,	0xFFFFFFFF, 0xFFFFFFFF),
+#endif //_USE_E5v2_E7v2_UNCORE
 
 #define ENTRY_END SMSR_ENTRY( SMSR_LAST_ENTRY, 		0x000, 0x0,        0x0       )
 
@@ -455,245 +476,4 @@ SMSR_ENTRY( SMSR_PEBS_ENABLE,		0x3F1,	0x0000000F, 0x0000000F),
 //Taking out architectural table
 //#define SMSR_ENTRIES TMP2 TMP1 TMP0 ENTRY_END
 #endif // _USE_ARCH_062A
-
-/* 
- * I assume that no MSR on this list contains sensitive information.  Reads
- * will return the unmodified contents of the entire MSR.
- *
- * There are six cases for writes, several of which may exist within a single
- * MSR:
- *
- * a) Reserved					mask=0
- * b) Read-Only					mask=0
- * c) Read/Write, but read-only per policy	mask=0
- * d) Clear-Only, but read-only per policy	mask=0
- * e) Read/Write				mask=1
- * f) Clear-Only				mask=1
- *
- * Intel provides the following guidance:
- * "When loading a register, always load the reserved bits with the values 
- * indicated in the documentation, if any, or reload them with values previously 
- * read from the same register." (Section 1.3.2)
- *
- * Based on this, all writes will execute a read-modify-write sequence as
- * follows:
- *
- * 	existingval	<- rdmsr() & ~writemask
- * 	maskedval	<- userval & writemask
- * 			   wrmsr( maskedval | temp )
- *
- *
- * References are to the September 2013 edition of the Intel documentation.
- *
- * Values are for processor family 06 model 2D, "Intel Xeon Processor E5 Family
- * based on the Intel microarchitecture code name Sandy Bridge" (Table 35-1).
- *
- * Relevant tables are:
- * 	Page 35-102
- * 	Section 35.8 MSRs in Intel Processor Family Based on Intel Microarchitecture Sandy Bridge
- * 	Table 35-11 and Table 35-12 MSRs Suppored by Intel Processors based on Intel microarchitecture code name Sandy Bridge
- *
- * 	Page 35-121
- * 	Section 35.8.2 MSRs in Intel Xeon Processor E5 Family 
- * 	Table 35-14 Selected MSRs Supported by Intel Xeon Processors E5 Family
- *
- * 	Page 35-2
- * 	Section 35.1
- * 	Table 35-2 IA-32 Architectural MSRs
- *
- * Architectural information should only be used when indicated by tables 35-11, 35-12 and 35-14.
- *
- *	IA32_TIME_STAMP_COUNTER		See section 17.13.  Restrict to RO.
- *	 Thread		RW (RO)		
- *	 0x00 0x00
- *
- *	IA32_PLATFORM_ID		Bits 52:50 are of interest.  
- *	 Package	RO		
- *	 0x00 0x00
- *	
- *	PMCn				
- *	 0-3 Thread	RW		No restricted bits.
- *	 4-7 Core	RW		
- * 	 0xFFFFFFFF 0xFFFFFFFF
- *
- * 	MPERF/APERF			Restrict to RO.  See Section 14.2.		
- * 	 Thread		RW (RO)
- *
- *	PERFEVTSELn			See Section 18.2.2.2 (Architectural Perforamnce Monitoring
- *	 0-3 Thread	RW		Version 3 Facilities).  Bits 63:32 are reserved.  Note that bit
- *       4-7 Core       RW		17 enables counting Ring 0 events; we may want to restrict this.
- *       0xFFFFFFFF 0x0
- *	
- *	PERF_STATUS	RO		See Section 14.1.1.  Table 35-12 contains a duplicate 
- *	 Package			entry for this MSR.  Interpreting both, bits 0-15 are
- *	 0x0 0x0			the current performance value and 47:32 is the core 
- *					voltage: [37:32] * (float) 1/(2^13).  I have asked Intel
- *					for clarification.
- *	 
- *	PERF_CTL	RW (RMW)	Bits 15:0 are the target performance value and bit 
- *	 Thread				32 controls turbo mode (set high to disable).
- *	 0x0 0x1			Section 14.1.1 states "Applications and performance
- *					tools are not expected to use either IA32_PERF_CTL
- *					or IA32_PERF_STATUS and should treat both as reserved",
- *					but Section 14.3.2.2 states "System software can 
- *					temporarily disengage opportunistic processor performance
- *					operation by setting bit 32 of the IA32_PERF_CTL (0199H),
- *					using a read-modify-write sequence on the MSR."  
- *
- *	CLOCK_MODULATION		See 14.5.3.1 (Sandy Bridge uses the Clock Modualtion 
- *	 Thread		RW 		Extension).  Bits 4:0 are used.
- *	 0x7 0x0
- *
- * 	THERM_INTERRUPT			See 14.5.5.2.  Bits 4:0 and 24:8 are used; the rest
- *	 Core		RW		are reserved.
- *	 0x1FFFF0F	0x0
- *
- * 	THERM_STATUS			See 14.5.5.2.  
- * 	 Core		Special			Bit  Configuration
- * 	 0xAAA		0x0			00    	RO 
- * 	 					01    	R/WC0 (clear by writing 0)
- * 	 					02    	RO
- * 	 					03    	R/WC0 
- * 	 					04    	RO
- * 	 					05    	R/WC0 
- * 	 					06    	RO
- * 	 					07    	R/WC0 
- * 	 					08    	RO
- * 	 					09    	R/WC0 
- * 	 					10    	RO
- * 	 					11    	R/WC0 
- * 	 					22:16 	RO
- * 						26:23 	Reserved
- * 	 					30:27 	RO
- * 	 					31    	RO
- * 	 					63:32 	Reserved
- *
- *	MISC_ENABLE 				Just allow Speedstep and Turbo here.
- *	 0x10000 0x40
- * 	 
- * 	 Thread		RW			0 	Fast-String Enable (Section 7.3.9.3).
- * 	 					6:1	Reserved
- * 	 Thread		RO			7	Performance Monitoring Available (Section 18.4.4.3)
- *						10:8	Reserved
- *	 Thread		RO			11	Branch Trace Storage Unavailable (Section 17.4.9)
- *	 Thread		RO			12	PEBS Sampling Unavailable (Section 18.4.4.3)
- *	 					15:13	Reserved
- *	 Package	RW			16	Enable Speedstep (Section 14.1)
- *	 					17	???
- *	 Thread		RW			18	Enable Monitor FSM (See Table 35-2; do not write)
- *	 					21:19	Reserved
- *	 Thread		RW			22	Limit CPUID Maxval (See Table 35-2; do not write)
- *	 Thread		RW			23	xTPR Message Disable
- *	 					24:33	Reserved
- *	 Thread		RW			34	XD Bit Disable (See Table 35-2; do not write)
- *	 					37:35	Reserved
- *	 Package	RW			38	Turbo Mode Disable (Section 14.3.2.1)
- *	 					63:39	Reserved
- *
- *	OFFCORE_RSP_0/1				Off-core Response Performance Monitoring.
- *	 Thread		RW			See section 18.9.5.  Bits 37:15 and 11:0 are used.
- *	 0xFFFF8FFF 0x3F
- *
- *	ENERGY_PERF_BIAS			Section 14.3.4.  Used bits 3:0.
- *	 Package	RW
- *	 0xF 0x0
- *
- *	PACKAGE_THERM_STATUS			See section 14.6.  
- *	 Package	RW			This is another complex one with serveral RWC0 bits.	
- * 	0x00000555 0x0				Bits 1, 3, 5, 7, 9 and 11 are W or WC0.
- *
- * 	PACKAGE_THERM_INTERRUPT			See section 14.6
- * 	 Package 	RW			Bits 2:0, 4, and 24:8 are writable, but bit 4 controls
- * 	0x01FFFF07 0x0				generation of the critical temperature interrupt, so
- * 	 					we'll leave that out.
- * 	
- * 	TEMPERATURE_TARGET			See Table 35-11.
- * 	 Unique		RO			Bits 23:16 are readable, but the rest are reserved. 
- *	0x0 0x0
- *
- *	FIXED_CTRn				See section 18.2.2.  
- * 	 Thread		RW			
- * 	0xFFFFFFFF 0xFFFFFFFF
- *
- * 	PERF_CAPABILITIES			LBR and PEBS record formats, 12:0.
- * 	 Thread		RO			Section 17.4.1, others.
- *
- *      FIXED_CTR_CTRL				Section 18.2.2.1; bits 1:0, 5:3, 9:7 and 11.			
- *	 Thread         RW
- *	 0xBBB 0x0
- *	
- *	PERF_GLOBAL_STATUS			Section 18.4.2, bits 1:0, 34:32, 63:62.
- *	 Thread		RW
- *	 0x3 0xC0000007
- *
- *	PERF_GLOBAL_CTRL			Section 18.4.2, bits 1:0, 34:32.
- *	 Thread	        RW
- *	 0x3 0x7
- * 
- * 	PERF_GLOBAL_OVF_CTRL			Section 18.4.2, bits 1:0, 34:32, 63:62
- * 	 Thread		RW
- * 	 0x3 0xC0000007
- *
- * 	PEBS_ENABLE				Section 18.7.1.1, bits 3:0, 35:32
- * 	 Thread		RW
- * 	 0xF 0xF
- *
- *	PEBS_LD_LAT				Section 18.7.1.2, bits 15:0.
- *	 Thread		RW
- *	 0xFFFF 0x0
- *
- *	RAPL_POWER_UNIT				Section 14.7.1
- *	 Package	RO
- *	 0x0 0x0
- *
- *	PKG_POWER_LIMIT				Section 14.7.3
- *	 Package	RW			Bits 23:0, 55:32.  Bit 63 locks the results
- *	 0x00FFFFFF 0x00FFFFFF			until the next reboot, so don't allow user
- *	 					access to that bit.
- *
- *	PKG_ENERGY_STATUS			Section 14.7.3
- *	 Package	RO
- *	 0x0 0x0
- *
- *	PKG_POWER_INFO				Section 14.7.3
- *	 Package	RO
- *	 0x0 0x0
- *
- *	PP0_POWER_LIMIT				Section 14.7.4
- *	 Package	RW			Bits 23:0.  Do not allow access to lock bit 31.
- *	 0x00FFFFFF 0x0
- *
- *	PP0_ENERGY_STATUS			Section 14.7.4
- *	 Package	RO
- *	 0x0 0x0
- *
- *	---- Leaving Table 35-12, entering Table 35-14 ---
- *
- * 	TURBO_RATIO_LIMIT			Not discussed in the documentation (???).
- * 	 Package	RW			Writable if MSR_PLATFORM_INFO.[28] == 1, otherwise RO
- * 	 0xFFFFFFFF 0xFFFFFFFF
- *
- * 	PKG_PERF_STATUS				Section 14.7.3
- * 	 Package	RO
- * 	 0x0 0x0
- *
- * 	DRAM_POWER_LIMIT			Section 14.7.5
- *	 Package	RW			Bits 23:0.  Do not allow access to lock bit 31.
- *	 0x00FFFFFF 0x0
- *
- *	DRAM_ENERGY_STATUS			Section 14.7.5
- *	 Package	RO
- *	 0x0 0x0
- *
- *	DRAM_PERF_STATUS			Section 14.7.5
- *	 Package	RO
- *	 0x0 0x0
- *
- *	DRAM_POWER_INFO				Section 14.7.5
- *	 Package	RO 			Table incorrectly lists as RW
- *	 0x0 0x0
- *
- */	 
-
-
 #endif /* MSR_SUPPLEMENTAL_H */
