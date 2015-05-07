@@ -129,16 +129,8 @@
 //------------------------------------------------------------------------------
 
 #ifdef _USE_TABLE_35_16
-/* Table 35-16 : 2nd Generation Intel Core Processor Family (Based on Intel
- * Microarchitecture Code Name Sandy Bridge)
- *
- * These are specific to the 2nd generation with CPUID signature 06_2AH
- *
- */
-#define TMP2 \
-SMSR_ENTRY( SMSR_TURBO_RATIO_LIMIT,	0x1AD, 0xFFFFFFFF, 0xFFFFFFFF),
-
-#endif //Table 35-16
+#include "whitelist/table_35_16.h"
+#endif //_USE_TABLE_35_16
 
 //------------------------------------------------------------------------------
 
@@ -332,7 +324,7 @@ SMSR_ENTRY( SMSR_C7_MSR_PMON_CTR1,	0x0DF7,	0xFFFFFFFF, 0xFFFFFFFF),
 #endif // _USE_ARCH_063F
 
 #ifdef _USE_ARCH_0646		//Haswell
-#define SMSR_0646 TMP2 TMP1
+#define SMSR_0646 WH_TABLE_35_16 TMP1
 // Temporarily removing WL_TABLE_35_21 because matches PEFVEVTSEL
 // in TMP1
 //Table35_23 does not have a TMP defined
@@ -341,7 +333,7 @@ SMSR_ENTRY( SMSR_C7_MSR_PMON_CTR1,	0x0DF7,	0xFFFFFFFF, 0xFFFFFFFF),
 #endif // _USE_ARCH_0646
 
 #ifdef _USE_ARCH_0645		//Haswell
-#define SMSR_0645 TMP2 TMP1
+#define SMSR_0645 WH_TABLE_35_16 TMP1
 // Temporarily removing WL_TABLE_35_21 because matches PEFVEVTSEL
 // in TMP1
 //Table35_23 does not have a TMP defined
@@ -349,7 +341,7 @@ SMSR_ENTRY( SMSR_C7_MSR_PMON_CTR1,	0x0DF7,	0xFFFFFFFF, 0xFFFFFFFF),
 #endif // _USE_ARCH_0645
 
 #ifdef _USE_ARCH_063C		//Haswell
-#define SMSR_063C TMP2 TMP1
+#define SMSR_063C WH_TABLE_35_16 TMP1
 // Temporarily removing WL_TABLE_35_21 because matches PEFVEVTSEL
 // in TMP1
 //Table35_23 does not have a TMP defined
@@ -362,7 +354,7 @@ SMSR_ENTRY( SMSR_C7_MSR_PMON_CTR1,	0x0DF7,	0xFFFFFFFF, 0xFFFFFFFF),
 #endif // _USE_ARCH_063E
 
 #ifdef _USE_ARCH_IvyBridge	//Ivy Bridge
-#define SMSR_IvyBridge TMP2 TMP1
+#define SMSR_IvyBridge WH_TABLE_35_16 TMP1
 //Table35_18 does not have a TMP defined
 #endif // _USE_IvyBridge
 
@@ -373,8 +365,8 @@ SMSR_ENTRY( SMSR_C7_MSR_PMON_CTR1,	0x0DF7,	0xFFFFFFFF, 0xFFFFFFFF),
 #endif // _USE_ARCH_062D
 
 #ifdef _USE_ARCH_062A		//Sandy Bridge 
-#define SMSR_062A TMP2 TMP1
+#define SMSR_062A WH_TABLE_35_16 TMP1
 //Taking out architectural table
-//#define SMSR_ENTRIES TMP2 TMP1 TMP0 ENTRY_END
+//#define SMSR_ENTRIES WH_TABLE_35_16 TMP1 TMP0 ENTRY_END
 #endif // _USE_ARCH_062A
 #endif /* MSR_SUPPLEMENTAL_H */
