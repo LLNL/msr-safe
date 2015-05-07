@@ -107,59 +107,26 @@
 //Haswell------------------------------------------------------------------------------
 
 #ifdef _USE_TABLE_35_24
-/* Table 35-24 : MSRs In Next Generation Intel Xeon Processors 
- * (Based on Haswell Microarchitecture)
- *
- * CPUID signature 06_3F
- *
- */
-//NO ADDITIONAL REGISTERS THAT WE USE IN THIS TABLE YET
-
-#endif //Table 35-24
+#include "whitelist/table_35_24.h"
+#endif //_USE_TABLE_35_24
 
 //------------------------------------------------------------------------------
 
 #ifdef _USE_TABLE_35_23
-/* Table 35-23 : MSRs in 4th Generation Intel Core Processor Family
- * (Based on Haswell Microarchitecture)
- *
- * CPUID signatures 06_3CH/06_45H/06_46H
- *
- */
-//NO ADDITIONAL REGISTERS THAT WE USE IN THIS TABLE YET
-
-#endif //Table 35-23
+#include "whitelist/table_35_23.h"
+#endif //_USE_TABLE_35_23
 
 //------------------------------------------------------------------------------
 
 #ifdef _USE_TABLE_35_22
-/* Table 35-22 : Additional MSRs Supported by 4th Generation Intel Core Processors
- * (Based on Haswell microarchitecture)
- *
- * CPUID signature 06_45H
- *
- */
-
-//NO ADDITIONAL REGISTERS THAT WE USE IN THIS TABLE YET
-
-#endif //Table 35-22
+#include "whitelist/table_35_22.h"
+#endif //_USE_TABLE_35_22
 
 //------------------------------------------------------------------------------
 
 #ifdef _USE_TABLE_35_21
-/* Table 35-21 : 4th Generation Intel Core Processors
- * (Based on Haswell Microarchitecture)
- *
- * CPUID signatures 06_3CH/06_45H/06_46H
- *
- */
-#define TMP7 \
-SMSR_ENTRY( SMSR_PERFEVTSEL0,		0x186,	0xFFFFFFFF, 0x0       ),\
-SMSR_ENTRY( SMSR_PERFEVTSEL1,		0x187,	0xFFFFFFFF, 0x0       ),\
-SMSR_ENTRY( SMSR_PERFEVTSEL2,		0x188,	0xFFFFFFFF, 0x0       ),\
-SMSR_ENTRY( SMSR_PERFEVTSEL3,		0x189,	0xFFFFFFFF, 0x0       ),
-
-#endif //Table 35-21
+#include "whitelist/table_35_21.h"
+#endif //_USE_TABLE_35_21
 
 //IvyBridge------------------------------------------------------------------------------
 
@@ -432,7 +399,7 @@ SMSR_ENTRY( SMSR_C7_MSR_PMON_CTR1,	0x0DF7,	0xFFFFFFFF, 0xFFFFFFFF),
 
 #ifdef _USE_ARCH_0646		//Haswell
 #define SMSR_0646 TMP2 TMP1
-// Temporarily removing TMP7 because matches PEFVEVTSEL
+// Temporarily removing WL_TABLE_35_21 because matches PEFVEVTSEL
 // in TMP1
 //Table35_23 does not have a TMP defined
 //Table35_22 does not have a TMP defined
@@ -441,7 +408,7 @@ SMSR_ENTRY( SMSR_C7_MSR_PMON_CTR1,	0x0DF7,	0xFFFFFFFF, 0xFFFFFFFF),
 
 #ifdef _USE_ARCH_0645		//Haswell
 #define SMSR_0645 TMP2 TMP1
-// Temporarily removing TMP7 because matches PEFVEVTSEL
+// Temporarily removing WL_TABLE_35_21 because matches PEFVEVTSEL
 // in TMP1
 //Table35_23 does not have a TMP defined
 //Table35_18 does not have a TMP defined
@@ -449,7 +416,7 @@ SMSR_ENTRY( SMSR_C7_MSR_PMON_CTR1,	0x0DF7,	0xFFFFFFFF, 0xFFFFFFFF),
 
 #ifdef _USE_ARCH_063C		//Haswell
 #define SMSR_063C TMP2 TMP1
-// Temporarily removing TMP7 because matches PEFVEVTSEL
+// Temporarily removing WL_TABLE_35_21 because matches PEFVEVTSEL
 // in TMP1
 //Table35_23 does not have a TMP defined
 //Table35_18 does not have a TMP defined
