@@ -1,6 +1,11 @@
 // table_35_02.h
 #ifndef __TABLE_35_02_H
 #define __TABLE_35_02_H
+/* Table 35-2 Architectural MSRs
+ *
+ *
+ */
+#define WL_TABLE_35_02 \
 MSR_ENTRY( SMSR_TIME_STAMP_COUNTER,    0x010,  0x0,        0x0       ),\
 SMSR_ENTRY( SMSR_PLATFORM_ID,           0x017,  0x0,        0x0       ),\
 SMSR_ENTRY( SMSR_PMC0,                  0x0C1,  0xFFFFFFFF, 0xFFFFFFFF),\
