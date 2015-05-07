@@ -22,6 +22,7 @@
 // Each table_*.h file defines one WL_TABLE.
 
 //#include "table_35_02.h" unused.  
+#include "./whitelists/table_02_12.h"	// uncore
 #include "./whitelists/table_35_15.h"
 #include "./whitelists/table_35_16.h"
 #include "./whitelists/table_35_17.h"
@@ -51,7 +52,7 @@
 #endif // _USE_ARCH_063C
 
 #ifdef _USE_ARCH_063E		//Ivy Bridge
-#define SMSR_063E WL_TABLE_35_15 WL_TABLE_35_19 
+#define SMSR_063E WL_TABLE_35_15 WL_TABLE_35_19 WL_TABLE_02_12
 //WL_TABLE_35_20 
 #endif // _USE_ARCH_063E
 
