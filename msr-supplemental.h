@@ -18,32 +18,6 @@
 #define ENTRY1 SMSR_ENTRY( NO_SUCH_SMSR,		0x000, 0x0,        0x0       ),
 
 //ArchDefines------------------------------------------------------------------------------
-/* Tables below match up to TMP MACROs that need to be strug together in the end with
- * ENTRY1 and the END_ENTRY. These will make up the whitelist. 
- *
- * The TMPs are matched up with the tables as follows:
- *	-------------------------
- *	| Table		TMP#	|
- *	-------------------------
- *	| 2		0	|
- *	-------------------------
- *	| 15		1	|
- *	-------------------------
- *	| 16		2	|
- *	-------------------------
- *	| 17		3	|
- *	-------------------------
- *	|			|
- *	-------------------------
- *	| 19		5	|
- *	-------------------------
- *	|			|
- *	-------------------------
- *	| 21		7	|
- *	-------------------------
- *
- *
- */
 
 #ifdef _USE_ARCH_063F
 #define _USE_TABLE_35_24
@@ -131,66 +105,26 @@
 //IvyBridge------------------------------------------------------------------------------
 
 #ifdef _USE_TABLE_35_20
-/* Table 35-20 : Intel Xeon Processor E7 v2 Family 
- * (Based on Ivy Bridge-EP microarchitecture)
- *
- * CPUID signature 06_3EH (These are additional MSRs)
- *
- */
-
-//NO ADDITIONAL REGISTERS THAT WE USE IN THIS TABLE YET
-
-#endif //Table 35-20
+#include "whitelist/table_35_20.h"
+#endif //_USE_TABLE_35_20
 
 //------------------------------------------------------------------------------
 
 #ifdef _USE_TABLE_35_19
-/* Table 35-19 : Intel Xeon Processor E5 v2 Product Family 
- * (Based on Ivy Bridge-EP Microarchitecture)
- *
- * CPUID signature06_3EH
- *
- */
-#define TMP5 \
-SMSR_ENTRY( SMSR_DRAM_POWER_LIMIT,	0x618,	0x00FFFFFF, 0x0       ),\
-SMSR_ENTRY( SMSR_DRAM_ENERGY_STATUS,	0x619,	0x0,        0x0       ),\
-SMSR_ENTRY( SMSR_DRAM_PERF_STATUS,	0x61B,	0x0,        0x0       ),\
-SMSR_ENTRY( SMSR_DRAM_POWER_INFO,	0x61C,	0x0,        0x0       ),
-
-#endif //Table 35-19
+#include "whitelist/table_35_19.h"
+#endif //_USE_TABLE_35_19
 
 //------------------------------------------------------------------------------
 
 #ifdef _USE_TABLE_35_18
-/* Table 35-18 : 3rd Generation Intel Core Processor Family
- * (Based on Ivy Bridge Microarchitecture)
- *
- *
- */
-
-//NO ADDITIONAL REGISTERS THAT WE USE IN THIS TABLE YET
-
-#endif //Table 35-18
+#include "whitelist/table_35_18.h"
+#endif //_USE_TABLE_35_18
 
 //SandyBridge------------------------------------------------------------------------------
 
 #ifdef _USE_TABLE_35_17
-/* Table 35-17 : Intel Xeon Processor E5 Family 
- * (Based on Intel Microarchitecture Code Name Sandy Bridge)
- *
- * CPUID signature 06_2D
- *
- */
-#define TMP3 \
-SMSR_ENTRY( SMSR_TURBO_RATIO_LIMIT,	0x1AD, 0xFFFFFFFF, 0xFFFFFFFF),\
-\
-SMSR_ENTRY( SMSR_MSR_PKG_PERF_STATUS,	0x613,	0x0,        0x0       ),\
-SMSR_ENTRY( SMSR_DRAM_POWER_LIMIT,	0x618,	0x00FFFFFF, 0x0       ),\
-SMSR_ENTRY( SMSR_DRAM_ENERGY_STATUS,	0x619,	0x0,        0x0       ),\
-SMSR_ENTRY( SMSR_DRAM_PERF_STATUS,	0x61B,	0x0,        0x0       ),\
-SMSR_ENTRY( SMSR_DRAM_POWER_INFO,	0x61C,	0x0,        0x0       ),
-
-#endif //Table 35-17
+#include "whitelist/table_35_17.h"
+#endif //_USE_TABLE_35_17
 
 //------------------------------------------------------------------------------
 
@@ -423,7 +357,7 @@ SMSR_ENTRY( SMSR_C7_MSR_PMON_CTR1,	0x0DF7,	0xFFFFFFFF, 0xFFFFFFFF),
 #endif // _USE_ARCH_063C
 
 #ifdef _USE_ARCH_063E		//Ivy Bridge
-#define SMSR_063E TMP5 TMP1
+#define SMSR_063E WL_TABLE_35_19 TMP1
 //Table35_20 does not have a TMP defined
 #endif // _USE_ARCH_063E
 
@@ -433,9 +367,9 @@ SMSR_ENTRY( SMSR_C7_MSR_PMON_CTR1,	0x0DF7,	0xFFFFFFFF, 0xFFFFFFFF),
 #endif // _USE_IvyBridge
 
 #ifdef _USE_ARCH_062D		//Sandy Bridge 
-#define SMSR_062D TMP3 TMP1
+#define SMSR_062D WH_TABLE_35_17 TMP1
 //Taking out architectural table
-//#define SMSR_ENTRIES TMP3 TMP1 TMP0 ENTRY_END
+//#define SMSR_ENTRIES WH_TABLE_35_17 TMP1 TMP0 ENTRY_END
 #endif // _USE_ARCH_062D
 
 #ifdef _USE_ARCH_062A		//Sandy Bridge 
