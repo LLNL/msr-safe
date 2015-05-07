@@ -2,7 +2,6 @@
 #ifndef __TABLE_35_16_H
 #define __TABLE_35_16_H
 
-#ifdef _USE_TABLE_35_16
 /* Table 35-16 : 2nd Generation Intel Core Processor Family (Based on Intel
  * Microarchitecture Code Name Sandy Bridge)
  *

@@ -22,16 +22,16 @@
 // Each table_*.h file defines one WL_TABLE.
 
 //#include "table_35_02.h" usued. 
-#include "table_35_17.h"
-#include "table_35_20.h"
-#include "table_35_23.h"
-#include "table_35_15.h"
-#include "table_35_18.h"
+#include "./whitelists/table_35_17.h"
+#include "./whitelists/table_35_20.h"
+#include "./whitelists/table_35_23.h"
+#include "./whitelists/table_35_15.h"
+#include "./whitelists/table_35_18.h"
 //#include "table_35_21.h" conflict; talk to Kathleen.
-#include "table_35_24.h"
-#include "table_35_16.h"
-#include "table_35_19.h"
-#include "table_35_22.h"
+#include "./whitelists/table_35_24.h"
+#include "./whitelists/table_35_16.h"
+#include "./whitelists/table_35_19.h"
+#include "./whitelists/table_35_22.h"
 
 
 #ifdef _USE_ARCH_063F
