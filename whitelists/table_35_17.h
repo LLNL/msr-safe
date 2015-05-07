@@ -8,7 +8,7 @@
  * CPUID signature 06_2D
  *
  */
-#define WH_TABLE_35_17 \
+#define WL_TABLE_35_17 \
 SMSR_ENTRY( SMSR_TURBO_RATIO_LIMIT,     0x1AD, 0xFFFFFFFF, 0xFFFFFFFF),\
 \
 SMSR_ENTRY( SMSR_MSR_PKG_PERF_STATUS,   0x613,  0x0,        0x0       ),\
