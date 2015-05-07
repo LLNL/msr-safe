@@ -205,7 +205,7 @@ static void
 get_cpuid(uint32_t leaf, uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx)
 {
         asm volatile(
-                "xchg %%ebx, %%edi\n\tcpuid\n\txchg %%ebx, %%edi"
+                "xchg %%rbx, %%rdi\n\tcpuid\n\txchg %%rbx, %%rdi"
                         :"=a" (*eax), "=D" (*ebx), "=c" (*ecx), "=d" (*edx)
                         :"a" (leaf)
                 );  
