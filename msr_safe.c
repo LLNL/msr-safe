@@ -66,6 +66,7 @@ struct smsr_entry{
 #define _USE_ARCH_063C
 #define _USE_ARCH_0645
 #define _USE_ARCH_0646
+#define _USE_ARCH_063F
 #define _USE_ARCH_EMPTY
 #include "msr-supplemental.h"
 #undef _USE_ARCH_062D
@@ -74,6 +75,7 @@ struct smsr_entry{
 #undef _USE_ARCH_063C
 #undef _USE_ARCH_0645
 #undef _USE_ARCH_0646
+#undef _USE_ARCH_063F
 #undef _USE_ARCH_EMPTY
 
 typedef enum smsr{
@@ -110,6 +112,11 @@ SMSR_0645
 //Haswell
 #define SMSR_ENTRY(a,b,c,d) p0646_## a
 SMSR_0646
+#undef SMSR_ENTRY
+
+//Haswell
+#define SMSR_ENTRY(a,b,c,d) p063F_## a
+SMSR_063F
 #undef SMSR_ENTRY
 
 //Ending Entry
@@ -152,6 +159,11 @@ struct smsr_entry whitelist_0645[] = { ENTRY1 SMSR_0645 ENTRY_END };
 //Haswell
 #define SMSR_ENTRY(a,b,c,d) {b,c,d,6,#b,#a}
 struct smsr_entry whitelist_0646[] = { ENTRY1 SMSR_0646 ENTRY_END };
+#undef SMSR_ENTRY
+
+//Haswell
+#define SMSR_ENTRY(a,b,c,d) {b,c,d,7,#b,#a}
+struct smsr_entry whitelist_063F[] = { ENTRY1 SMSR_063F ENTRY_END };
 #undef SMSR_ENTRY
 
 static int init=0;
@@ -220,7 +232,7 @@ getArch (void)
 	uint32_t cpu_family_adjusted, cpu_model_adjusted;
 	char string[80];
 	const char *arches[8];
-        int arrayLength=7;
+        int arrayLength=8;
 	int i;
 
 	get_cpuid( 1, &regs[0], &regs[1], &regs[2], &regs[3] );
@@ -253,6 +265,7 @@ getArch (void)
         arches[4]= "06_3C";	//Haswell
         arches[5]= "06_45";	//Haswell
         arches[6]= "06_46";	//Haswell
+        arches[7]= "06_3F";	//Haswell
                                                                       
                                                                       
         for(i=1; i< arrayLength; i++)
@@ -499,6 +512,9 @@ static int __init msr_init(void)
 			break;
 		case 6:
 			whitelist=whitelist_0646;
+			break;
+		case 7:
+			whitelist=whitelist_063F;
 			break;
 		default:
 			whitelist=whitelist_EMPTY;

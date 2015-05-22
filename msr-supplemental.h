@@ -22,7 +22,8 @@
 // Each table_*.h file defines one WL_TABLE.
 
 //#include "table_35_02.h" unused.  
-#include "./whitelists/table_02_12.h"	// uncore
+#include "./whitelists/table_02_12.h"	// Ivy Bridge uncore
+#include "./whitelists/table_03_18.h"	// Haswell uncore
 #include "./whitelists/table_35_15.h"
 #include "./whitelists/table_35_16.h"
 #include "./whitelists/table_35_17.h"
@@ -32,6 +33,13 @@
 //#include "table_35_21.h" conflict; talk to Kathleen.
 //#include "./whitelists/table_35_22.h" currently empty
 //#include "./whitelists/table_35_23.h" currently empty
+#include "./whitelists/table_35_25.h"
+
+#ifdef _USE_ARCH_063F		//Haswell
+// Temporarily removing WL_TABLE_35_21 because matches PEFVEVTSEL in WL_TABLE_35_15
+#define SMSR_063F WL_TABLE_35_15 WL_TABLE_35_17 WL_TABLE_35_25 WL_TABLE_03_18
+//WL_TABLE_35_18 WL_TABLE_35_22 WL_TABLE_35_23
+#endif // _USE_ARCH_063F
 
 #ifdef _USE_ARCH_0646		//Haswell
 // Temporarily removing WL_TABLE_35_21 because matches PEFVEVTSEL in WL_TABLE_35_15
