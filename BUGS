@@ -1,4 +1,0 @@
-2015-05-03 31 device limit?
-	Kconfig mentions that only devices 0-31 are created.
-	Will need at least 0-71 on dual-socket haswell w/ hyperthreading.
-
