@@ -22,21 +22,34 @@
  * an SMP box will direct the access to CPU %d.
  */
 #include <linux/module.h>   // Needed by all kernel modules
+#include <linux/kernel.h>
 #include <linux/fs.h>       // Needed for file i/o
 #include <linux/device.h>
 #include <linux/cpu.h>
 #include <linux/uaccess.h>
+#include <linux/ctype.h>
 
-static struct class *msr_class;
-static int majordev;                // Our dynamically allocated major device number
 /*
  * The minor device scheme works as follows:
  *      0 through (NR_CPUS-1) are for the CPUs
  *      NR_CPUS is the administrative whitelist interface
  */
-#define MSR_NUM_MINORS  NR_CPUS+1
+#define MSR_NUM_MINORS          NR_CPUS+1
 #define MSR_WLIST_ADMIN_MINOR   NR_CPUS
 #define MSR_IS_WLIST_ADMIN(m)   ((m) == MSR_WLIST_ADMIN_MINOR)
+
+static struct class *msr_class;
+static int majordev;                // Our dynamically allocated major device number
+
+/* Initialization flags */
+static char msr_chardev_created[MSR_NUM_MINORS];
+static char msr_chardev_registered = 0;
+static char msr_class_created = 0;
+static char msr_notifier_registered = 0;
+
+/* Data buffering for parsing user input */
+#define MAX_WLIST_BSIZE (64 * 1024)
+static char msrbuf[MAX_WLIST_BSIZE+1];   /* "+1" for the null character */
 
 static loff_t msr_seek(struct file *file, loff_t offset, int orig)
 {
@@ -70,7 +83,7 @@ static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_
     int err = -EACCES; //Initialize to Permission Denied
 
     if (MSR_IS_WLIST_ADMIN(cpu)) {
-        printk(KERN_DEBUG "Admin: %s:%i, %d buffer provided\n", __FILE__, __LINE__, (int)count);
+        printk(KERN_DEBUG "Admin: %s:%i, %zu buffer provided\n", __FILE__, __LINE__, count);
         return count-1;
     }
 
@@ -91,29 +104,84 @@ static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_
     return err ? err : 8;
 }
 
-#define MAX_WLIST_BSIZE (64 * 1024)
 typedef struct {
     u64 wmask;  // Bits that may be written
     u64 rmask;  // Bits that may be read
     u32 msr;    // Address of msr
 } msr_twlist;
 
+// TODO: Easiest thing would be to clear previous whitelist
+//       and then write a new one.
+// TODO; Parse input
+//
+
+int msr_parse_whitelist(char *buf, size_t count)
+{
+    char *s = buf;
+    char *s2;
+    int i;
+    int err;
+    u64 data[3];
+
+    while (*s) {
+        s = skip_spaces(s);
+
+        if (*s == '#') {   /* Skip remaining portion of line */
+            for (s = s + 1; *s != 0 && *s != '\n'; s++) ;
+            if (*s == '\n') s++;
+            continue;
+        }
+
+        for (i = 0; i < 3; i++) {   /* The pattern should be %x %llx %llx # comment */
+            s2 = s = skip_spaces(s);
+            while (!isspace(*s) && *s)
+                s++;
+            if (*s) {
+                *s++ = 0;   /* Null-terminate this portion of string */
+                err = kstrtoull(s2, 0, &data[i]);
+                if (err) {
+                    printk(KERN_ALERT "msr_parse_whitelist: kstrtoull(%s) failed, eno %d\n", s2, err);
+                    return err;
+                }
+                else {
+                    printk(KERN_DEBUG "msr_parse_whitelist(%d): %llx converted\n", i, data[i]);
+                }
+            }
+            else {
+                printk(KERN_ALERT "msr_parse_whitelist: Premature EOF");
+                return -EINVAL;
+            }
+        }
+    }
+
+    return s - buf;
+}
+
 static ssize_t msr_whitelist_update(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
 {
     const u32 __user *tmp = (const u32 __user *)buf;
-    u32 data[2];
-    loff_t reg = *ppos;
+    int err;
+
+    printk(KERN_DEBUG "msr_whitelist_update: %s:%i, %zu buffer provided\n", __FILE__, __LINE__, count);
+
+    /* TODO: Remove this restriction and handle large files like a man... */
     if (count > MAX_WLIST_BSIZE) {
-        printk(KERN_ALERT "msr_whitelist_update: Data buffer of %d bytes is too large\n", (int)count);
+        printk(KERN_ALERT "msr_whitelist_update: Data buffer of %zu bytes is too large\n", count);
         return -EINVAL;
     }
-    // TODO: Left off here.
-    // TODO: Easiest thing would be to clear previous whitelist
-    //       and then write a new one.
-    // TODO; Parse input
-    //
 
-    printk(KERN_DEBUG "msr_whitelist_update: %s:%i, %d buffer provided\n", __FILE__, __LINE__, (int)count);
+    if (copy_from_user(msrbuf, tmp, count)) {
+        printk(KERN_ALERT "msr_whitelist_update: copy_from_user(%zu bytes) failed\n", count);
+        return -EFAULT;
+    }
+
+    msrbuf[count] = 0;  // NULL-terminate to make it into a big string
+
+    if ((err = msr_parse_whitelist(msrbuf, count)) < 0) {
+        printk(KERN_ALERT "msr_whitelist_update: Unable to parse user input\n");
+        return err;
+    }
+
     return count;
 }
 
@@ -224,65 +292,84 @@ static char *msr_devnode(struct device *dev, umode_t *mode)
         return kasprintf(GFP_KERNEL, "cpu/%u/msr_safe", MINOR(dev->devt));
 }
 
+static void msr_cleanup(void)
+{
+    int cpu = 0;
+
+    if (msr_notifier_registered) {
+        msr_notifier_registered = 0;
+        unregister_hotcpu_notifier(&msr_class_cpu_notifier);
+    }
+
+    for_each_online_cpu(cpu) {
+        if (msr_chardev_created[cpu]) {
+            msr_chardev_created[cpu] = 0;
+            msr_device_destroy(cpu);
+        }
+    }
+
+    if (msr_chardev_created[MSR_WLIST_ADMIN_MINOR]) {
+        msr_chardev_created[MSR_WLIST_ADMIN_MINOR] = 0;
+        msr_device_destroy(MSR_WLIST_ADMIN_MINOR);
+    }
+
+    if (msr_class_created) {
+        msr_class_created = 0;
+        class_destroy(msr_class);
+    }
+
+    if (msr_chardev_registered) {
+        msr_chardev_registered = 0;
+        __unregister_chrdev(majordev, 0, MSR_NUM_MINORS, "cpu/msr_safe");
+    }
+}
+
 static int __init msr_init(void)
 {
-    int i = 0, err;
+    int i, err;
 
-    majordev = __register_chrdev(0, 0, MSR_NUM_MINORS, "cpu/msr_safe", &msr_fops);
-    if (majordev < 0) {
+    if ((majordev = __register_chrdev(0, 0, MSR_NUM_MINORS, "cpu/msr_safe", &msr_fops)) < 0) {
         printk(KERN_ERR "msr_safe: unable to register device number\n");
+        msr_cleanup();
         return -EBUSY;
     }
+    msr_chardev_registered = 1;
 
     msr_class = class_create(THIS_MODULE, "msr_safe");
     if (IS_ERR(msr_class)) {
         err = PTR_ERR(msr_class);
-        __unregister_chrdev(majordev, 0, MSR_NUM_MINORS, "cpu/msr_safe");
+        msr_cleanup();
         return err;
     }
+    msr_class_created = 1;
+
+    for (i = 0; i < MSR_NUM_MINORS; i++)
+        msr_chardev_created[i] = 0;
 
     msr_class->devnode = msr_devnode;
-
     if ((err = msr_device_create(MSR_WLIST_ADMIN_MINOR))) {
-            class_destroy(msr_class);
-            __unregister_chrdev(majordev, 0, MSR_NUM_MINORS, "cpu/msr_safe");
-            return err;
+        msr_cleanup();
+        return err;
     }
+    msr_chardev_created[MSR_WLIST_ADMIN_MINOR] = 1;
        
+    i = 0;
     for_each_online_cpu(i) {
-        err = msr_device_create(i);
-        if (err != 0) {
-            // TODO: Need better cleanup here in the event that we die
-            // before all devices have been successfully created.
-            i = 0;
-            for_each_online_cpu(i)
-                msr_device_destroy(i);
-
-            msr_device_destroy(MSR_WLIST_ADMIN_MINOR);
-            class_destroy(msr_class);
-            __unregister_chrdev(majordev, 0, MSR_NUM_MINORS, "cpu/msr_safe");
+        if ((err = msr_device_create(i)) != 0) {
+            msr_cleanup();
             return err;
         }
+        msr_chardev_created[i] = 1;
     }
-    register_hotcpu_notifier(&msr_class_cpu_notifier);
 
+    register_hotcpu_notifier(&msr_class_cpu_notifier);
+    msr_notifier_registered = 1;
     return 0;
 }
 
 static void __exit msr_exit(void)
 {
-    int cpu = 0;
-
-    unregister_hotcpu_notifier(&msr_class_cpu_notifier);
-
-    for_each_online_cpu(cpu)
-        msr_device_destroy(cpu);
-
-    msr_device_destroy(MSR_WLIST_ADMIN_MINOR);
-
-    class_destroy(msr_class);
-
-    __unregister_chrdev(majordev, 0, MSR_NUM_MINORS, "cpu/msr_safe");
+    msr_cleanup();
 }
 
 module_init(msr_init);
