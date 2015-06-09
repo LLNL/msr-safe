@@ -38,8 +38,6 @@ static int majordev;                // Our dynamically allocated major device nu
 #define MSR_WLIST_ADMIN_MINOR   NR_CPUS
 #define MSR_IS_WLIST_ADMIN(m)   ((m) == MSR_WLIST_ADMIN_MINOR)
 
-//static char *Version = "1.3.0";   // TODO: Determine appropriate mechanism for version information
-
 static loff_t msr_seek(struct file *file, loff_t offset, int orig)
 {
     loff_t ret;
@@ -71,6 +69,11 @@ static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_
     int cpu = iminor(file->f_path.dentry->d_inode);
     int err = -EACCES; //Initialize to Permission Denied
 
+    if (MSR_IS_WLIST_ADMIN(cpu)) {
+        printk(KERN_DEBUG "Admin: %s:%i, %d buffer provided\n", __FILE__, __LINE__, (int)count);
+        return count-1;
+    }
+
     // "Count" doesn't have any meaning here, as we
     // never want to read more than one msr at at time.
     if (count != 8)
@@ -88,30 +91,62 @@ static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_
     return err ? err : 8;
 }
 
-static ssize_t msr_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
+#define MAX_WLIST_BSIZE (64 * 1024)
+typedef struct {
+    u64 wmask;  // Bits that may be written
+    u64 rmask;  // Bits that may be read
+    u32 msr;    // Address of msr
+} msr_twlist;
+
+static ssize_t msr_whitelist_update(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
 {
     const u32 __user *tmp = (const u32 __user *)buf;
     u32 data[2];
     loff_t reg = *ppos;
-    int cpu = iminor(file->f_path.dentry->d_inode);
-    int err = -EACCES;
+    if (count > MAX_WLIST_BSIZE) {
+        printk(KERN_ALERT "msr_whitelist_update: Data buffer of %d bytes is too large\n", (int)count);
+        return -EINVAL;
+    }
+    // TODO: Left off here.
+    // TODO: Easiest thing would be to clear previous whitelist
+    //       and then write a new one.
+    // TODO; Parse input
+    //
 
-    // "Count" doesn't have any meaning here, as we
-    // never want to write more than one msr at at time.
-    if (count != 8)
-        return -EINVAL;	/* Invalid chunk size */
+    printk(KERN_DEBUG "msr_whitelist_update: %s:%i, %d buffer provided\n", __FILE__, __LINE__, (int)count);
+    return count;
+}
 
-    // TODO: Put whitelist check here
-    
-    if (copy_from_user(&data[0], tmp, 8)) {
-        err = -EFAULT;
+static ssize_t msr_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
+{
+    if (MSR_IS_WLIST_ADMIN(iminor(file->f_path.dentry->d_inode))) {
+        return msr_whitelist_update(file, buf, count, ppos);
     }
     else {
-        //TODO: data &= MASK;
-        err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
-    }
+        const u32 __user *tmp = (const u32 __user *)buf;
+        u32 data[2];
+        loff_t reg = *ppos;
+        int cpu = iminor(file->f_path.dentry->d_inode);
+        int err = -EACCES;
 
-    return err ? err : 8;
+        // "Count" doesn't have any meaning here, as we
+        // never want to write more than one msr at at time.
+        if (count != 8)
+            return -EINVAL;	/* Invalid chunk size */
+
+        // TODO: Put whitelist check here
+        // TODO: Need to determine how to best return partial write success which
+        //       would happen if the user had write access to some, but not all bit fields.
+    
+        if (copy_from_user(&data[0], tmp, 8)) {
+            err = -EFAULT;
+        }
+        else {
+            //TODO: data &= MASK;
+            err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
+        }
+        return err ? err : 8;
+    }
 }
 
 static int msr_open(struct inode *inode, struct file *file)
@@ -120,6 +155,9 @@ static int msr_open(struct inode *inode, struct file *file)
     struct cpuinfo_x86 *c;
 
     cpu = iminor(file->f_path.dentry->d_inode);
+
+    if (MSR_IS_WLIST_ADMIN(cpu))
+        return 0;       // Let 'em in...
 
     if (cpu >= nr_cpu_ids || !cpu_online(cpu))
         return -ENXIO;  // No such CPU
