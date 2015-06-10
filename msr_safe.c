@@ -21,40 +21,38 @@
  * This driver uses /dev/cpu/%d/msr_safe where %d is the minor number, and on
  * an SMP box will direct the access to CPU %d.
  */
-#include <linux/module.h>   // Needed by all kernel modules
+#include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
-#include <linux/fs.h>       // Needed for file i/o
+#include <linux/fs.h>
 #include <linux/device.h>
 #include <linux/cpu.h>
 #include <linux/uaccess.h>
 #include <linux/ctype.h>
 #include <linux/hashtable.h>
-#include <linux/slab.h>     // kmalloc()
+#include <linux/slab.h>
+#include <linux/mutex.h>
+
+/* -- Begin setup for driver initialization and registration ---------------- */
 
 /*
  * The minor device scheme works as follows:
- *      0 through (NR_CPUS-1) are for the CPUs
- *      NR_CPUS is the administrative whitelist interface
+ *      0 : (NR_CPUS-1)     are for the CPUs
+ *      NR_CPUS             is the administrative whitelist interface
  */
 #define MSR_NUM_MINORS          NR_CPUS+1
 #define MSR_WLIST_ADMIN_MINOR   NR_CPUS
 #define MSR_IS_WLIST_ADMIN(m)   ((m) == MSR_WLIST_ADMIN_MINOR)
 
 static struct class *msr_class;
-static int majordev;    /* Our dynamically allocated major device number */
-
-/* Initialization flags */
+static int majordev;
 static char msr_chardev_created[MSR_NUM_MINORS];
 static char msr_chardev_registered = 0;
 static char msr_class_created = 0;
 static char msr_notifier_registered = 0;
 
-/* Data buffering for parsing user input */
-#define MAX_WLIST_BSIZE (64 * 1024)
-static char msrbuf[MAX_WLIST_BSIZE+1];   /* "+1" for the null character */
+#define MAX_WLIST_BSIZE ((128 * 1024) + 1) /* "+1" for null character */
 
-/* White list management section */
 typedef struct {
     u64 wmask;  /* Bits that may be written */
     u64 rmask;  /* Bits that may be read */
@@ -63,13 +61,13 @@ typedef struct {
 } msr_twlist;
 
 static DEFINE_HASHTABLE(msrwl_hash, 6);
+/*TODO: (potentially) replace msrwl_mutex with RCU for faster reader access*/
+static DEFINE_MUTEX(msrwl_mutex);
 static msr_twlist *msrwl_entries=0;   /* (allocated) white list entries array */
 static int msrwl_numentries = 0;
 
 static void msrwl_delete(void)
 {
-    /*TODO: Need to clean entries off of hash table */
-    /*TODO: Need to protect this pointer with RCU*/
     if (msrwl_entries != 0) {
         kfree(msrwl_entries);
         msrwl_entries = 0;
@@ -79,7 +77,8 @@ static void msrwl_delete(void)
 
 static int msrwl_create(int nentries)
 {
-    msrwl_delete(); /* Replace current whitelist */
+    hash_init(msrwl_hash);
+    msrwl_delete();
     msrwl_numentries = nentries;
     msrwl_entries = kmalloc((nentries * sizeof(msr_twlist)), GFP_KERNEL);
 
@@ -91,19 +90,33 @@ static int msrwl_create(int nentries)
     return 0;
 }
 
-/*TODO:
-static int msrwl_find(msr_twlist *entry)
+static msr_twlist *msrwl_find(u64 msr)
 {
-    int found = 0;
+    msr_twlist *entry;
 
-    return found;
+    hash_for_each_possible(msrwl_hash, entry, hlist, msr)
+        if (entry->msr == msr)
+            return entry;
+    return 0;
 }
-*/
 
 static void msrwl_add(msr_twlist *entry)
 {
     hash_add(msrwl_hash, &entry->hlist, entry->msr);
-    
+}
+
+static u64 msrwl_get_readmask(loff_t reg)
+{
+    msr_twlist *entry = msrwl_find((u64)reg);
+
+    return entry ? entry->rmask : 0;
+}
+
+static u64 msrwl_get_writemask(loff_t reg)
+{
+    msr_twlist *entry = msrwl_find((u64)reg);
+
+    return entry ? entry->wmask : 0;
 }
 
 static int msrwl_parse_entry(char *inbuf, char **nextinbuf, msr_twlist *entry)
@@ -158,27 +171,35 @@ static int msrwl_parse_entry(char *inbuf, char **nextinbuf, msr_twlist *entry)
 static ssize_t msrwl_update(struct file *file, const char __user *buf, 
                                                 size_t count, loff_t *ppos)
 {
-    int i;
+    int err = 0;
     const u32 __user *tmp = (const u32 __user *)buf;
     char *s;
     int res;
     int num_entries;
     msr_twlist *entry;
-
-    printk(KERN_DEBUG "msrwl_update: %s:%i, %zu buffer provided\n", 
-                                                    __FILE__, __LINE__, count);
+    char *msrbuf;
 
     /* TODO: Remove this restriction and handle large files like a man... */
-    if (count > MAX_WLIST_BSIZE) {
+    if (count+1 > MAX_WLIST_BSIZE) {
         printk(KERN_ALERT "msrwl_update: Data buffer of %zu bytes too large\n",
                                                                          count);
-        return -EINVAL;
+        err = -EINVAL;
+        goto out1;
+    }
+
+    msrbuf = kmalloc(count+1, GFP_KERNEL);
+    if (!msrbuf) {
+        printk(KERN_ALERT "msrwl_update: failed to allocate buffer(%zu)\n", 
+                                                                    count+1);
+        err = -ENOMEM;
+        goto out1;
     }
 
     if (copy_from_user(msrbuf, tmp, count)) {
         printk(KERN_ALERT "msrwl_update: copy_from_user(%zu bytes) failed\n", 
                                                                         count);
-        return -EFAULT;
+        err = -EFAULT;
+        goto out2;
     }
 
     msrbuf[count] = 0;  // NULL-terminate to make it into a big string
@@ -191,41 +212,48 @@ static ssize_t msrwl_update(struct file *file, const char __user *buf,
      *
      * Pass 1: */
     for (num_entries = 0, s = msrbuf, res = 1; res > 0; ) {
-        if ((res = msrwl_parse_entry(s, &s, 0)) < 0)
-            return res;         /* Parsing failed */
+        if ((res = msrwl_parse_entry(s, &s, 0)) < 0) {
+            err = res;
+            goto out2;
+        }
 
         if (res)
             num_entries++;
     }
 
-    printk(KERN_DEBUG "msrwl_update: %d entries parsed\n", num_entries);
-
+    mutex_lock(&msrwl_mutex);
     if ((res = msrwl_create(num_entries)) < 0) {
-        printk(KERN_ALERT "msrwl_update: Failed to allocate %d entries\n", 
-                                                                num_entries);
-        return res;
+        err = res;
+        goto out3;
     }
 
     /* Pass 2: */
     for (entry = msrwl_entries, s = msrbuf, res = 1; res > 0; entry++) {
         if ((res = msrwl_parse_entry(s, &s, entry)) < 0) {
             printk(KERN_ALERT "msrw_update: Table corrupted\n");
-            return res;         /* This should not happen! */
+            msrwl_delete();
+            err = res;         /* This should not happen! */
+            goto out3;
         }
+
         if (res) {
-            printk(KERN_DEBUG "msrw_update: Entry(%llx %llx %llx) parsed\n", 
-                                        entry->msr, entry->wmask, entry->rmask);
+            if (msrwl_find(entry->msr)) {
+                printk(KERN_ALERT "msrw_update: Duplicate entry found: %llx\n", 
+                                                                entry->msr);
+                err = -EINVAL;
+                msrwl_delete();
+                goto out3;
+            }
             msrwl_add(entry);
         }
     }
 
-    entry = 0;
-    hash_for_each(msrwl_hash, i, entry, hlist) {
-        printk(KERN_DEBUG "msrw_HASH: Entry(%llx %llx %llx)\n", 
-                                        entry->msr, entry->wmask, entry->rmask);
-    }
-
-    return count;
+out3:
+    mutex_unlock(&msrwl_mutex);
+out2:
+    kfree(msrbuf);
+out1:
+    return err ? err : count;
 }
 
 static loff_t msr_seek(struct file *file, loff_t offset, int orig)
@@ -256,13 +284,13 @@ msr_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 {
     u32 __user *tmp = (u32 __user *) buf;
     u32 data[2];
+    u64 wl_readmask;        /* Bits we are allowed to read */
     loff_t reg = *ppos;
     int cpu = iminor(file->f_path.dentry->d_inode);
-    int err = -EACCES; /* Initialize to Permission Denied */
+    int err = -EACCES;     /* Initialize to Permission Denied */
 
     if (MSR_IS_WLIST_ADMIN(cpu)) {
-        printk(KERN_DEBUG "Admin: %s:%i, %zu buffer provided\n", 
-                                        __FILE__, __LINE__, count);
+        /*TODO: Update read of whitelist to return dump of whitelist to caller*/
         return count-1;
     }
 
@@ -272,11 +300,22 @@ msr_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
     if (count != 8)
         return -EINVAL;	/* Invalid chunk size */
 
-    /* TODO: Put whitelist check here */
+    mutex_lock(&msrwl_mutex);
+    wl_readmask = msrwl_get_readmask(reg);
+    mutex_unlock(&msrwl_mutex);
+
+    if (wl_readmask == 0)
+        return -EACCES;
+
     err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
     if (!err)
     {
-        if (copy_to_user(tmp, &data, 8))
+        u64 *pdata = (u64*)&data[0];
+
+        *pdata &= wl_readmask;
+
+        /* Only return the bits that the white list says we have acccess to */
+        if (copy_to_user(tmp, data, 8))
             err = -EFAULT;
         else
             err = 0; /* Success */
@@ -287,36 +326,39 @@ msr_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 static ssize_t 
 msr_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
 {
+    const u32 __user *tmp = (const u32 __user *)buf;
+    u32 data[2];
+    u64 *pdata = (u64*)&data[0];
+    u64 wl_writemask;
+    loff_t reg = *ppos;
+    int cpu = iminor(file->f_path.dentry->d_inode);
+    int err = -EACCES;
+
     if (MSR_IS_WLIST_ADMIN(iminor(file->f_path.dentry->d_inode))) {
         return msrwl_update(file, buf, count, ppos);
     }
-    else {
-        const u32 __user *tmp = (const u32 __user *)buf;
-        u32 data[2];
-        loff_t reg = *ppos;
-        int cpu = iminor(file->f_path.dentry->d_inode);
-        int err = -EACCES;
 
-        /* "Count" doesn't have any meaning here, as we
-         * never want to write more than one msr at at time.
-         */
-        if (count != 8)
-            return -EINVAL;	/* Invalid chunk size */
+    /* "Count" doesn't have any meaning here, as we
+     * never want to write more than one msr at at time.
+     */
+    if (count != 8)
+        return -EINVAL;	/* Invalid chunk size */
 
-        /* TODO: Put whitelist check here
-         * TODO: Need to determine how to best return partial write success 
-         *       which would happen if the user had write access to some, 
-         *       but not all bit fields.
-         */
-        if (copy_from_user(&data[0], tmp, 8)) {
-            err = -EFAULT;
-        }
-        else {
-            /*TODO: data &= MASK;*/
-            err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
-        }
-        return err ? err : 8;
+    mutex_lock(&msrwl_mutex);
+    wl_writemask = msrwl_get_writemask(reg);
+    mutex_unlock(&msrwl_mutex);
+
+    if (wl_writemask == 0)
+        return -EACCES;
+
+    if (copy_from_user(&data[0], tmp, 8)) {
+        err = -EFAULT;
     }
+    else {
+        *pdata &= wl_writemask;
+        err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
+    }
+    return err ? err : 8;
 }
 
 static int msr_open(struct inode *inode, struct file *file)
@@ -487,4 +529,6 @@ MODULE_AUTHOR("Marty McFadden <mcfadden8@llnl.gov>");
 MODULE_DESCRIPTION("x86 sanitized MSR driver");
 MODULE_LICENSE("GPL");
 MODULE_SUPPORTED_DEVICE("msr_safe");
+/*TODO: Produce version information for this driver*/
+/*TODO: Check version information of Linux kernel for base level*/
 
