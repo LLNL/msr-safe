@@ -29,6 +29,8 @@
 #include <linux/cpu.h>
 #include <linux/uaccess.h>
 #include <linux/ctype.h>
+#include <linux/hashtable.h>
+#include <linux/slab.h>     // kmalloc()
 
 /*
  * The minor device scheme works as follows:
@@ -60,32 +62,48 @@ typedef struct {
     struct hlist_node hlist;
 } msr_twlist;
 
+static DEFINE_HASHTABLE(msrwl_hash, 6);
+static msr_twlist *msrwl_entries=0;   /* (allocated) white list entries array */
+static int msrwl_numentries = 0;
+
 static void msrwl_delete(void)
 {
-    /* TODO */
+    /*TODO: Need to clean entries off of hash table */
+    /*TODO: Need to protect this pointer with RCU*/
+    if (msrwl_entries != 0) {
+        kfree(msrwl_entries);
+        msrwl_entries = 0;
+        msrwl_numentries = 0;
+    }
 }
 
 static int msrwl_create(int nentries)
 {
-    int err = 0;
-
     msrwl_delete(); /* Replace current whitelist */
+    msrwl_numentries = nentries;
+    msrwl_entries = kmalloc((nentries * sizeof(msr_twlist)), GFP_KERNEL);
 
-    /* TODO */
-    return err;
+    if (!msrwl_entries) {
+        printk(KERN_ALERT "msrwl_create: allocation of %lu bytes failed\n",
+                        (nentries * sizeof(msr_twlist)));
+        return -ENOMEM;
+    }
+    return 0;
 }
 
+/*TODO:
 static int msrwl_find(msr_twlist *entry)
 {
     int found = 0;
 
-    /* TODO */
     return found;
 }
+*/
 
 static void msrwl_add(msr_twlist *entry)
 {
-    /* TODO */
+    hash_add(msrwl_hash, &entry->hlist, entry->msr);
+    
 }
 
 static int msrwl_parse_entry(char *inbuf, char **nextinbuf, msr_twlist *entry)
@@ -127,9 +145,11 @@ static int msrwl_parse_entry(char *inbuf, char **nextinbuf, msr_twlist *entry)
         *s++ = tmp;
     }
 
-    entry->msr =  data[0];
-    entry->wmask = data[1];
-    entry->rmask = data[2];
+    if (entry) {
+        entry->msr =  data[0];
+        entry->wmask = data[1];
+        entry->rmask = data[2];
+    }
 
     *nextinbuf = s;     /* Return where we left off to caller */
     return *nextinbuf - inbuf;
@@ -138,11 +158,12 @@ static int msrwl_parse_entry(char *inbuf, char **nextinbuf, msr_twlist *entry)
 static ssize_t msrwl_update(struct file *file, const char __user *buf, 
                                                 size_t count, loff_t *ppos)
 {
+    int i;
     const u32 __user *tmp = (const u32 __user *)buf;
     char *s;
     int res;
     int num_entries;
-    msr_twlist entry;
+    msr_twlist *entry;
 
     printk(KERN_DEBUG "msrwl_update: %s:%i, %zu buffer provided\n", 
                                                     __FILE__, __LINE__, count);
@@ -168,17 +189,13 @@ static ssize_t msrwl_update(struct file *file, const char __user *buf,
      * current white list and then perform the second pass to actually 
      * create the new white list.
      *
-     * Pass 1:
-     */
+     * Pass 1: */
     for (num_entries = 0, s = msrbuf, res = 1; res > 0; ) {
-        if ((res = msrwl_parse_entry(s, &s, &entry)) < 0)
+        if ((res = msrwl_parse_entry(s, &s, 0)) < 0)
             return res;         /* Parsing failed */
 
-        if (res) {
+        if (res)
             num_entries++;
-            printk(KERN_DEBUG "msrw_update: Entry(%llx %llx %llx) parsed\n", 
-                                        entry.msr, entry.wmask, entry.rmask);
-        }
     }
 
     printk(KERN_DEBUG "msrwl_update: %d entries parsed\n", num_entries);
@@ -189,19 +206,25 @@ static ssize_t msrwl_update(struct file *file, const char __user *buf,
         return res;
     }
 
-    /*
-     * Pass 2:
-     */
-    for (num_entries = 0, s = msrbuf, res = 1; res > 0; ) {
-        if ((res = msrwl_parse_entry(s, &s, &entry)) < 0) {
+    /* Pass 2: */
+    for (entry = msrwl_entries, s = msrbuf, res = 1; res > 0; entry++) {
+        if ((res = msrwl_parse_entry(s, &s, entry)) < 0) {
+            printk(KERN_ALERT "msrw_update: Table corrupted\n");
             return res;         /* This should not happen! */
         }
         if (res) {
-            num_entries++;
             printk(KERN_DEBUG "msrw_update: Entry(%llx %llx %llx) parsed\n", 
-                                        entry.msr, entry.wmask, entry.rmask);
+                                        entry->msr, entry->wmask, entry->rmask);
+            msrwl_add(entry);
         }
     }
+
+    entry = 0;
+    hash_for_each(msrwl_hash, i, entry, hlist) {
+        printk(KERN_DEBUG "msrw_HASH: Entry(%llx %llx %llx)\n", 
+                                        entry->msr, entry->wmask, entry->rmask);
+    }
+
     return count;
 }
 
