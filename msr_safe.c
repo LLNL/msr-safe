@@ -40,7 +40,7 @@
 #define MSR_IS_WLIST_ADMIN(m)   ((m) == MSR_WLIST_ADMIN_MINOR)
 
 static struct class *msr_class;
-static int majordev;                // Our dynamically allocated major device number
+static int majordev;    /* Our dynamically allocated major device number */
 
 /* Initialization flags */
 static char msr_chardev_created[MSR_NUM_MINORS];
@@ -51,6 +51,159 @@ static char msr_notifier_registered = 0;
 /* Data buffering for parsing user input */
 #define MAX_WLIST_BSIZE (64 * 1024)
 static char msrbuf[MAX_WLIST_BSIZE+1];   /* "+1" for the null character */
+
+/* White list management section */
+typedef struct {
+    u64 wmask;  /* Bits that may be written */
+    u64 rmask;  /* Bits that may be read */
+    u64 msr;    /* Address of msr (used as hash key) */
+    struct hlist_node hlist;
+} msr_twlist;
+
+static void msrwl_delete(void)
+{
+    /* TODO */
+}
+
+static int msrwl_create(int nentries)
+{
+    int err = 0;
+
+    msrwl_delete(); /* Replace current whitelist */
+
+    /* TODO */
+    return err;
+}
+
+static int msrwl_find(msr_twlist *entry)
+{
+    int found = 0;
+
+    /* TODO */
+    return found;
+}
+
+static void msrwl_add(msr_twlist *entry)
+{
+    /* TODO */
+}
+
+static int msrwl_parse_entry(char *inbuf, char **nextinbuf, msr_twlist *entry)
+{
+    char *s = skip_spaces(inbuf);
+    int i;
+    u64 data[3];
+
+    while (*s == '#') {   /* Skip remaining portion of line */
+        for (s = s + 1; *s && *s != '\n'; s++)
+            ;
+        s = skip_spaces(s);
+    }
+
+    if (*s == 0)
+        return 0;            /* This means we are done with the input buffer */
+
+    for (i = 0; i < 3; i++) {/* Okay, we should have the first of 3 #s now */
+        char *s2; 
+        int err;
+        char tmp;
+
+        s2 = s = skip_spaces(s);
+        while (!isspace(*s) && *s)
+            s++;
+
+        if (*s == 0) {
+            printk(KERN_ALERT "msrwl_parse_entry: Premature EOF");
+            return -EINVAL;
+        }
+
+        tmp = *s;
+        *s = 0;   /* Null-terminate this portion of string */
+        if ((err = kstrtoull(s2, 0, &data[i]))) {
+            printk(KERN_ALERT "msrwl_parse_entry kstrtoull(%s) failed(%d)\n", 
+                    s2, err);
+            return err;
+        }
+        *s++ = tmp;
+    }
+
+    entry->msr =  data[0];
+    entry->wmask = data[1];
+    entry->rmask = data[2];
+
+    *nextinbuf = s;     /* Return where we left off to caller */
+    return *nextinbuf - inbuf;
+}
+
+static ssize_t msrwl_update(struct file *file, const char __user *buf, 
+                                                size_t count, loff_t *ppos)
+{
+    const u32 __user *tmp = (const u32 __user *)buf;
+    char *s;
+    int res;
+    int num_entries;
+    msr_twlist entry;
+
+    printk(KERN_DEBUG "msrwl_update: %s:%i, %zu buffer provided\n", 
+                                                    __FILE__, __LINE__, count);
+
+    /* TODO: Remove this restriction and handle large files like a man... */
+    if (count > MAX_WLIST_BSIZE) {
+        printk(KERN_ALERT "msrwl_update: Data buffer of %zu bytes too large\n",
+                                                                         count);
+        return -EINVAL;
+    }
+
+    if (copy_from_user(msrbuf, tmp, count)) {
+        printk(KERN_ALERT "msrwl_update: copy_from_user(%zu bytes) failed\n", 
+                                                                        count);
+        return -EFAULT;
+    }
+
+    msrbuf[count] = 0;  // NULL-terminate to make it into a big string
+
+    /*
+     * We make two passes through the file.  The first pass is to ensure that
+     * the input file is valid.  If the file is valid, we will then delete the
+     * current white list and then perform the second pass to actually 
+     * create the new white list.
+     *
+     * Pass 1:
+     */
+    for (num_entries = 0, s = msrbuf, res = 1; res > 0; ) {
+        if ((res = msrwl_parse_entry(s, &s, &entry)) < 0)
+            return res;         /* Parsing failed */
+
+        if (res) {
+            num_entries++;
+            printk(KERN_DEBUG "msrw_update: Entry(%llx %llx %llx) parsed\n", 
+                                        entry.msr, entry.wmask, entry.rmask);
+        }
+    }
+
+    printk(KERN_DEBUG "msrwl_update: %d entries parsed\n", num_entries);
+
+    if ((res = msrwl_create(num_entries)) < 0) {
+        printk(KERN_ALERT "msrwl_update: Failed to allocate %d entries\n", 
+                                                                num_entries);
+        return res;
+    }
+
+    /*
+     * Pass 2:
+     */
+    for (num_entries = 0, s = msrbuf, res = 1; res > 0; ) {
+        if ((res = msrwl_parse_entry(s, &s, &entry)) < 0) {
+            return res;         /* This should not happen! */
+        }
+        if (res) {
+            num_entries++;
+            printk(KERN_DEBUG "msrw_update: Entry(%llx %llx %llx) parsed\n", 
+                                        entry.msr, entry.wmask, entry.rmask);
+        }
+    }
+    return count;
+}
 
 static loff_t msr_seek(struct file *file, loff_t offset, int orig)
 {
@@ -75,208 +228,44 @@ static loff_t msr_seek(struct file *file, loff_t offset, int orig)
     return ret;
 }
 
-static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+static ssize_t 
+msr_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 {
     u32 __user *tmp = (u32 __user *) buf;
     u32 data[2];
     loff_t reg = *ppos;
     int cpu = iminor(file->f_path.dentry->d_inode);
-    int err = -EACCES; //Initialize to Permission Denied
+    int err = -EACCES; /* Initialize to Permission Denied */
 
     if (MSR_IS_WLIST_ADMIN(cpu)) {
-        printk(KERN_DEBUG "Admin: %s:%i, %zu buffer provided\n", __FILE__, __LINE__, count);
+        printk(KERN_DEBUG "Admin: %s:%i, %zu buffer provided\n", 
+                                        __FILE__, __LINE__, count);
         return count-1;
     }
 
-    // "Count" doesn't have any meaning here, as we
-    // never want to read more than one msr at at time.
+    /* "Count" doesn't have any meaning here, as we
+     * never want to read more than one msr at at time.
+     */
     if (count != 8)
         return -EINVAL;	/* Invalid chunk size */
 
-    // TODO: Put whitelist check here
+    /* TODO: Put whitelist check here */
     err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
     if (!err)
     {
         if (copy_to_user(tmp, &data, 8))
             err = -EFAULT;
         else
-            err = 0; //Success
+            err = 0; /* Success */
     }
     return err ? err : 8;
 }
 
-typedef struct {
-    u64 wmask;  // Bits that may be written
-    u64 rmask;  // Bits that may be read
-    u64 msr;    // Address of msr (used as hash key)
-    struct hlist_node hlist;
-} msr_twlist;
-
-static int msr_parse_whitelist_entry(char *inbuf, char **nextinbuf, msr_twlist *entry)
-{
-    int i;
-
-    inbuf = skip_spaces(inbuf);
-
-    while (*inbuf == '#') {   /* Skip remaining portion of line */
-        for (inbuf = inbuf + 1; *inbuf && *inbuf != '\n'; inbuf++)
-            ;
-        inbuf = skip_spaces(inbuf);
-    }
-
-    if (*inbuf == 0)
-        return 0;            /* This is okay... */
-
-    for (i = 0; i < 3; i++) {   /* Okay, we should have the first of 3 #s now */
-        u64 data[3];
-        char *s2; 
-
-        s2 = inbuf = skip_spaces(s);
-        while (!isspace(*inbuf) && *inbuf)
-            inbuf++;
-
-        if (*inbuf) {
-            int err;
-            char tmp = *inbuf;
-
-            *inbuf = 0;   /* Null-terminate this portion of string */
-            err = kstrtoull(s2, 0, &data[i]);
-            if (err) {
-                printk(KERN_ALERT "msr_parse_whitelist_entry: kstrtoull(%s) failed, eno %d\n", s2, err);
-                return err;
-            }
-            *inbuf++ = tmp;
-        }
-        else {
-            printk(KERN_ALERT "msr_parse_whitelist_entry: Premature EOF");
-            return -EINVAL;
-        }
-    }
-
-    entry->msr =  data[0];
-    entry->wmask = data[1];
-    entry->rmask = data[2];
-    entry->hlist = 0;
-
-    *nextinbuf = inbuf;
-    return *entry - inbuf;
-}
-
-static int msr_parse_whitelist(char *buf)
-{
-    char *s = buf;
-    char *s2;
-    int i;
-    int err;
-    u64 data[3];
-
-    //
-    // We make two passes through the file.  The first pass is to ensure that
-    // the input file is valid.  If the file is valid, we will then delete the
-    // current white list and then perform the second pass to actually 
-    // create the new white list.
-    //
-    for (s = buf; *s; ) {
-        s = skip_spaces(s);
-
-        if (*s == '#') {   /* Skip remaining portion of line */
-            for (s = s + 1; *s != 0 && *s != '\n'; s++) ;
-            if (*s == '\n') s++;
-            continue;
-        }
-
-        for (i = 0; i < 3; i++) {   /* The pattern should be %x %llx %llx # comment */
-            s2 = s = skip_spaces(s);
-            while (!isspace(*s) && *s)
-                s++;
-            if (*s) {
-                char tmp = *s;
-                *s = 0;   /* Null-terminate this portion of string */
-                err = kstrtoull(s2, 0, &data[i]);
-                if (err) {
-                    printk(KERN_ALERT "msr_parse_whitelist: kstrtoull(%s) failed, eno %d\n", s2, err);
-                    return err;
-                }
-                *s++ = tmp;
-            }
-            else {
-                printk(KERN_ALERT "msr_parse_whitelist: Premature EOF");
-                return -EINVAL;
-            }
-        }
-    }
-
-    // Delete current whitelist (and free up memory used)
-
-    //
-    // Pass #2, build new white list
-    //
-    for (s = buf; *s; ) {
-        s = skip_spaces(s);
-
-        if (*s == '#') {   /* Skip remaining portion of line */
-            for (s = s + 1; *s != 0 && *s != '\n'; s++) ;
-            if (*s == '\n') s++;
-            continue;
-        }
-
-        for (i = 0; i < 3; i++) {   /* The pattern should be %x %llx %llx # comment */
-            s2 = s = skip_spaces(s);
-            while (!isspace(*s) && *s)
-                s++;
-            if (*s) {
-                *s++ = 0;   /* Null-terminate this portion of string */
-                err = kstrtoull(s2, 0, &data[i]);
-                if (err) {
-                    printk(KERN_ALERT "ASSERT: msr_parse_whitelist: kstrtoull(%s) failed, eno %d\n", s2, err);
-                    return err;
-                }
-            }
-            else {
-                printk(KERN_ALERT "ASSERT: msr_parse_whitelist: Premature EOF");
-                return -EINVAL;
-            }
-        }
-        /* Allocate a new whitelist entry */
-
-        /* Add the entry into our whitelist hash table */
-    }
-
-    return s - buf;
-}
-
-static ssize_t msr_whitelist_update(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
-{
-    const u32 __user *tmp = (const u32 __user *)buf;
-    int err;
-
-    printk(KERN_DEBUG "msr_whitelist_update: %s:%i, %zu buffer provided\n", __FILE__, __LINE__, count);
-
-    /* TODO: Remove this restriction and handle large files like a man... */
-    if (count > MAX_WLIST_BSIZE) {
-        printk(KERN_ALERT "msr_whitelist_update: Data buffer of %zu bytes is too large\n", count);
-        return -EINVAL;
-    }
-
-    if (copy_from_user(msrbuf, tmp, count)) {
-        printk(KERN_ALERT "msr_whitelist_update: copy_from_user(%zu bytes) failed\n", count);
-        return -EFAULT;
-    }
-
-    msrbuf[count] = 0;  // NULL-terminate to make it into a big string
-
-    if ((err = msr_parse_whitelist(msrbuf)) < 0) {
-        printk(KERN_ALERT "msr_whitelist_update: Unable to parse user input\n");
-        return err;
-    }
-
-    return count;
-}
-
-static ssize_t msr_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
+static ssize_t 
+msr_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
 {
     if (MSR_IS_WLIST_ADMIN(iminor(file->f_path.dentry->d_inode))) {
-        return msr_whitelist_update(file, buf, count, ppos);
+        return msrwl_update(file, buf, count, ppos);
     }
     else {
         const u32 __user *tmp = (const u32 __user *)buf;
@@ -285,20 +274,22 @@ static ssize_t msr_write(struct file *file, const char __user *buf, size_t count
         int cpu = iminor(file->f_path.dentry->d_inode);
         int err = -EACCES;
 
-        // "Count" doesn't have any meaning here, as we
-        // never want to write more than one msr at at time.
+        /* "Count" doesn't have any meaning here, as we
+         * never want to write more than one msr at at time.
+         */
         if (count != 8)
             return -EINVAL;	/* Invalid chunk size */
 
-        // TODO: Put whitelist check here
-        // TODO: Need to determine how to best return partial write success which
-        //       would happen if the user had write access to some, but not all bit fields.
-    
+        /* TODO: Put whitelist check here
+         * TODO: Need to determine how to best return partial write success 
+         *       which would happen if the user had write access to some, 
+         *       but not all bit fields.
+         */
         if (copy_from_user(&data[0], tmp, 8)) {
             err = -EFAULT;
         }
         else {
-            //TODO: data &= MASK;
+            /*TODO: data &= MASK;*/
             err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
         }
         return err ? err : 8;
@@ -340,7 +331,8 @@ static int __cpuinit msr_device_create(int cpu)
 {
     struct device *dev;
 
-    dev = device_create(msr_class, NULL, MKDEV(majordev, cpu), NULL, "msr_safe%d", cpu);
+    dev = device_create(msr_class, NULL, MKDEV(majordev, cpu), 
+                        NULL, "msr_safe%d", cpu);
     return IS_ERR(dev) ? PTR_ERR(dev) : 0;
 }
 
@@ -349,7 +341,9 @@ static void msr_device_destroy(int cpu)
     device_destroy(msr_class, MKDEV(majordev, cpu));
 }
 
-static int __cpuinit msr_class_cpu_callback(struct notifier_block *nfb, unsigned long action, void *hcpu)
+static int __cpuinit 
+msr_class_cpu_callback(struct notifier_block *nfb, 
+                        unsigned long action, void *hcpu)
 {
     unsigned int cpu = (unsigned long)hcpu;
     int err = 0;
@@ -384,6 +378,8 @@ static void msr_cleanup(void)
 {
     int cpu = 0;
 
+    msrwl_delete();
+
     if (msr_notifier_registered) {
         msr_notifier_registered = 0;
         unregister_hotcpu_notifier(&msr_class_cpu_notifier);
@@ -416,7 +412,8 @@ static int __init msr_init(void)
 {
     int i, err;
 
-    if ((majordev = __register_chrdev(0, 0, MSR_NUM_MINORS, "cpu/msr_safe", &msr_fops)) < 0) {
+    majordev = __register_chrdev(0,0,MSR_NUM_MINORS, "cpu/msr_safe", &msr_fops);
+    if (majordev < 0) {
         printk(KERN_ERR "msr_safe: unable to register device number\n");
         msr_cleanup();
         return -EBUSY;
@@ -463,7 +460,7 @@ static void __exit msr_exit(void)
 module_init(msr_init);
 module_exit(msr_exit)
 
-MODULE_AUTHOR("Kathleen Shoga <shoga1@llnl.gov>");
+MODULE_AUTHOR("Marty McFadden <mcfadden8@llnl.gov>");
 MODULE_DESCRIPTION("x86 sanitized MSR driver");
 MODULE_LICENSE("GPL");
 MODULE_SUPPORTED_DEVICE("msr_safe");
