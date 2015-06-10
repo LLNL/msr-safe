@@ -23,6 +23,7 @@
  */
 #include <linux/module.h>   // Needed by all kernel modules
 #include <linux/kernel.h>
+#include <linux/list.h>
 #include <linux/fs.h>       // Needed for file i/o
 #include <linux/device.h>
 #include <linux/cpu.h>
@@ -107,15 +108,61 @@ static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_
 typedef struct {
     u64 wmask;  // Bits that may be written
     u64 rmask;  // Bits that may be read
-    u32 msr;    // Address of msr
+    u64 msr;    // Address of msr (used as hash key)
+    struct hlist_node hlist;
 } msr_twlist;
 
-// TODO: Easiest thing would be to clear previous whitelist
-//       and then write a new one.
-// TODO; Parse input
-//
+static int msr_parse_whitelist_entry(char *inbuf, char **nextinbuf, msr_twlist *entry)
+{
+    int i;
 
-int msr_parse_whitelist(char *buf, size_t count)
+    inbuf = skip_spaces(inbuf);
+
+    while (*inbuf == '#') {   /* Skip remaining portion of line */
+        for (inbuf = inbuf + 1; *inbuf && *inbuf != '\n'; inbuf++)
+            ;
+        inbuf = skip_spaces(inbuf);
+    }
+
+    if (*inbuf == 0)
+        return 0;            /* This is okay... */
+
+    for (i = 0; i < 3; i++) {   /* Okay, we should have the first of 3 #s now */
+        u64 data[3];
+        char *s2; 
+
+        s2 = inbuf = skip_spaces(s);
+        while (!isspace(*inbuf) && *inbuf)
+            inbuf++;
+
+        if (*inbuf) {
+            int err;
+            char tmp = *inbuf;
+
+            *inbuf = 0;   /* Null-terminate this portion of string */
+            err = kstrtoull(s2, 0, &data[i]);
+            if (err) {
+                printk(KERN_ALERT "msr_parse_whitelist_entry: kstrtoull(%s) failed, eno %d\n", s2, err);
+                return err;
+            }
+            *inbuf++ = tmp;
+        }
+        else {
+            printk(KERN_ALERT "msr_parse_whitelist_entry: Premature EOF");
+            return -EINVAL;
+        }
+    }
+
+    entry->msr =  data[0];
+    entry->wmask = data[1];
+    entry->rmask = data[2];
+    entry->hlist = 0;
+
+    *nextinbuf = inbuf;
+    return *entry - inbuf;
+}
+
+static int msr_parse_whitelist(char *buf)
 {
     char *s = buf;
     char *s2;
@@ -123,7 +170,48 @@ int msr_parse_whitelist(char *buf, size_t count)
     int err;
     u64 data[3];
 
-    while (*s) {
+    //
+    // We make two passes through the file.  The first pass is to ensure that
+    // the input file is valid.  If the file is valid, we will then delete the
+    // current white list and then perform the second pass to actually 
+    // create the new white list.
+    //
+    for (s = buf; *s; ) {
+        s = skip_spaces(s);
+
+        if (*s == '#') {   /* Skip remaining portion of line */
+            for (s = s + 1; *s != 0 && *s != '\n'; s++) ;
+            if (*s == '\n') s++;
+            continue;
+        }
+
+        for (i = 0; i < 3; i++) {   /* The pattern should be %x %llx %llx # comment */
+            s2 = s = skip_spaces(s);
+            while (!isspace(*s) && *s)
+                s++;
+            if (*s) {
+                char tmp = *s;
+                *s = 0;   /* Null-terminate this portion of string */
+                err = kstrtoull(s2, 0, &data[i]);
+                if (err) {
+                    printk(KERN_ALERT "msr_parse_whitelist: kstrtoull(%s) failed, eno %d\n", s2, err);
+                    return err;
+                }
+                *s++ = tmp;
+            }
+            else {
+                printk(KERN_ALERT "msr_parse_whitelist: Premature EOF");
+                return -EINVAL;
+            }
+        }
+    }
+
+    // Delete current whitelist (and free up memory used)
+
+    //
+    // Pass #2, build new white list
+    //
+    for (s = buf; *s; ) {
         s = skip_spaces(s);
 
         if (*s == '#') {   /* Skip remaining portion of line */
@@ -140,18 +228,18 @@ int msr_parse_whitelist(char *buf, size_t count)
                 *s++ = 0;   /* Null-terminate this portion of string */
                 err = kstrtoull(s2, 0, &data[i]);
                 if (err) {
-                    printk(KERN_ALERT "msr_parse_whitelist: kstrtoull(%s) failed, eno %d\n", s2, err);
+                    printk(KERN_ALERT "ASSERT: msr_parse_whitelist: kstrtoull(%s) failed, eno %d\n", s2, err);
                     return err;
-                }
-                else {
-                    printk(KERN_DEBUG "msr_parse_whitelist(%d): %llx converted\n", i, data[i]);
                 }
             }
             else {
-                printk(KERN_ALERT "msr_parse_whitelist: Premature EOF");
+                printk(KERN_ALERT "ASSERT: msr_parse_whitelist: Premature EOF");
                 return -EINVAL;
             }
         }
+        /* Allocate a new whitelist entry */
+
+        /* Add the entry into our whitelist hash table */
     }
 
     return s - buf;
@@ -177,7 +265,7 @@ static ssize_t msr_whitelist_update(struct file *file, const char __user *buf, s
 
     msrbuf[count] = 0;  // NULL-terminate to make it into a big string
 
-    if ((err = msr_parse_whitelist(msrbuf, count)) < 0) {
+    if ((err = msr_parse_whitelist(msrbuf)) < 0) {
         printk(KERN_ALERT "msr_whitelist_update: Unable to parse user input\n");
         return err;
     }
