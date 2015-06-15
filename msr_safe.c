@@ -19,7 +19,6 @@
  * This driver uses /dev/cpu/%d/msr_safe where %d is the minor number, and on
  * an SMP box will direct the access to CPU %d.
  */
-#include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/fs.h>
@@ -30,6 +29,11 @@
 #include <linux/hashtable.h>
 #include <linux/slab.h>
 #include <linux/mutex.h>
+#include <linux/kobject.h>
+#include <linux/string.h>
+#include <linux/sysfs.h>
+#include <linux/module.h>
+#include <linux/init.h>
 
 /*
  * The minor device scheme works as follows:
@@ -419,6 +423,35 @@ cdev_class_cpu_callback(struct notifier_block *nfb,
 	return notifier_from_errno(err);
 }
 
+static char *msr_safe_version = "1.7";
+
+static ssize_t version_show(struct kobject *kobj, struct kobj_attribute *attr,
+			    char *buf)
+{
+	return sprintf(buf, "%s\n", msr_safe_version);
+}
+
+static ssize_t version_set(struct kobject *kobj, struct kobj_attribute *attr,
+			   const char *buf, size_t count)
+{
+	return count;
+}
+
+/* Sysfs attributes cannot be world-writable. */
+static struct kobj_attribute version_attribute = 
+	__ATTR(version, 0444, version_show, version_set);
+
+static struct attribute *attrs[] = {
+	&version_attribute.attr,
+	NULL,
+};
+
+static struct attribute_group attr_group = {
+	.attrs = attrs,
+};
+
+static struct kobject *msr_safe_kobj;
+
 static struct notifier_block __refdata cdev_class_cpu_notifier = {
 	.notifier_call = cdev_class_cpu_callback
 };
@@ -436,6 +469,11 @@ static void msr_safe_cleanup(void)
 	int cpu = 0;
 
 	delete_whitelist();
+
+	if (msr_safe_kobj) {
+		kobject_put(msr_safe_kobj);
+		msr_safe_kobj = 0;
+	}
 
 	if (hotcpu_notifier_registered) {
 		hotcpu_notifier_registered = 0;
@@ -507,6 +545,15 @@ static int __init msr_safe_init(void)
 
 	register_hotcpu_notifier(&cdev_class_cpu_notifier);
 	hotcpu_notifier_registered = 1;
+
+	msr_safe_kobj = kobject_create_and_add("msr_safe", kernel_kobj);
+	if (!msr_safe_kobj)
+		return -ENOMEM;
+
+	err = sysfs_create_group(msr_safe_kobj, &attr_group);
+	if (err)
+		kobject_put(msr_safe_kobj);
+
 	return 0;
 }
 
@@ -522,6 +569,3 @@ MODULE_AUTHOR("Marty McFadden <mcfadden8@llnl.gov>");
 MODULE_DESCRIPTION("x86 sanitized MSR driver");
 MODULE_LICENSE("GPL");
 MODULE_SUPPORTED_DEVICE("msr_safe");
-/*TODO: Produce version information for this driver*/
-/*TODO: Check version information of Linux kernel for base level*/
-
