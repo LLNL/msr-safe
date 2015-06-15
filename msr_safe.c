@@ -31,8 +31,6 @@
 #include <linux/slab.h>
 #include <linux/mutex.h>
 
-/* -- Begin setup for driver initialization and registration ---------------- */
-
 /*
  * The minor device scheme works as follows:
  * 	0 : (NR_CPUS-1) are for the CPUs
@@ -42,12 +40,12 @@
 #define MSR_WLIST_ADMIN_MINOR NR_CPUS
 #define MSR_IS_WLIST_ADMIN(m) ((m) == MSR_WLIST_ADMIN_MINOR)
 
-static struct class *msr_class;
 static int majordev;
-static char msr_chardev_created[MSR_NUM_MINORS];
-static char msr_chardev_registered = 0;
-static char msr_class_created = 0;
-static char msr_notifier_registered = 0;
+static struct class *cdev_class;
+static char cdev_created[MSR_NUM_MINORS];
+static char cdev_registered = 0;
+static char cdev_class_created = 0;
+static char hotcpu_notifier_registered = 0;
 
 #define MAX_WLIST_BSIZE ((128 * 1024) + 1) /* "+1" for null character */
 
@@ -58,68 +56,70 @@ struct whitelist_entry {
 	struct hlist_node hlist;
 };
 
-static DEFINE_HASHTABLE(msrwl_hash, 6);
-/*TODO: (potentially) replace msrwl_mutex with RCU for faster reader access*/
-static DEFINE_MUTEX(msrwl_mutex);
-static struct whitelist_entry *msrwl_entries=0; /* white list entries array */
-static int msrwl_numentries = 0;
+static DEFINE_HASHTABLE(whitelist_hash, 6);
+/*TODO: (potentially) replace whitelist_mutex with RCU */
+static DEFINE_MUTEX(whitelist_mutex);
+static struct whitelist_entry *whitelist=0;
+static int whitelist_numentries = 0;
 
-static void msrwl_delete(void)
+static void delete_whitelist(void)
 {
-	if (msrwl_entries != 0) {
-		kfree(msrwl_entries);
-		msrwl_entries = 0;
-		msrwl_numentries = 0;
+	if (whitelist != 0) {
+		kfree(whitelist);
+		whitelist = 0;
+		whitelist_numentries = 0;
 	}
 }
 
-static int msrwl_create(int nentries)
+static int create_whitelist(int nentries)
 {
-	hash_init(msrwl_hash);
-	msrwl_delete();
-	msrwl_numentries = nentries;
-	msrwl_entries = kmalloc((nentries * sizeof(struct whitelist_entry)), 
-								GFP_KERNEL);
+	hash_init(whitelist_hash);
+	delete_whitelist();
+	whitelist_numentries = nentries;
+	whitelist = kmalloc((nentries * sizeof(*whitelist)), GFP_KERNEL);
 
-	if (!msrwl_entries) {
-		printk(KERN_ALERT "msrwl_create: %lu byte allocation failed\n",
-				(nentries * sizeof(struct whitelist_entry)));
+	if (!whitelist) {
+		printk(KERN_ALERT 
+			"create_whitelist: %lu byte allocation failed\n",
+					(nentries * sizeof(*whitelist)));
 		return -ENOMEM;
 	}
 	return 0;
 }
 
-static struct whitelist_entry *msrwl_find(u64 msr)
+static struct whitelist_entry *find_in_whitelist(u64 msr)
 {
-	struct whitelist_entry *entry;
+	struct whitelist_entry *entry = 0;
 
-	hash_for_each_possible(msrwl_hash, entry, hlist, msr)
-	if (entry->msr == msr)
-		return entry;
+	if (whitelist) {
+		hash_for_each_possible(whitelist_hash, entry, hlist, msr)
+		if (entry && entry->msr == msr)
+			return entry;
+	}
 	return 0;
 }
 
-static void msrwl_add(struct whitelist_entry *entry)
+static void add_to_whitelist(struct whitelist_entry *entry)
 {
-	hash_add(msrwl_hash, &entry->hlist, entry->msr);
+	hash_add(whitelist_hash, &entry->hlist, entry->msr);
 }
 
-static u64 msrwl_get_readmask(loff_t reg)
+static u64 get_readmask(loff_t reg)
 {
-	struct whitelist_entry *entry = msrwl_find((u64)reg);
+	struct whitelist_entry *entry = find_in_whitelist((u64)reg);
 
 	return entry ? entry->rmask : 0;
 }
 
-static u64 msrwl_get_writemask(loff_t reg)
+static u64 get_writemask(loff_t reg)
 {
-	struct whitelist_entry *entry = msrwl_find((u64)reg);
+	struct whitelist_entry *entry = find_in_whitelist((u64)reg);
 
 	return entry ? entry->wmask : 0;
 }
 
-static int msrwl_parse_entry(char *inbuf, char **nextinbuf, 
-					struct whitelist_entry *entry)
+static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf, 
+						struct whitelist_entry *entry)
 {
 	char *s = skip_spaces(inbuf);
 	int i;
@@ -144,7 +144,8 @@ static int msrwl_parse_entry(char *inbuf, char **nextinbuf,
 			s++;
 
 		if (*s == 0) {
-			printk(KERN_ALERT "msrwl_parse_entry: Premature EOF");
+			printk(KERN_ALERT 
+				"parse_next_whitelist_entry: Premature EOF");
 			return -EINVAL;
 		}
 
@@ -152,7 +153,7 @@ static int msrwl_parse_entry(char *inbuf, char **nextinbuf,
 		*s = 0; /* Null-terminate this portion of string */
 		if ((err = kstrtoull(s2, 0, &data[i]))) {
 			printk(KERN_ALERT 
-				"msrwl_parse_entry kstrtoull(%s) err(%d)\n", 
+			  "parse_next_whitelist_entry kstrtoull %s err=%d\n", 
 				s2, err);
 			return err;
 		}
@@ -169,7 +170,13 @@ static int msrwl_parse_entry(char *inbuf, char **nextinbuf,
 	return *nextinbuf - inbuf;
 }
 
-static ssize_t msrwl_update(struct file *file, const char __user *buf, 
+/*
+ * After copying data from user spaec, we make two passes through the file. 
+ * The first pass is to ensure that the input file is valid. If the file is 
+ * valid, we will then delete the current white list and then perform the 
+ * second pass to actually create the new white list.
+ */
+static ssize_t new_whitelist(struct file *file, const char __user *buf, 
 						size_t count, loff_t *ppos)
 {
 	int err = 0;
@@ -178,91 +185,71 @@ static ssize_t msrwl_update(struct file *file, const char __user *buf,
 	int res;
 	int num_entries;
 	struct whitelist_entry *entry;
-	char *msrbuf;
+	char *kbuf;
 
 	/* TODO: Remove this restriction and handle large files like a man... */
 	if (count+1 > MAX_WLIST_BSIZE) {
 		printk(KERN_ALERT 
-			"msrwl_update: Data buffer of %zu bytes too large\n",
+			"new_whitelist: Data buffer of %zu bytes too large\n",
 		count);
-		err = -EINVAL;
-		goto out1;
+		return -EINVAL;
 	}
 
-	msrbuf = kmalloc(count+1, GFP_KERNEL);
-	if (!msrbuf) {
-		printk(KERN_ALERT 
-			"msrwl_update: failed to allocate buffer(%zu)\n", 
-			count+1);
-		err = -ENOMEM;
-		goto out1;
-	}
+	if (!(kbuf = kzalloc(count+1, GFP_KERNEL)))
+		return -ENOMEM;
 
-	if (copy_from_user(msrbuf, tmp, count)) {
-		printk(KERN_ALERT 
-			"msrwl_update: copy_from_user(%zu bytes) failed\n", 
-		count);
+	if (copy_from_user(kbuf, tmp, count)) {
 		err = -EFAULT;
-		goto out2;
+		goto out_freebuffer;
 	}
 
-	msrbuf[count] = 0; // NULL-terminate to make it into a big string
-
-	/*
-	 * We make two passes through the file. The first pass is to ensure that
-	 * the input file is valid. If the file is valid, we will then delete 
-	 * the current white list and then perform the second pass to actually 
-	 * create the new white list.
-	 *
-	 * Pass 1: 
-	 */
-	for (num_entries = 0, s = msrbuf, res = 1; res > 0; ) {
-		if ((res = msrwl_parse_entry(s, &s, 0)) < 0) {
+	/* Pass 1: */
+	for (num_entries = 0, s = kbuf, res = 1; res > 0; ) {
+		if ((res = parse_next_whitelist_entry(s, &s, 0)) < 0) {
 			err = res;
-			goto out2;
+			goto out_freebuffer;
 		}
 
 		if (res)
 			num_entries++;
 	}
 
-	mutex_lock(&msrwl_mutex);
-	if ((res = msrwl_create(num_entries)) < 0) {
+	/* Pass 2: */
+	mutex_lock(&whitelist_mutex);
+	if ((res = create_whitelist(num_entries)) < 0) {
 		err = res;
-		goto out3;
+		goto out_releasemutex;
 	}
 
-	/* Pass 2: */
-	for (entry = msrwl_entries, s = msrbuf, res = 1; res > 0; entry++) {
-		if ((res = msrwl_parse_entry(s, &s, entry)) < 0) {
+	for (entry = whitelist, s = kbuf, res = 1; res > 0; entry++) {
+		if ((res = parse_next_whitelist_entry(s, &s, entry)) < 0) {
 			printk(KERN_ALERT "msrw_update: Table corrupted\n");
-			msrwl_delete();
+			delete_whitelist();
 			err = res; /* This should not happen! */
-			goto out3;
+			goto out_releasemutex;
 		}
 
 		if (res) {
-			if (msrwl_find(entry->msr)) {
+			if (find_in_whitelist(entry->msr)) {
 				printk(KERN_ALERT 
 				   "msrw_update: Duplicate entry found: %llx\n",
 					 entry->msr);
 				err = -EINVAL;
-				msrwl_delete();
-				goto out3;
+				delete_whitelist();
+				goto out_releasemutex;
 			}
-			msrwl_add(entry);
+			add_to_whitelist(entry);
 		}
 	}
 
-out3:
-	mutex_unlock(&msrwl_mutex);
-out2:
-	kfree(msrbuf);
-out1:
+out_releasemutex:
+	mutex_unlock(&whitelist_mutex);
+out_freebuffer:
+	kfree(kbuf);
 	return err ? err : count;
 }
 
-static loff_t msr_seek(struct file *file, loff_t offset, int orig)
+static loff_t msr_safe_seek(struct file *file, loff_t offset, int orig)
 {
 	loff_t ret;
 	struct inode *inode = file->f_mapping->host;
@@ -286,7 +273,7 @@ static loff_t msr_seek(struct file *file, loff_t offset, int orig)
 }
 
 static ssize_t 
-msr_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+msr_safe_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 {
 	u32 __user *tmp = (u32 __user *) buf;
 	u32 data[2];
@@ -306,9 +293,9 @@ msr_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 	if (count != 8)
 		return -EINVAL;	/* Invalid chunk size */
 
-	mutex_lock(&msrwl_mutex);
-	wl_readmask = msrwl_get_readmask(reg);
-	mutex_unlock(&msrwl_mutex);
+	mutex_lock(&whitelist_mutex);
+	wl_readmask = get_readmask(reg);
+	mutex_unlock(&whitelist_mutex);
 
 	if (wl_readmask == 0)
 		return -EACCES;
@@ -329,7 +316,8 @@ msr_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 }
 
 static ssize_t 
-msr_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
+msr_safe_write(struct file *file, 
+		const char __user *buf, size_t count, loff_t *ppos)
 {
 	const u32 __user *tmp = (const u32 __user *)buf;
 	u32 data[2];
@@ -340,7 +328,7 @@ msr_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
 	int err = -EACCES;
 
 	if (MSR_IS_WLIST_ADMIN(iminor(file->f_path.dentry->d_inode)))
-		return msrwl_update(file, buf, count, ppos);
+		return new_whitelist(file, buf, count, ppos);
 
 	/* "Count" doesn't have any meaning here, as we
 	 * never want to write more than one msr at at time.
@@ -348,9 +336,9 @@ msr_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
 	if (count != 8)
 		return -EINVAL;	/* Invalid chunk size */
 
-	mutex_lock(&msrwl_mutex);
-	wl_writemask = msrwl_get_writemask(reg);
-	mutex_unlock(&msrwl_mutex);
+	mutex_lock(&whitelist_mutex);
+	wl_writemask = get_writemask(reg);
+	mutex_unlock(&whitelist_mutex);
 
 	if (wl_writemask == 0)
 		return -EACCES;
@@ -365,7 +353,7 @@ msr_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
 	return err ? err : 8;
 }
 
-static int msr_open(struct inode *inode, struct file *file)
+static int msr_safe_open(struct inode *inode, struct file *file)
 {
 	unsigned int cpu;
 	struct cpuinfo_x86 *c;
@@ -373,10 +361,10 @@ static int msr_open(struct inode *inode, struct file *file)
 	cpu = iminor(file->f_path.dentry->d_inode);
 
 	if (MSR_IS_WLIST_ADMIN(cpu))
-		return 0; // Let 'em in...
+		return 0; /* Let 'em in... */
 
 	if (cpu >= nr_cpu_ids || !cpu_online(cpu))
-		return -ENXIO; // No such CPU
+		return -ENXIO; /* No such CPU */
 
 	c = &cpu_data(cpu);
 	if (!cpu_has(c, X86_FEATURE_MSR))
@@ -388,30 +376,30 @@ static int msr_open(struct inode *inode, struct file *file)
 /*
  * File operations we support
  */
-static const struct file_operations msr_fops = {
+static const struct file_operations msr_safe_fops = {
 	.owner = THIS_MODULE,
-	.read = msr_read,
-	.write = msr_write,
-	.open = msr_open,
-	.llseek = msr_seek
+	.read = msr_safe_read,
+	.write = msr_safe_write,
+	.open = msr_safe_open,
+	.llseek = msr_safe_seek
 };
 
-static int __cpuinit msr_device_create(int cpu)
+static int __cpuinit create_msr_safe_device(int cpu)
 {
 	struct device *dev;
 
-	dev = device_create(msr_class, NULL, MKDEV(majordev, cpu), 
+	dev = device_create(cdev_class, NULL, MKDEV(majordev, cpu), 
 	NULL, "msr_safe%d", cpu);
 	return IS_ERR(dev) ? PTR_ERR(dev) : 0;
 }
 
-static void msr_device_destroy(int cpu)
+static void destroy_msr_safe_device(int cpu)
 {
-	device_destroy(msr_class, MKDEV(majordev, cpu));
+	device_destroy(cdev_class, MKDEV(majordev, cpu));
 }
 
 static int __cpuinit 
-msr_class_cpu_callback(struct notifier_block *nfb, 
+cdev_class_cpu_callback(struct notifier_block *nfb, 
 					unsigned long action, void *hcpu)
 {
 	unsigned int cpu = (unsigned long)hcpu;
@@ -420,22 +408,22 @@ msr_class_cpu_callback(struct notifier_block *nfb,
 	switch (action)
 	{
 	case CPU_UP_PREPARE:
-		err = msr_device_create(cpu);
+		err = create_msr_safe_device(cpu);
 		break;
 	case CPU_UP_CANCELED:
 	case CPU_UP_CANCELED_FROZEN:
 	case CPU_DEAD:
-		msr_device_destroy(cpu);
+		destroy_msr_safe_device(cpu);
 		break;
 	}
 	return notifier_from_errno(err);
 }
 
-static struct notifier_block __refdata msr_class_cpu_notifier = {
-	.notifier_call = msr_class_cpu_callback
+static struct notifier_block __refdata cdev_class_cpu_notifier = {
+	.notifier_call = cdev_class_cpu_callback
 };
 
-static char *msr_devnode(struct device *dev, umode_t *mode)
+static char *msr_safe_nodename(struct device *dev, umode_t *mode)
 {
 	if (MSR_IS_WLIST_ADMIN(MINOR(dev->devt)))
 		return kasprintf(GFP_KERNEL, "cpu/msr_whitelist");
@@ -443,92 +431,92 @@ static char *msr_devnode(struct device *dev, umode_t *mode)
 		return kasprintf(GFP_KERNEL,"cpu/%u/msr_safe",MINOR(dev->devt));
 }
 
-static void msr_cleanup(void)
+static void msr_safe_cleanup(void)
 {
 	int cpu = 0;
 
-	msrwl_delete();
+	delete_whitelist();
 
-	if (msr_notifier_registered) {
-		msr_notifier_registered = 0;
-		unregister_hotcpu_notifier(&msr_class_cpu_notifier);
+	if (hotcpu_notifier_registered) {
+		hotcpu_notifier_registered = 0;
+		unregister_hotcpu_notifier(&cdev_class_cpu_notifier);
 	}
 
 	for_each_online_cpu(cpu) {
-		if (msr_chardev_created[cpu]) {
-			msr_chardev_created[cpu] = 0;
-			msr_device_destroy(cpu);
+		if (cdev_created[cpu]) {
+			cdev_created[cpu] = 0;
+			destroy_msr_safe_device(cpu);
 		}
 	}
 
-	if (msr_chardev_created[MSR_WLIST_ADMIN_MINOR]) {
-		msr_chardev_created[MSR_WLIST_ADMIN_MINOR] = 0;
-		msr_device_destroy(MSR_WLIST_ADMIN_MINOR);
+	if (cdev_created[MSR_WLIST_ADMIN_MINOR]) {
+		cdev_created[MSR_WLIST_ADMIN_MINOR] = 0;
+		destroy_msr_safe_device(MSR_WLIST_ADMIN_MINOR);
 	}
 
-	if (msr_class_created) {
-		msr_class_created = 0;
-		class_destroy(msr_class);
+	if (cdev_class_created) {
+		cdev_class_created = 0;
+		class_destroy(cdev_class);
 	}
 
-	if (msr_chardev_registered) {
-		msr_chardev_registered = 0;
+	if (cdev_registered) {
+		cdev_registered = 0;
 		__unregister_chrdev(majordev,0, MSR_NUM_MINORS, "cpu/msr_safe");
 	}
 }
 
-static int __init msr_init(void)
+static int __init msr_safe_init(void)
 {
 	int i, err;
 
 	majordev = __register_chrdev(0,0,MSR_NUM_MINORS, 
-					"cpu/msr_safe", &msr_fops);
+					"cpu/msr_safe", &msr_safe_fops);
 	if (majordev < 0) {
 		printk(KERN_ERR "msr_safe: unable to register device number\n");
-		msr_cleanup();
+		msr_safe_cleanup();
 		return -EBUSY;
 	}
-	msr_chardev_registered = 1;
+	cdev_registered = 1;
 
-	msr_class = class_create(THIS_MODULE, "msr_safe");
-	if (IS_ERR(msr_class)) {
-		err = PTR_ERR(msr_class);
-		msr_cleanup();
+	cdev_class = class_create(THIS_MODULE, "msr_safe");
+	if (IS_ERR(cdev_class)) {
+		err = PTR_ERR(cdev_class);
+		msr_safe_cleanup();
 		return err;
 	}
-	msr_class_created = 1;
+	cdev_class_created = 1;
 
 	for (i = 0; i < MSR_NUM_MINORS; i++)
-		msr_chardev_created[i] = 0;
+		cdev_created[i] = 0;
 
-	msr_class->devnode = msr_devnode;
-	if ((err = msr_device_create(MSR_WLIST_ADMIN_MINOR))) {
-		msr_cleanup();
+	cdev_class->devnode = msr_safe_nodename;
+	if ((err = create_msr_safe_device(MSR_WLIST_ADMIN_MINOR))) {
+		msr_safe_cleanup();
 		return err;
 	}
-	msr_chardev_created[MSR_WLIST_ADMIN_MINOR] = 1;
+	cdev_created[MSR_WLIST_ADMIN_MINOR] = 1;
 
 	i = 0;
 	for_each_online_cpu(i) {
-		if ((err = msr_device_create(i)) != 0) {
-			msr_cleanup();
+		if ((err = create_msr_safe_device(i)) != 0) {
+			msr_safe_cleanup();
 			return err;
 		}
-		msr_chardev_created[i] = 1;
+		cdev_created[i] = 1;
 	}
 
-	register_hotcpu_notifier(&msr_class_cpu_notifier);
-	msr_notifier_registered = 1;
+	register_hotcpu_notifier(&cdev_class_cpu_notifier);
+	hotcpu_notifier_registered = 1;
 	return 0;
 }
 
-static void __exit msr_exit(void)
+static void __exit msr_safe_exit(void)
 {
-	msr_cleanup();
+	msr_safe_cleanup();
 }
 
-module_init(msr_init);
-module_exit(msr_exit)
+module_init(msr_safe_init);
+module_exit(msr_safe_exit)
 
 MODULE_AUTHOR("Marty McFadden <mcfadden8@llnl.gov>");
 MODULE_DESCRIPTION("x86 sanitized MSR driver");
