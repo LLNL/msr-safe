@@ -34,15 +34,7 @@
 #include <linux/sysfs.h>
 #include <linux/module.h>
 #include <linux/init.h>
-
-/*
- * The minor device scheme works as follows:
- * 	0 : (NR_CPUS-1) are for the CPUs
- * 	NR_CPUS is the administrative whitelist interface
- */
-#define MSR_NUM_MINORS NR_CPUS+1
-#define MSR_WLIST_ADMIN_MINOR NR_CPUS
-#define MSR_IS_WLIST_ADMIN(m) ((m) == MSR_WLIST_ADMIN_MINOR)
+#include "msr_safe.h"
 
 static int majordev;
 static struct class *cdev_class;
@@ -50,21 +42,248 @@ static char cdev_created[MSR_NUM_MINORS];
 static char cdev_registered = 0;
 static char cdev_class_created = 0;
 static char hotcpu_notifier_registered = 0;
-
-#define MAX_WLIST_BSIZE ((128 * 1024) + 1) /* "+1" for null character */
-
-struct whitelist_entry {
-	u64 wmask;	/* Bits that may be written */
-	u64 rmask;	/* Bits that may be read */
-	u64 msr;	/* Address of msr (used as hash key) */
-	struct hlist_node hlist;
-};
-
 static DEFINE_HASHTABLE(whitelist_hash, 6);
 /*TODO: (potentially) replace whitelist_mutex with RCU */
 static DEFINE_MUTEX(whitelist_mutex);
 static struct whitelist_entry *whitelist=0;
 static int whitelist_numentries = 0;
+
+/* -- Open/Close/Seek/Read/Write/Ioctl -- */
+static int msr_safe_open(struct inode *inode, struct file *file)
+{
+	unsigned int cpu;
+	struct cpuinfo_x86 *c;
+
+	cpu = iminor(file->f_path.dentry->d_inode);
+
+	if (MSR_IS_WLIST_ADMIN(cpu))
+		return 0; /* Let 'em in... */
+
+	if (cpu >= nr_cpu_ids || !cpu_online(cpu))
+		return -ENXIO; /* No such CPU */
+
+	c = &cpu_data(cpu);
+	if (!cpu_has(c, X86_FEATURE_MSR))
+		return -EIO;	/* MSR not supported */
+
+	return 0;
+}
+
+static loff_t msr_safe_seek(struct file *file, loff_t offset, int orig)
+{
+	loff_t ret;
+	struct inode *inode = file->f_mapping->host;
+
+	mutex_lock(&inode->i_mutex);
+	switch (orig)
+	{
+	case 0:
+		file->f_pos = offset;
+		ret = file->f_pos;
+		break;
+	case 1:
+		file->f_pos += offset;
+		ret = file->f_pos;
+		break;
+	default:
+		ret = -EINVAL;
+	}
+	mutex_unlock(&inode->i_mutex);
+	return ret;
+}
+
+static ssize_t msr_safe_read(struct file *file, char __user *buf, 
+						size_t count, loff_t *ppos)
+{
+	u32 __user *tmp = (u32 __user *) buf;
+	u32 data[2];
+	u64 wl_readmask; /* Bits we are allowed to read */
+	loff_t reg = *ppos;
+	int cpu = iminor(file->f_path.dentry->d_inode);
+	int err = -EACCES; /* Initialize to Permission Denied */
+
+	if (MSR_IS_WLIST_ADMIN(cpu))
+		return read_whitelist(file, buf, count, ppos);
+
+	/* 
+	 * "count" doesn't have any meaning here, as we never want to read 
+	 * more than one msr at at time.
+	 */
+	if (count != 8)
+		return -EINVAL;	/* Invalid chunk size */
+
+	mutex_lock(&whitelist_mutex);
+	wl_readmask = get_readmask(reg);
+	mutex_unlock(&whitelist_mutex);
+
+	if (wl_readmask == 0)
+		return -EACCES;
+
+	err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
+	if (!err) {
+		u64 *pdata = (u64*)&data[0];
+
+		*pdata &= wl_readmask;
+
+		/* Only return bits that white list says we have acccess to */
+		if (copy_to_user(tmp, data, 8))
+			err = -EFAULT;
+		else
+			err = 0; /* Success */
+	}
+	return err ? err : 8;
+}
+
+/* -- White list I/O -- */
+/*
+ * After copying data from user spaec, we make two passes through the file. 
+ * The first pass is to ensure that the input file is valid. If the file is 
+ * valid, we will then delete the current white list and then perform the 
+ * second pass to actually create the new white list.
+ */
+static ssize_t write_whitelist(struct file *file, const char __user *buf, 
+						size_t count, loff_t *ppos)
+{
+	int err = 0;
+	const u32 __user *tmp = (const u32 __user *)buf;
+	char *s;
+	int res;
+	int num_entries;
+	struct whitelist_entry *entry;
+	char *kbuf;
+
+	/* TODO: Remove this restriction and handle large files like a man... */
+	if (count+1 > MAX_WLIST_BSIZE) {
+		printk(KERN_ALERT 
+		    "write_whitelist: Data buffer of %zu bytes too large\n",
+		    count);
+		return -EINVAL;
+	}
+
+	if (!(kbuf = kzalloc(count+1, GFP_KERNEL)))
+		return -ENOMEM;
+
+	if (copy_from_user(kbuf, tmp, count)) {
+		err = -EFAULT;
+		goto out_freebuffer;
+	}
+
+	/* Pass 1: */
+	for (num_entries = 0, s = kbuf, res = 1; res > 0; ) {
+		if ((res = parse_next_whitelist_entry(s, &s, 0)) < 0) {
+			err = res;
+			goto out_freebuffer;
+		}
+
+		if (res)
+			num_entries++;
+	}
+
+	/* Pass 2: */
+	mutex_lock(&whitelist_mutex);
+	if ((res = create_whitelist(num_entries)) < 0) {
+		err = res;
+		goto out_releasemutex;
+	}
+
+	for (entry = whitelist, s = kbuf, res = 1; res > 0; entry++) {
+		if ((res = parse_next_whitelist_entry(s, &s, entry)) < 0) {
+			printk(KERN_ALERT "msrw_update: Table corrupted\n");
+			delete_whitelist();
+			err = res; /* This should not happen! */
+			goto out_releasemutex;
+		}
+
+		if (res) {
+			if (find_in_whitelist(entry->msr)) {
+				printk(KERN_ALERT 
+				   "msrw_update: Duplicate entry found: %llx\n",
+					 entry->msr);
+				err = -EINVAL;
+				delete_whitelist();
+				goto out_releasemutex;
+			}
+			add_to_whitelist(entry);
+		}
+	}
+
+out_releasemutex:
+	mutex_unlock(&whitelist_mutex);
+out_freebuffer:
+	kfree(kbuf);
+	return err ? err : count;
+}
+
+static ssize_t read_whitelist(struct file *file, char __user *buf, 
+						size_t count, loff_t *ppos)
+{
+	loff_t idx = *ppos;
+	u32 __user *tmp = (u32 __user *) buf;
+	char kbuf[160];
+	int len;
+	struct whitelist_entry entry;
+
+	mutex_lock(&whitelist_mutex);
+	*ppos = 0;
+
+	if (idx >= whitelist_numentries || idx < 0) {
+		mutex_unlock(&whitelist_mutex);
+		return 0;
+	}
+
+	entry = whitelist[idx];
+	mutex_unlock(&whitelist_mutex);
+
+	len = sprintf(kbuf, 
+		"MSR: %08llx Write Mask: %016llx Read Mask: %016llx\n", 
+					entry.msr, entry.wmask, entry.rmask);
+
+	if (len > count)
+		return -EFAULT;
+
+	if (copy_to_user(tmp, kbuf, len))
+		return -EFAULT;
+
+	*ppos = idx+1;
+	return len;
+}
+
+static ssize_t msr_safe_write(struct file *file, 
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	const u32 __user *tmp = (const u32 __user *)buf;
+	u32 data[2];
+	u64 *pdata = (u64*)&data[0];
+	u64 wl_writemask;
+	loff_t reg = *ppos;
+	int cpu = iminor(file->f_path.dentry->d_inode);
+	int err = -EACCES;
+
+	if (MSR_IS_WLIST_ADMIN(iminor(file->f_path.dentry->d_inode)))
+		return write_whitelist(file, buf, count, ppos);
+
+	/* "Count" doesn't have any meaning here, as we
+	 * never want to write more than one msr at at time.
+	 */
+	if (count != 8)
+		return -EINVAL;	/* Invalid chunk size */
+
+	mutex_lock(&whitelist_mutex);
+	wl_writemask = get_writemask(reg);
+	mutex_unlock(&whitelist_mutex);
+
+	if (wl_writemask == 0)
+		return -EACCES;
+
+	if (copy_from_user(&data[0], tmp, 8)) {
+		err = -EFAULT;
+	}
+	else {
+		*pdata &= wl_writemask;
+		err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
+	}
+	return err ? err : 8;
+}
 
 static void delete_whitelist(void)
 {
@@ -172,209 +391,6 @@ static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
 
 	*nextinbuf = s; /* Return where we left off to caller */
 	return *nextinbuf - inbuf;
-}
-
-/*
- * After copying data from user spaec, we make two passes through the file. 
- * The first pass is to ensure that the input file is valid. If the file is 
- * valid, we will then delete the current white list and then perform the 
- * second pass to actually create the new white list.
- */
-static ssize_t new_whitelist(struct file *file, const char __user *buf, 
-						size_t count, loff_t *ppos)
-{
-	int err = 0;
-	const u32 __user *tmp = (const u32 __user *)buf;
-	char *s;
-	int res;
-	int num_entries;
-	struct whitelist_entry *entry;
-	char *kbuf;
-
-	/* TODO: Remove this restriction and handle large files like a man... */
-	if (count+1 > MAX_WLIST_BSIZE) {
-		printk(KERN_ALERT 
-			"new_whitelist: Data buffer of %zu bytes too large\n",
-		count);
-		return -EINVAL;
-	}
-
-	if (!(kbuf = kzalloc(count+1, GFP_KERNEL)))
-		return -ENOMEM;
-
-	if (copy_from_user(kbuf, tmp, count)) {
-		err = -EFAULT;
-		goto out_freebuffer;
-	}
-
-	/* Pass 1: */
-	for (num_entries = 0, s = kbuf, res = 1; res > 0; ) {
-		if ((res = parse_next_whitelist_entry(s, &s, 0)) < 0) {
-			err = res;
-			goto out_freebuffer;
-		}
-
-		if (res)
-			num_entries++;
-	}
-
-	/* Pass 2: */
-	mutex_lock(&whitelist_mutex);
-	if ((res = create_whitelist(num_entries)) < 0) {
-		err = res;
-		goto out_releasemutex;
-	}
-
-	for (entry = whitelist, s = kbuf, res = 1; res > 0; entry++) {
-		if ((res = parse_next_whitelist_entry(s, &s, entry)) < 0) {
-			printk(KERN_ALERT "msrw_update: Table corrupted\n");
-			delete_whitelist();
-			err = res; /* This should not happen! */
-			goto out_releasemutex;
-		}
-
-		if (res) {
-			if (find_in_whitelist(entry->msr)) {
-				printk(KERN_ALERT 
-				   "msrw_update: Duplicate entry found: %llx\n",
-					 entry->msr);
-				err = -EINVAL;
-				delete_whitelist();
-				goto out_releasemutex;
-			}
-			add_to_whitelist(entry);
-		}
-	}
-
-out_releasemutex:
-	mutex_unlock(&whitelist_mutex);
-out_freebuffer:
-	kfree(kbuf);
-	return err ? err : count;
-}
-
-static loff_t msr_safe_seek(struct file *file, loff_t offset, int orig)
-{
-	loff_t ret;
-	struct inode *inode = file->f_mapping->host;
-
-	mutex_lock(&inode->i_mutex);
-	switch (orig)
-	{
-	case 0:
-		file->f_pos = offset;
-		ret = file->f_pos;
-		break;
-	case 1:
-		file->f_pos += offset;
-		ret = file->f_pos;
-		break;
-	default:
-		ret = -EINVAL;
-	}
-	mutex_unlock(&inode->i_mutex);
-	return ret;
-}
-
-static ssize_t 
-msr_safe_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
-{
-	u32 __user *tmp = (u32 __user *) buf;
-	u32 data[2];
-	u64 wl_readmask; /* Bits we are allowed to read */
-	loff_t reg = *ppos;
-	int cpu = iminor(file->f_path.dentry->d_inode);
-	int err = -EACCES; /* Initialize to Permission Denied */
-
-	if (MSR_IS_WLIST_ADMIN(cpu)) {
-		/*TODO: Update read of whitelist to return enum*/
-		return count-1;
-	}
-
-	/* "Count" doesn't have any meaning here, as we
-	 * never want to read more than one msr at at time.
-	 */
-	if (count != 8)
-		return -EINVAL;	/* Invalid chunk size */
-
-	mutex_lock(&whitelist_mutex);
-	wl_readmask = get_readmask(reg);
-	mutex_unlock(&whitelist_mutex);
-
-	if (wl_readmask == 0)
-		return -EACCES;
-
-	err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
-	if (!err) {
-		u64 *pdata = (u64*)&data[0];
-
-		*pdata &= wl_readmask;
-
-		/* Only return bits that white list says we have acccess to */
-		if (copy_to_user(tmp, data, 8))
-			err = -EFAULT;
-		else
-			err = 0; /* Success */
-	}
-	return err ? err : 8;
-}
-
-static ssize_t 
-msr_safe_write(struct file *file, 
-		const char __user *buf, size_t count, loff_t *ppos)
-{
-	const u32 __user *tmp = (const u32 __user *)buf;
-	u32 data[2];
-	u64 *pdata = (u64*)&data[0];
-	u64 wl_writemask;
-	loff_t reg = *ppos;
-	int cpu = iminor(file->f_path.dentry->d_inode);
-	int err = -EACCES;
-
-	if (MSR_IS_WLIST_ADMIN(iminor(file->f_path.dentry->d_inode)))
-		return new_whitelist(file, buf, count, ppos);
-
-	/* "Count" doesn't have any meaning here, as we
-	 * never want to write more than one msr at at time.
-	 */
-	if (count != 8)
-		return -EINVAL;	/* Invalid chunk size */
-
-	mutex_lock(&whitelist_mutex);
-	wl_writemask = get_writemask(reg);
-	mutex_unlock(&whitelist_mutex);
-
-	if (wl_writemask == 0)
-		return -EACCES;
-
-	if (copy_from_user(&data[0], tmp, 8)) {
-		err = -EFAULT;
-	}
-	else {
-		*pdata &= wl_writemask;
-		err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
-	}
-	return err ? err : 8;
-}
-
-static int msr_safe_open(struct inode *inode, struct file *file)
-{
-	unsigned int cpu;
-	struct cpuinfo_x86 *c;
-
-	cpu = iminor(file->f_path.dentry->d_inode);
-
-	if (MSR_IS_WLIST_ADMIN(cpu))
-		return 0; /* Let 'em in... */
-
-	if (cpu >= nr_cpu_ids || !cpu_online(cpu))
-		return -ENXIO; /* No such CPU */
-
-	c = &cpu_data(cpu);
-	if (!cpu_has(c, X86_FEATURE_MSR))
-		return -EIO;	/* MSR not supported */
-
-	return 0;
 }
 
 /*
