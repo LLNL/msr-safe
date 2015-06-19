@@ -36,12 +36,25 @@
 #define MSR_IS_WLIST_ADMIN(m) ((m) == MSR_WLIST_ADMIN_MINOR)
 #define MAX_WLIST_BSIZE ((128 * 1024) + 1) /* "+1" for null character */
 
+/*
+ * If the msr is writeable and the flag is 0, the msr is erased when the 
+ * whitelist is removed.  If the flag is 1 then the value for the msr is 
+ * recorded somewhere and restored when the whitelist is removed
+ */
+#define CLEAR_MSR_ON_WHITELIST_REMOVE(x)	((x) == 1)
+#define RESTORE_MSR_ON_WHITELIST_REMOVE(x)	((x) == 2)
 struct whitelist_entry {
 	u64 wmask;	/* Bits that may be written */
 	u64 rmask;	/* Bits that may be read */
 	u64 msr;	/* Address of msr (used as hash key) */
+	int resflag;	/* 0=do-nothing, 1=erase when removed, 2=restore */
+	u64 *msrdata;	/* ptr to original msr contents of writable bits */
 	struct hlist_node hlist;
 };
+
+/*
+ * Save writable bits 
+ */
 
 static void delete_whitelist(void);
 static int create_whitelist(int nentries);
@@ -51,24 +64,22 @@ static u64 get_readmask(loff_t reg);
 static u64 get_writemask(loff_t reg);
 static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf, 
 						struct whitelist_entry *entry);
-static ssize_t 
-read_whitelist(struct file *file, char __user *buf, size_t count, loff_t *ppos);
+static ssize_t read_whitelist(struct file *file, char __user *buf, 
+						size_t count, loff_t *ppos);
 static loff_t msr_safe_seek(struct file *file, loff_t offset, int orig);
-static ssize_t 
-msr_safe_read(struct file *file, char __user *buf, size_t count, loff_t *ppos);
-static ssize_t 
-msr_safe_write(struct file *file, 
-		const char __user *buf, size_t count, loff_t *ppos);
+static ssize_t msr_safe_read(struct file *file, char __user *buf, 
+						size_t count, loff_t *ppos);
+static ssize_t msr_safe_write(struct file *file, 
+			const char __user *buf, size_t count, loff_t *ppos);
 static int msr_safe_open(struct inode *inode, struct file *file);
 static int __cpuinit create_msr_safe_device(int cpu);
 static void destroy_msr_safe_device(int cpu);
-static int __cpuinit 
-cdev_class_cpu_callback(struct notifier_block *nfb, 
+static int __cpuinit cdev_class_cpu_callback(struct notifier_block *nfb, 
 					unsigned long action, void *hcpu);
 static ssize_t version_show(struct kobject *kobj, struct kobj_attribute *attr,
-			    char *buf);
+								    char *buf);
 static ssize_t version_set(struct kobject *kobj, struct kobj_attribute *attr,
-			   const char *buf, size_t count);
+					   const char *buf, size_t count);
 static char *msr_safe_nodename(struct device *dev, umode_t *mode);
 static void msr_safe_cleanup(void);
 static int __init msr_safe_init(void);

@@ -36,6 +36,11 @@
 #include <linux/init.h>
 #include "msr_safe.h"
 
+MODULE_AUTHOR("Marty McFadden <mcfadden8@llnl.gov>");
+MODULE_DESCRIPTION("x86 sanitized MSR driver");
+MODULE_LICENSE("GPL");
+MODULE_SUPPORTED_DEVICE("msr_safe");
+
 static int majordev;
 static struct class *cdev_class;
 static char cdev_created[MSR_NUM_MINORS];
@@ -43,8 +48,7 @@ static char cdev_registered = 0;
 static char cdev_class_created = 0;
 static char hotcpu_notifier_registered = 0;
 static DEFINE_HASHTABLE(whitelist_hash, 6);
-/*TODO: (potentially) replace whitelist_mutex with RCU */
-static DEFINE_MUTEX(whitelist_mutex);
+static DEFINE_MUTEX(whitelist_mutex);	/*TODO (potentially) replace with RCU */
 static struct whitelist_entry *whitelist=0;
 static int whitelist_numentries = 0;
 
@@ -152,7 +156,15 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	struct whitelist_entry *entry;
 	char *kbuf;
 
-	/* TODO: Remove this restriction and handle large files like a man... */
+
+	if (count <= 2) {
+		mutex_lock(&whitelist_mutex);
+		delete_whitelist();
+		hash_init(whitelist_hash);
+		mutex_unlock(&whitelist_mutex);
+		return count;
+	}
+
 	if (count+1 > MAX_WLIST_BSIZE) {
 		printk(KERN_ALERT 
 		    "write_whitelist: Data buffer of %zu bytes too large\n",
@@ -287,11 +299,26 @@ static ssize_t msr_safe_write(struct file *file,
 
 static void delete_whitelist(void)
 {
-	if (whitelist != 0) {
-		kfree(whitelist);
-		whitelist = 0;
-		whitelist_numentries = 0;
+	struct whitelist_entry *e;
+
+	if (whitelist == 0)
+		return;
+
+	for (e = whitelist; e < whitelist+whitelist_numentries; e++) {
+		if (CLEAR_MSR_ON_WHITELIST_REMOVE(e->resflag)) {
+			/* Clear out the MSR */
+		}
+		if (RESTORE_MSR_ON_WHITELIST_REMOVE(e->resflag)) {
+			/* Restore bits that we can */
+		}
 	}
+
+	if (whitelist->msrdata != 0)
+		kfree(whitelist->msrdata);
+
+	kfree(whitelist);
+	whitelist = 0;
+	whitelist_numentries = 0;
 }
 
 static int create_whitelist(int nentries)
@@ -299,7 +326,7 @@ static int create_whitelist(int nentries)
 	hash_init(whitelist_hash);
 	delete_whitelist();
 	whitelist_numentries = nentries;
-	whitelist = kmalloc((nentries * sizeof(*whitelist)), GFP_KERNEL);
+	whitelist = kcalloc(nentries, sizeof(*whitelist), GFP_KERNEL);
 
 	if (!whitelist) {
 		printk(KERN_ALERT 
@@ -581,7 +608,3 @@ static void __exit msr_safe_exit(void)
 module_init(msr_safe_init);
 module_exit(msr_safe_exit)
 
-MODULE_AUTHOR("Marty McFadden <mcfadden8@llnl.gov>");
-MODULE_DESCRIPTION("x86 sanitized MSR driver");
-MODULE_LICENSE("GPL");
-MODULE_SUPPORTED_DEVICE("msr_safe");
