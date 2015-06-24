@@ -53,65 +53,109 @@ static DEFINE_MUTEX(whitelist_mutex);	/*TODO (potentially) replace with RCU */
 static struct whitelist_entry *whitelist=0;
 static int whitelist_numentries = 0;
 
-static u64 maniacal_msr(int i)
+#define MSRHISTO(m, pt, ct, tmp, lt, li, st, si)	\
+	do {						\
+		if (m == 0xe7) {			\
+			tmp = ct - pt;			\
+			if (tmp > lt) {			\
+				lt = tmp;		\
+				li = i;			\
+			}				\
+			if (tmp < st) {			\
+				st = tmp;		\
+				si = i;			\
+			}				\
+		}					\
+		pt = ct;				\
+	} while (0)
+
+static u64 maniacal_msr(int loop_iterations, int msr)
 {
-	u32 data[2];
-	u64 *pdata = (u64*)&data[0];
-	u64 start_tick;
-	int err;
-	int this_cpu;
+	union msrdata {
+		u32 d32[2];
+		u64 d64;
+	} d;
+	int l_iter=0;
+	int s_iter = 0;
+	u64 start;
+	u64 pv_tick;
+	u64 l_tick=0L;
+	u64 sh_tick;
+	int i;
+	u64 t;
 	unsigned long flags;
+	int this_cpu;
 
 	this_cpu = get_cpu();	/* Prevent preemption */
 	local_irq_save(flags);
 
 	/* csd_unlock() */
-	if ((err = rdmsr_safe(0xe7, &data[0], &data[1]))) {
-		printk(KERN_ALERT "evil_msr: rdmsr returned %d\n", err);
-		put_cpu();
-		return 0L;
-	}
+	if (rdmsr_safe(0xe7, &d.d32[0], &d.d32[1]))
+		printk(KERN_ALERT "evil_msr: rdmsr failed\n");
 
-	start_tick = *pdata;
-	while (--i) {
-		if ((err = rdmsr_safe(0xe7, &data[0], &data[1]))) {
-			printk(KERN_ALERT "evil_msr: rdmsr returned %d\n", err);
-			put_cpu();
-			return 0L;
-		}
+	sh_tick = pv_tick = start = d.d64;
+	for (i = 1; i <= loop_iterations; ++i) {
+		if (rdmsr_safe(msr, &d.d32[0], &d.d32[1]))
+			printk(KERN_ALERT "evil_msr: rdmsr failed\n");
+
+		MSRHISTO(msr,pv_tick,d.d64,t, l_tick, l_iter, sh_tick, s_iter);
 	}
+	if (rdmsr_safe(0xe7, &d.d32[0], &d.d32[1]))
+		printk(KERN_ALERT "evil_msr: rdmsr failed\n");
+
 	local_irq_restore(flags);
 	/* csd_lock_wait() */
 	put_cpu();		/* Restore premption */
-	return (*pdata - start_tick);
+
+	if (msr == 0xe7)
+		printk(KERN_ALERT 
+		  "Longest Tick: %llu, I %d; Shortest Tick: %llu, I %d\n", 
+			l_tick, l_iter, sh_tick, s_iter);
+	return (d.d64 - start);
 }
 
-static u64 evil_msr(int mycpu, int cpu, int i)
+static u64 evil_msr(int mycpu, int cpu, int loop_iterations, int msr)
 {
-	u32 data[2];
-	u64 *pdata = (u64*)&data[0];
-	u64 start_tick;
-	int err;
+	union msrdata {
+		u32 d32[2];
+		u64 d64;
+	} d;
+	u64 t;
+	u64 start;
+	u64 pv_tick;
+	u64 l_tick=0L;
+	u64 sh_tick;
+	int i;
+	int s_iter = 0;
+	int l_iter=0;
 
-	if ((err = rdmsr_safe_on_cpu(cpu, 0xe7, &data[0], &data[1]))) {
-		printk(KERN_ALERT "evil_msr: rdmsr returned %d\n", err);
-		return 0L;
+	if (rdmsr_safe_on_cpu(mycpu, 0xe7, &d.d32[0], &d.d32[1]))
+		printk(KERN_ALERT "evil_msr: rdmsr failed\n");
+
+	start = d.d64;
+	if (msr == 0xe7) {
+		if (rdmsr_safe_on_cpu(cpu, msr, &d.d32[0], &d.d32[1]))
+			printk(KERN_ALERT "evil_msr: rdmsr failed\n");
+		sh_tick = pv_tick = d.d64;
 	}
-	start_tick = *pdata;
-	while (--i) {
-		err = rdmsr_safe_on_cpu(cpu, 0xe7, &data[0], &data[1]);
-		if (err) {
-			printk(KERN_ALERT "evil_msr: rdmsr returned %d\n", err);
-			return 0L;
-		}
-		if (mycpu != smp_processor_id()) {
+	for (i = 2; i <= loop_iterations; ++i) {
+		if (rdmsr_safe_on_cpu(cpu, msr, &d.d32[0], &d.d32[1]))
+			printk(KERN_ALERT "evil_msr: rdmsr failed\n");
+
+		MSRHISTO(msr,pv_tick,d.d64,t, l_tick, l_iter, sh_tick, s_iter);
+		if (mycpu != smp_processor_id())
 			printk(KERN_ALERT 
 				"evil_msr: I migrated from %d to %d!\n",
 				mycpu, smp_processor_id());
-			return 0L;
-		}
 	}
-	return (*pdata - start_tick);
+	if (rdmsr_safe_on_cpu(mycpu, 0xe7, &d.d32[0], &d.d32[1]))
+		printk(KERN_ALERT "evil_msr: rdmsr failed\n");
+
+	if (msr == 0xe7)
+		printk(KERN_ALERT 
+		  "Longest Tick: %llu, I %d; Shortest Tick: %llu, I %d\n", 
+			l_tick, l_iter, sh_tick, s_iter);
+	return (d.d64 - start);
 }
 
 static void evil_msr_test(void)
@@ -128,35 +172,35 @@ static void evil_msr_test(void)
 	 *		numcpus/2/2 cores per socket, 
 	 */
 	cpu = mycpu;
-	ticks = maniacal_msr(i);
+	ticks = maniacal_msr(i, 0xe2);
 	printk(KERN_DEBUG 
 		"msr_test: %5llu Ticks [Cur CPU %2d, MSR CPU %2d] MANIACAL!!\n",
 		ticks/i, mycpu, cpu);
 
 	/* same thread, same core */
 	cpu = mycpu;
-	ticks = evil_msr(mycpu, cpu, i);
+	ticks = evil_msr(mycpu, cpu, i, 0xe2);
 	printk(KERN_DEBUG 
 		"msr_test: %5llu Ticks [Cur CPU %2d, MSR CPU %2d]\n", 
 		ticks/i, mycpu, cpu);
 
 	/* same core, different thread */
 	cpu = (mycpu & 1) ? mycpu - 1 : mycpu + 1;
-	ticks = evil_msr(mycpu, cpu, i);
+	ticks = evil_msr(mycpu, cpu, i, 0xe2);
 	printk(KERN_DEBUG 
 		"msr_test: %5llu Ticks [Cur CPU %2d, MSR CPU %2d]\n", 
 		ticks/i, mycpu, cpu);
 	
 	/* Now try different core, same socket */
 	cpu = mycpu + 2;
-	ticks = evil_msr(mycpu, cpu, i);
+	ticks = evil_msr(mycpu, cpu, i, 0xe2);
 	printk(KERN_DEBUG 
 		"msr_test: %5llu Ticks [Cur CPU %2d, MSR CPU %2d]\n", 
 		ticks/i, mycpu, cpu);
 
 	/* Now try different socket */
 	cpu = (mycpu >= numcpus/2) ? mycpu - numcpus/2 : mycpu + numcpus/2; 
-	ticks = evil_msr(mycpu, cpu, i);
+	ticks = evil_msr(mycpu, cpu, i, 0xe2);
 	printk(KERN_DEBUG 
 		"msr_test: %5llu Ticks [Cur CPU %2d, MSR CPU %2d]\n\n\n", 
 		ticks/i, mycpu, cpu);
