@@ -20,24 +20,18 @@
 #include <asm/msr.h>
 #include "msr.h"	/* Remove when this goes into msr-smp.c */
 
-/* These "safe" variants are slower and should be used when the target MSR
-   may not actually exist. */
 static void __rdmsr_safe_sg_on_cpu(void *info)
 {
 	struct msr_info *rv = info;
-	int i;
 
-	for (i = 0; i < 10000; i++)
-		rv->err = rdmsr_safe(rv->msr_no, &rv->reg.l, &rv->reg.h);
+	rv->err = rdmsr_safe(rv->msr_no, &rv->reg.l, &rv->reg.h);
 }
 
 static void __wrmsr_safe_sg_on_cpu(void *info)
 {
 	struct msr_info *rv = info;
-	int i;
 
-	for (i = 0; i < 10000; i++)
-		rv->err = wrmsr_safe(rv->msr_no, rv->reg.l, rv->reg.h);
+	rv->err = wrmsr_safe(rv->msr_no, rv->reg.l, rv->reg.h);
 }
 
 int rdmsr_safe_sg_on_cpu(unsigned int cpu, u32 msr_no, u32 *l, u32 *h)
@@ -54,7 +48,7 @@ int rdmsr_safe_sg_on_cpu(unsigned int cpu, u32 msr_no, u32 *l, u32 *h)
 
 	return err ? err : rv.err;
 }
-EXPORT_SYMBOL(rdmsr_safe_sg_on_cpu);
+/* EXPORT_SYMBOL(rdmsr_safe_sg_on_cpu); */
 
 int wrmsr_safe_sg_on_cpu(unsigned int cpu, u32 msr_no, u32 l, u32 h)
 {
@@ -70,5 +64,5 @@ int wrmsr_safe_sg_on_cpu(unsigned int cpu, u32 msr_no, u32 l, u32 h)
 
 	return err ? err : rv.err;
 }
-EXPORT_SYMBOL(wrmsr_safe_sg_on_cpu);
+/* EXPORT_SYMBOL(wrmsr_safe_sg_on_cpu); */
 
