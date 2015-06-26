@@ -69,6 +69,9 @@ static int whitelist_numentries = 0;
 		pt = ct;				\
 	} while (0)
 
+extern int rdmsr_safe_sg_on_cpu(unsigned int cpu, u32 msr_no, u32 *l, u32 *h);
+extern int wrmsr_safe_sg_on_cpu(unsigned int cpu, u32 msr_no, u32 l, u32 h);
+
 static u64 maniacal_msr(int loop_iterations, int msr)
 {
 	union msrdata {
@@ -133,11 +136,13 @@ static u64 evil_msr(int mycpu, int cpu, int loop_iterations, int msr)
 		printk(KERN_ALERT "evil_msr: rdmsr failed\n");
 
 	start = d.d64;
+
 	if (msr == 0xe7) {
 		if (rdmsr_safe_on_cpu(cpu, msr, &d.d32[0], &d.d32[1]))
 			printk(KERN_ALERT "evil_msr: rdmsr failed\n");
 		sh_tick = pv_tick = d.d64;
 	}
+
 	for (i = 2; i <= loop_iterations; ++i) {
 		if (rdmsr_safe_on_cpu(cpu, msr, &d.d32[0], &d.d32[1]))
 			printk(KERN_ALERT "evil_msr: rdmsr failed\n");
@@ -155,6 +160,36 @@ static u64 evil_msr(int mycpu, int cpu, int loop_iterations, int msr)
 		printk(KERN_ALERT 
 		  "Longest Tick: %llu, I %d; Shortest Tick: %llu, I %d\n", 
 			l_tick, l_iter, sh_tick, s_iter);
+	return (d.d64 - start);
+}
+
+static u64 sg_msr(int mycpu, int cpu, int loop_iterations, int msr)
+{
+	union msrdata {
+		u32 d32[2];
+		u64 d64;
+	} d;
+	u64 start;
+
+	if (rdmsr_safe_on_cpu(mycpu, 0xe7, &d.d32[0], &d.d32[1]))
+		printk(KERN_ALERT "sg_msr: rdmsr failed\n");
+
+	start = d.d64;
+
+	/* 
+	 * This will cause loop 1000 times
+	 */
+	if (rdmsr_safe_sg_on_cpu(cpu, msr, &d.d32[0], &d.d32[1]))
+		printk(KERN_ALERT "sg_msr: rdmsr failed\n");
+
+	if (mycpu != smp_processor_id())
+		printk(KERN_ALERT 
+			"sg_msr: I migrated from %d to %d!\n",
+			mycpu, smp_processor_id());
+
+	if (rdmsr_safe_on_cpu(mycpu, 0xe7, &d.d32[0], &d.d32[1]))
+		printk(KERN_ALERT "sg_msr: rdmsr failed\n");
+
 	return (d.d64 - start);
 }
 
@@ -203,6 +238,34 @@ static void evil_msr_test(void)
 	ticks = evil_msr(mycpu, cpu, i, 0xe2);
 	printk(KERN_DEBUG 
 		"msr_test: %5llu Ticks [Cur CPU %2d, MSR CPU %2d]\n\n\n", 
+		ticks/i, mycpu, cpu);
+
+	/* same thread, same core */
+	cpu = mycpu;
+	ticks = sg_msr(mycpu, cpu, i, 0xe2);
+	printk(KERN_DEBUG 
+		"msr_test: %5llu Ticks [Cur CPU %2d, MSR CPU %2d] SG\n", 
+		ticks/i, mycpu, cpu);
+
+	/* same core, different thread */
+	cpu = (mycpu & 1) ? mycpu - 1 : mycpu + 1;
+	ticks = sg_msr(mycpu, cpu, i, 0xe2);
+	printk(KERN_DEBUG 
+		"msr_test: %5llu Ticks [Cur CPU %2d, MSR CPU %2d] SG\n", 
+		ticks/i, mycpu, cpu);
+	
+	/* Now try different core, same socket */
+	cpu = mycpu + 2;
+	ticks = sg_msr(mycpu, cpu, i, 0xe2);
+	printk(KERN_DEBUG 
+		"msr_test: %5llu Ticks [Cur CPU %2d, MSR CPU %2d] SG\n", 
+		ticks/i, mycpu, cpu);
+
+	/* Now try different socket */
+	cpu = (mycpu >= numcpus/2) ? mycpu - numcpus/2 : mycpu + numcpus/2; 
+	ticks = sg_msr(mycpu, cpu, i, 0xe2);
+	printk(KERN_DEBUG 
+		"msr_test: %5llu Ticks [Cur CPU %2d, MSR CPU %2d] SG\n\n\n", 
 		ticks/i, mycpu, cpu);
 }
 
