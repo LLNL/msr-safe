@@ -1,4 +1,3 @@
-
 /* ----------------------------------------------------------------------- *
  * Copyright 2000-2008 H. Peter Anvin - All Rights Reserved
  * Copyright 2009 Intel Corporation; author: H. Peter Anvin
@@ -35,6 +34,7 @@
 #include <linux/sysfs.h>
 #include <linux/module.h>
 #include <linux/init.h>
+#include "msr.h"
 #include "msr_safe.h"
 
 MODULE_AUTHOR("Marty McFadden <mcfadden8@llnl.gov>");
