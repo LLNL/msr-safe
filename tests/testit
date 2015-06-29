@@ -1,0 +1,30 @@
+#/bin/sh
+echo "Currently running driver is:"
+lsmod | grep msr-safe
+echo "Unloading Previous Driver"
+rmmod msr-safe.ko
+lsmod | grep msr-safe
+echo "Installing New Driver"
+insmod msr-safe.ko
+modinfo msr-safe.ko
+ls -l /dev/cpu
+ls -l /dev/cpu/0
+lsmod | grep msr-safe
+echo "--------------------------"
+echo "--------------------------"
+# echo "Kernel buffer is:"
+# dmesg -H --nopager --notime
+echo "Writing Good Whitelist"
+cat tests/data.good > /dev/cpu/msr_whitelist
+echo "Enumerating Good Whitelist"
+cat < /dev/cpu/msr_whitelist
+echo "Wring Bad Whitelist"
+#cat tests/testit > /dev/cpu/msr_whitelist
+echo "Enumerating after bad Whitelist"
+cat < /dev/cpu/msr_whitelist
+echo "Clearing Whitelist"
+echo > /dev/cpu/msr_whitelist
+echo "Enumerating Whitelist (should be empty)"
+cat < /dev/cpu/msr_whitelist
+
+
