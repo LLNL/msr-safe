@@ -1,5 +1,5 @@
 #ifndef MSR_SAFE_INC
-#define MSR_SAVE_INC 1
+#define MSR_SAFE_INC 1
 /* ----------------------------------------------------------------------- *
  * Copyright 2000-2008 H. Peter Anvin - All Rights Reserved
  * Copyright 2009 Intel Corporation; author: H. Peter Anvin
@@ -26,46 +26,8 @@
 #include <linux/module.h>
 #include <linux/init.h>
 
-/*
- * The minor device scheme works as follows:
- * 	0 : (NR_CPUS-1) are for the CPUs
- * 	NR_CPUS is the administrative whitelist interface
- */
-#define MSR_NUM_MINORS NR_CPUS+1
-#define MSR_WLIST_ADMIN_MINOR NR_CPUS
-#define MSR_IS_WLIST_ADMIN(m) ((m) == MSR_WLIST_ADMIN_MINOR)
-#define MAX_WLIST_BSIZE ((128 * 1024) + 1) /* "+1" for null character */
+#define MSR_NUM_MINORS NR_CPUS
 
-/*
- * If the msr is writeable and the flag is 0, the msr is erased when the 
- * whitelist is removed.  If the flag is 1 then the value for the msr is 
- * recorded somewhere and restored when the whitelist is removed
- */
-#define CLEAR_MSR_ON_WHITELIST_REMOVE(x)	((x) == 1)
-#define RESTORE_MSR_ON_WHITELIST_REMOVE(x)	((x) == 2)
-struct whitelist_entry {
-	u64 wmask;	/* Bits that may be written */
-	u64 rmask;	/* Bits that may be read */
-	u64 msr;	/* Address of msr (used as hash key) */
-	int resflag;	/* 0=do-nothing, 1=erase when removed, 2=restore */
-	u64 *msrdata;	/* ptr to original msr contents of writable bits */
-	struct hlist_node hlist;
-};
-
-/*
- * Save writable bits 
- */
-
-static void delete_whitelist(void);
-static int create_whitelist(int nentries);
-static struct whitelist_entry *find_in_whitelist(u64 msr);
-static void add_to_whitelist(struct whitelist_entry *entry);
-static u64 get_readmask(loff_t reg);
-static u64 get_writemask(loff_t reg);
-static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf, 
-						struct whitelist_entry *entry);
-static ssize_t read_whitelist(struct file *file, char __user *buf, 
-						size_t count, loff_t *ppos);
 static loff_t msr_safe_seek(struct file *file, loff_t offset, int orig);
 static ssize_t msr_safe_read(struct file *file, char __user *buf, 
 						size_t count, loff_t *ppos);
