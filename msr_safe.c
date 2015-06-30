@@ -28,7 +28,6 @@
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
 #include <linux/module.h>
-#include "msr.h"
 #include "msr_safe.h"
 #include "msr-whitelist.h"
 
