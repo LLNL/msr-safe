@@ -1,5 +1,4 @@
 # MSR		Write Mask		Read Mask		# Comment
-0x00000000	0x0000000000000000	0xffffffffffffffff	# "NO_SUCH_SMSR" 
 0x00000010	0x0000000000000000	0xffffffffffffffff	# "SMSR_TIME_STAMP_COUNTER"
 0x00000017	0x0000000000000000	0xffffffffffffffff	# "SMSR_PLATFORM_ID"
 0x000000C1	0xffffffffffffffff	0xffffffffffffffff	# "SMSR_PMC0"
@@ -49,4 +48,3 @@
 0x00000638	0x00ffffff00000000	0xffffffffffffffff	# "SMSR_PP0_POWER_LIMIT"
 0x00000639	0x0000000000000000	0xffffffffffffffff	# "SMSR_PP0_ENERGY_STATUS" 
 0x000001AD	0xffffffffffffffff	0xffffffffffffffff	# "SMSR_TURBO_RATIO_LIMIT" 
-0x00000000	0x0000000000000000	0xffffffffffffffff	# "SMSR_LAST_ENTRY"
