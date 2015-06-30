@@ -1,34 +1,9 @@
 #ifndef MSR_WHITELIST_IMPL_INC
 #define MSR_WHITELIST__IMPL_INC 1
-/* ----------------------------------------------------------------------- *
- * Copyright 2000-2008 H. Peter Anvin - All Rights Reserved
- * Copyright 2009 Intel Corporation; author: H. Peter Anvin
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, Inc., 675 Mass Ave, Cambridge MA 02139,
- * USA; either version 2 of the License, or (at your option) any later
- * version; incorporated herein by reference.
- * ----------------------------------------------------------------------- */
-
 /*
  * implementation specific definitions
  */
 #include <linux/kernel.h>
-#include <linux/list.h>
-#include <linux/fs.h>
-#include <linux/device.h>
-#include <linux/cpu.h>
-#include <linux/uaccess.h>
-#include <linux/ctype.h>
-#include <linux/hashtable.h>
-#include <linux/slab.h>
-#include <linux/mutex.h>
-#include <linux/kobject.h>
-#include <linux/string.h>
-#include <linux/sysfs.h>
-#include <linux/module.h>
-#include <linux/init.h>
 
 #define MAX_WLIST_BSIZE ((128 * 1024) + 1) /* "+1" for null character */
 

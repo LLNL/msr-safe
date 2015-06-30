@@ -20,20 +20,14 @@
  * an SMP box will direct the access to CPU %d.
  */
 #include <linux/kernel.h>
-#include <linux/list.h>
 #include <linux/fs.h>
 #include <linux/device.h>
 #include <linux/cpu.h>
 #include <linux/uaccess.h>
-#include <linux/ctype.h>
-#include <linux/hashtable.h>
-#include <linux/slab.h>
 #include <linux/mutex.h>
 #include <linux/kobject.h>
-#include <linux/string.h>
 #include <linux/sysfs.h>
 #include <linux/module.h>
-#include <linux/init.h>
 #include "msr.h"
 #include "msr_safe.h"
 #include "msr-whitelist.h"
