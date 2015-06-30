@@ -196,7 +196,7 @@ cdev_class_cpu_callback(struct notifier_block *nfb,
 	return notifier_from_errno(err);
 }
 
-static char *msr_safe_version = "1.7";
+static char *msr_safe_version = "1.8";
 
 static ssize_t version_show(struct kobject *kobj, struct kobj_attribute *attr,
 			    char *buf)
