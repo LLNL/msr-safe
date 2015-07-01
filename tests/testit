@@ -1,0 +1,49 @@
+#!/bin/zsh
+#
+print "Starting Test"
+lsmod | grep msr_safe
+if (( $? == 0 )) ; then
+	print "Unloading Previous Driver"
+	rmmod msr-safe.ko
+	if (( $? != 0)); then exit; fi
+fi
+
+print "Installing New Driver"
+insmod msr-safe.ko
+if (( $? != 0)); then exit; fi
+
+lsmod | grep msr_safe
+if (( $? != 0)); then exit; fi
+
+modinfo msr-safe.ko
+if (( $? != 0)); then exit; fi
+
+ls -l /dev/cpu/*/msr_safe /dev/cpu/msr_whitelist 
+if (( $? != 0)); then exit; fi
+
+print "--------------------------"
+print "--------------------------"
+
+# echo "Kernel buffer is:"
+# dmesg -H --nopager --notime
+
+for f in whitelists/* ;  do
+	print "-"
+	print "-"
+	print "-"
+	print Applying whitelist $f
+	cat $f > /dev/cpu/msr_whitelist
+	if (( $? != 0)); then exit; fi
+	print "-"
+	print "Enumerating whitelist $f"
+	cat < /dev/cpu/msr_whitelist
+	if (( $? != 0)); then exit; fi
+done
+
+print "-"
+print "Clearing Whitelist"
+echo > /dev/cpu/msr_whitelist
+cat < /dev/cpu/msr_whitelist
+
+
+print "Test Completed"
