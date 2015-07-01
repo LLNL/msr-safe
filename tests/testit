@@ -1,30 +1,49 @@
-#/bin/sh
-echo "Currently running driver is:"
-lsmod | grep msr-safe
-echo "Unloading Previous Driver"
-rmmod msr-safe.ko
-lsmod | grep msr-safe
-echo "Installing New Driver"
+#!/bin/zsh
+#
+print "Starting Test"
+lsmod | grep msr_safe
+if (( $? == 0 )) ; then
+	print "Unloading Previous Driver"
+	rmmod msr-safe.ko
+	if (( $? != 0)); then exit; fi
+fi
+
+print "Installing New Driver"
 insmod msr-safe.ko
+if (( $? != 0)); then exit; fi
+
+lsmod | grep msr_safe
+if (( $? != 0)); then exit; fi
+
 modinfo msr-safe.ko
-ls -l /dev/cpu
-ls -l /dev/cpu/0
-lsmod | grep msr-safe
-echo "--------------------------"
-echo "--------------------------"
+if (( $? != 0)); then exit; fi
+
+ls -l /dev/cpu/*/msr_safe /dev/cpu/msr_whitelist 
+if (( $? != 0)); then exit; fi
+
+print "--------------------------"
+print "--------------------------"
+
 # echo "Kernel buffer is:"
 # dmesg -H --nopager --notime
-echo "Writing Good Whitelist"
-cat tests/data.good > /dev/cpu/msr_whitelist
-echo "Enumerating Good Whitelist"
-cat < /dev/cpu/msr_whitelist
-echo "Wring Bad Whitelist"
-#cat tests/testit > /dev/cpu/msr_whitelist
-echo "Enumerating after bad Whitelist"
-cat < /dev/cpu/msr_whitelist
-echo "Clearing Whitelist"
+
+for f in whitelists/* ;  do
+	print "-"
+	print "-"
+	print "-"
+	print Applying whitelist $f
+	cat $f > /dev/cpu/msr_whitelist
+	if (( $? != 0)); then exit; fi
+	print "-"
+	print "Enumerating whitelist $f"
+	cat < /dev/cpu/msr_whitelist
+	if (( $? != 0)); then exit; fi
+done
+
+print "-"
+print "Clearing Whitelist"
 echo > /dev/cpu/msr_whitelist
-echo "Enumerating Whitelist (should be empty)"
 cat < /dev/cpu/msr_whitelist
 
 
+print "Test Completed"
