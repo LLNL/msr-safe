@@ -30,6 +30,7 @@
 #include <linux/module.h>
 #include "msr_safe.h"
 #include "msr-whitelist.h"
+#include "msr.h"
 
 MODULE_AUTHOR("Marty McFadden <mcfadden8@llnl.gov>");
 MODULE_DESCRIPTION("x86 sanitized MSR driver");
@@ -150,6 +151,119 @@ static ssize_t msr_safe_write(struct file *file,
 	return err ? err : 8;
 }
 
+static long msr_safe_ioctl(struct file *file, 
+				unsigned int ioc, unsigned long arg)
+{
+	int err = 0;
+
+	switch (ioc) {
+	case X86_IOC_RDMSR_REGS:
+	{
+		u32 __user *uregs = (u32 __user *)arg;
+		u32 regs[8];
+		int cpu = iminor(file->f_path.dentry->d_inode);
+
+		if (!(file->f_mode & FMODE_READ)) {
+			err = -EBADF;
+			break;
+		}
+		if (copy_from_user(&regs, uregs, sizeof regs)) {
+			err = -EFAULT;
+			break;
+		}
+		err = rdmsr_safe_regs_on_cpu(cpu, regs);
+		if (err)
+			break;
+		if (copy_to_user(uregs, &regs, sizeof regs))
+			err = -EFAULT;
+		break;
+	}
+
+	case X86_IOC_WRMSR_REGS:
+	{
+		u32 __user *uregs = (u32 __user *)arg;
+		u32 regs[8];
+		int cpu = iminor(file->f_path.dentry->d_inode);
+
+		if (!(file->f_mode & FMODE_WRITE)) {
+			err = -EBADF;
+			break;
+		}
+		if (copy_from_user(&regs, uregs, sizeof regs)) {
+			err = -EFAULT;
+			break;
+		}
+		err = wrmsr_safe_regs_on_cpu(cpu, regs);
+		if (err)
+			break;
+		if (copy_to_user(uregs, &regs, sizeof regs))
+			err = -EFAULT;
+		break;
+	}
+
+	case X86_IOC_RDMSR_BATCH:
+	{
+		struct msr_bundle_desc __user *u_bdes;
+		struct msr_bundle_desc k_bdes;
+		struct msr_cpu_ops *k_bundle;
+
+		if (!(file->f_mode & FMODE_READ)) {
+			err = -EBADF;
+			break;
+		}
+		u_bdes = (struct msr_bundle_desc *)arg;
+
+		if (copy_from_user(&k_bdes, u_bdes, sizeof k_bdes)) {
+			printk(KERN_ERR "RDMSR_BATCH: copyin(u_bdes) failed\n");
+			err = -EFAULT;
+			break;
+		}
+
+		if (k_bdes.n_msr_bundles <= 0) {
+			printk(KERN_ERR "RDMSR_BATCH: Invalid size %d\n", 
+							k_bdes.n_msr_bundles);
+			err = -EINVAL;
+			break;
+		}
+		k_bundle = kmalloc(k_bdes.n_msr_bundles * sizeof(*k_bundle), 
+								    GFP_KERNEL);
+		if (!k_bundle) {
+			printk(KERN_ERR 
+				"RDMSR_BATCH: kmalloc(%lu) Failed", 
+				k_bdes.n_msr_bundles * sizeof(*k_bundle));
+			err = -ENOMEM;
+			break;
+		}
+		
+		if (copy_from_user(k_bundle, k_bdes.bundle, 
+			      k_bdes.n_msr_bundles * sizeof(*k_bundle))) {
+			printk(KERN_ERR "RDMSR_BATCH: copyin(bundle) Failed");
+			err = -EFAULT;
+			goto k_bundle_alloc;
+		}
+
+		if (k_bdes.n_msr_bundles <= 0) {
+			printk(KERN_ERR "RDMSR_BATCH: Invalid size %d\n", 
+							k_bdes.n_msr_bundles);
+			err = -EINVAL;
+			goto k_bundle_alloc;
+		}
+
+		/* TODO: Check against whitelist */
+		/* TODO: Enqueue operations and await completion */
+		/* TODO: Copy information back to user space */
+k_bundle_alloc:
+		kfree(k_bundle);
+		break;
+	}
+	default:
+		err = -ENOTTY;
+		break;
+	}
+
+	return err;
+}
+
 /*
  * File operations we support
  */
@@ -158,7 +272,9 @@ static const struct file_operations msr_safe_fops = {
 	.read = msr_safe_read,
 	.write = msr_safe_write,
 	.open = msr_safe_open,
-	.llseek = msr_safe_seek
+	.llseek = msr_safe_seek,
+	.unlocked_ioctl = msr_safe_ioctl,
+	.compat_ioctl = msr_safe_ioctl
 };
 
 static int __cpuinit create_msr_safe_device(int cpu)
