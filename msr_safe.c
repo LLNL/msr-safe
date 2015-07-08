@@ -205,7 +205,7 @@ static long msr_safe_ioctl(struct file *file,
 	{
 		struct msr_bundle_desc __user *u_bdes;
 		struct msr_bundle_desc k_bdes;
-		struct msr_cpu_ops *k_bundle;
+		struct msr_cpu_ops __user *u_bundle;
 
 		if (!(file->f_mode & FMODE_READ)) {
 			err = -EBADF;
@@ -225,18 +225,19 @@ static long msr_safe_ioctl(struct file *file,
 			err = -EINVAL;
 			break;
 		}
-		k_bundle = kmalloc(k_bdes.n_msr_bundles * sizeof(*k_bundle), 
-								    GFP_KERNEL);
-		if (!k_bundle) {
+		u_bundle = k_bdes.bundle;
+		k_bdes.bundle = kzalloc(k_bdes.n_msr_bundles * 
+					sizeof(*k_bdes.bundle), GFP_KERNEL);
+		if (!k_bdes.bundle) {
 			printk(KERN_ERR 
-				"RDMSR_BATCH: kmalloc(%lu) Failed", 
-				k_bdes.n_msr_bundles * sizeof(*k_bundle));
+				"RDMSR_BATCH: kzalloc(%lu) Failed", 
+				k_bdes.n_msr_bundles * sizeof(*k_bdes.bundle));
 			err = -ENOMEM;
 			break;
 		}
 		
-		if (copy_from_user(k_bundle, k_bdes.bundle, 
-			      k_bdes.n_msr_bundles * sizeof(*k_bundle))) {
+		if (copy_from_user(k_bdes.bundle, u_bundle, 
+			      k_bdes.n_msr_bundles * sizeof(*k_bdes.bundle))) {
 			printk(KERN_ERR "RDMSR_BATCH: copyin(bundle) Failed");
 			err = -EFAULT;
 			goto k_bundle_alloc;
@@ -250,10 +251,23 @@ static long msr_safe_ioctl(struct file *file,
 		}
 
 		/* TODO: Check against whitelist */
-		/* TODO: Enqueue operations and await completion */
-		/* TODO: Copy information back to user space */
+
+		if ((err = rdmsr_safe_bundle(&k_bdes)) != 0) {
+			printk(KERN_ERR 
+				"RDMSR_BATCH: rdmsr_safe_bundle: %d", err);
+			goto k_bundle_alloc;
+		}
+
+		/* TODO: Apply whitelist */
+
+		if (copy_to_user(u_bundle, k_bdes.bundle, 
+				k_bdes.n_msr_bundles * sizeof(*u_bundle))) {
+			printk(KERN_ERR "RDMSR_BATCH: copyout(bundle) Failed");
+			err = -EFAULT;
+			goto k_bundle_alloc;
+		}
 k_bundle_alloc:
-		kfree(k_bundle);
+		kfree(k_bdes.bundle);
 		break;
 	}
 	default:

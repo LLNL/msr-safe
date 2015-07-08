@@ -33,4 +33,6 @@ struct msr_bundle_desc {
 
 #define X86_IOC_RDMSR_BATCH	_IOWR('c', 0xA2, struct msr_bundle_desc)
 #define X86_IOC_WRMSR_BATCH	_IOWR('c', 0xA3, struct msr_bundle_desc)
+
+int rdmsr_safe_bundle(struct msr_bundle_desc *k_bdes);
 #endif // MSR_HFILE_INC
