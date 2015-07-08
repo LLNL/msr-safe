@@ -17,7 +17,10 @@
 
 struct msr_op {
 	u32 msr;
-	u64 data;
+	union msrdata {
+		u32 d32[2];		/* For lo/hi access */
+		u64 d64;
+	} d;
 };
 
 struct msr_cpu_ops {

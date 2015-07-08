@@ -13,15 +13,87 @@
 #include <asm/msr.h>
 #include "msr.h"
 
-static struct cpumask cpus_to_run_on;
-int rdmsr_safe_bundle(struct msr_bundle_desc *k_bdes)
+struct msr_bundle_info {
+	int err;
+	struct msr_bundle_desc *bd;
+};
+
+static void __rdmsr_safe_bundle(void *info)
 {
+	struct msr_bundle_info *bi = info;
+	struct msr_bundle_desc *bd = bi->bd;
+	int this_cpu = smp_processor_id();
+	struct msr_cpu_ops *ops;
+	struct msr_op *op;
+
+	for (ops = bd->bundle; ops < bd->bundle + bd->n_msr_bundles; ++ops) {
+		if (ops->cpu != this_cpu)
+			continue;
+
+		for (op = &ops->ops[0]; op < &ops->ops[ops->n_ops]; ++op) {
+			bi->err = rdmsr_safe(op->msr, &op->d.d32[0],
+								 &op->d.d32[1]);
+			if (bi->err)
+				break;
+		}
+	}
+}
+
+int rdmsr_safe_bundle(struct msr_bundle_desc *bd)
+{
+	struct cpumask cpus_to_run_on;
+	int i;
+	struct msr_bundle_info bi;
+	bi.bd = bd;
+	bi.err = -EIO;
+
 	cpumask_clear(&cpus_to_run_on);
+	for (i = 0; i < bd->n_msr_bundles; ++i) {
+		printk(KERN_DEBUG "cpu %d scheduled", i);
+		cpumask_set_cpu(bd->bundle[i].cpu, &cpus_to_run_on);
+	}
 
-	/* Todo: Loop through and set up CPUs we need to run on */
-	//cpumask_set_cpu(cpu, &cpus_to_run_on);
-	//on_each_cpu_mask(&cpus_to_run_on, __ourcallback, k_bdes, 1);
-
+	on_each_cpu_mask(&cpus_to_run_on, __rdmsr_safe_bundle, &bi, 1);
 	
-	return 0;
+	return bi.err;
+}
+
+static void __wrmsr_safe_bundle(void *info)
+{
+	struct msr_bundle_info *bi = info;
+	struct msr_bundle_desc *bd = bi->bd;
+	int this_cpu = smp_processor_id();
+	struct msr_cpu_ops *ops;
+	struct msr_op *op;
+
+	for (ops = bd->bundle; ops < bd->bundle + bd->n_msr_bundles; ++ops) {
+		if (ops->cpu != this_cpu)
+			continue;
+
+		for (op = &ops->ops[0]; op < &ops->ops[ops->n_ops]; ++op) {
+			bi->err = wrmsr_safe(op->msr, op->d.d32[0],
+								 op->d.d32[1]);
+			if (bi->err)
+				break;
+		}
+	}
+}
+
+int wrmsr_safe_bundle(struct msr_bundle_desc *bd)
+{
+	struct cpumask cpus_to_run_on;
+	int i;
+	struct msr_bundle_info bi;
+	bi.bd = bd;
+	bi.err = -EIO;
+
+	cpumask_clear(&cpus_to_run_on);
+	for (i = 0; i < bd->n_msr_bundles; ++i) {
+		printk(KERN_DEBUG "wrmsr: cpu %d scheduled", i);
+		cpumask_set_cpu(bd->bundle[i].cpu, &cpus_to_run_on);
+	}
+
+	on_each_cpu_mask(&cpus_to_run_on, __wrmsr_safe_bundle, &bi, 1);
+	
+	return bi.err;
 }
