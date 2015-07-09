@@ -251,25 +251,21 @@ static long msr_safe_ioctl(struct file *file,
 			goto bundle_alloc;
 		}
 
-		err = msr_bundle_prefixup(&k_bdes);
-
-		if (err)
-			goto bundle_alloc;
+		if ((err = msr_bundle_prefixup(&k_bdes)))
+			goto copyout_and_return;
 
 
-		if ((err = msr_safe_bundle(&k_bdes)) != 0) {
-			printk(KERN_ERR 
-				"MSR_BATCH: msr_safe_bundle: %d", err);
-			goto bundle_alloc;
-		}
+		if ((err = msr_safe_bundle(&k_bdes)) != 0)
+			goto copyout_and_return;
 
 		msr_bundle_postfixup(&k_bdes);
 
+copyout_and_return:
 		if (copy_to_user(u_bundle, k_bdes.bundle, 
 				k_bdes.n_msr_bundles * sizeof(*u_bundle))) {
 			printk(KERN_ERR "MSR_BATCH: copyout(bundle) Failed");
-			err = -EFAULT;
-			goto bundle_alloc;
+			if (!err)
+				err = -EFAULT;
 		}
 bundle_alloc:
 		kfree(k_bdes.bundle);

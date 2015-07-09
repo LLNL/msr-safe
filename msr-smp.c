@@ -54,11 +54,8 @@ int msr_safe_bundle(struct msr_bundle_desc *bd)
 	bi.err = -EIO;
 
 	cpumask_clear(&cpus_to_run_on);
-	for (i = 0; i < bd->n_msr_bundles; ++i) {
-		printk(KERN_DEBUG "msr_safe_bundle: cpu %d scheduled\n", 
-							bd->bundle[i].cpu);
+	for (i = 0; i < bd->n_msr_bundles; ++i)
 		cpumask_set_cpu(bd->bundle[i].cpu, &cpus_to_run_on);
-	}
 
 	on_each_cpu_mask(&cpus_to_run_on, __msr_safe_bundle, &bi, 1);
 	
