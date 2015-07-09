@@ -21,6 +21,7 @@ struct msr_op {
 	} d;
 	__u64 mask;			/* Used by kernel */
 	__u32 msr;			/* MSR Address to perform operatio */
+	__u32 isread;			/* non-zero for rdmsr, zero for wrmsr */
 	int errno;			/* zero indicates success */
 };
 
@@ -35,11 +36,9 @@ struct msr_bundle_desc {
 	struct msr_cpu_ops *bundle;	/* Bundle of msr ops for CPUs */
 };
 
-#define X86_IOC_RDMSR_BATCH	_IOWR('c', 0xA2, struct msr_bundle_desc)
-#define X86_IOC_WRMSR_BATCH	_IOWR('c', 0xA3, struct msr_bundle_desc)
+#define X86_IOC_MSR_BATCH	_IOWR('c', 0xA2, struct msr_bundle_desc)
 
 #ifdef __KERNEL__
-int rdmsr_safe_bundle(struct msr_bundle_desc *k_bdes);
-int wrmsr_safe_bundle(struct msr_bundle_desc *k_bdes);
+int msr_safe_bundle(struct msr_bundle_desc *k_bdes);
 #endif /* __KERNEL__ */
 #endif /*  MSR_HFILE_INC */

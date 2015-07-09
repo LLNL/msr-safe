@@ -220,8 +220,6 @@ static struct whitelist_entry *find_in_whitelist(u64 msr)
 {
 	struct whitelist_entry *entry = 0;
 
-	printk(KERN_DEBUG "find_in_whitelist:%s%i (whitelist %x)\n",
-					__FILE__, __LINE__, whitelist);
 	if (whitelist) {
 		hash_for_each_possible(whitelist_hash, entry, hlist, msr)
 		if (entry && entry->msr == msr)

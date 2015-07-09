@@ -7,11 +7,25 @@
 #include <unistd.h>
 #include "../msr.h"
 
+struct msr_cpu_ops bundle[] = 
+{
+  { .cpu = 0, .n_ops = 2, 
+    {
+      { { .d64 = 0 }, .mask = 0, .msr = 0xe7, .isread = 1, .errno = 0 },  
+      { { .d64 = 0 }, .mask = 0, .msr = 0xe7, .isread = 1, .errno = 0 }
+    }
+  },
+  { .cpu = 22, .n_ops = 1, 
+    {
+      { { .d64 = 0 }, .mask = 0, .msr = 0xe7, .isread = 1, .errno = 0 }
+    }
+  }
+};
+
 int main()
 {
 	int fd;
 	struct msr_bundle_desc bd;
-	struct msr_cpu_ops ops[4];
 	int i, j;
 
 	if ((fd = open("/dev/cpu/0/msr_safe", O_RDWR)) < 0) {
@@ -20,33 +34,20 @@ int main()
 	}
 
 	bd.n_msr_bundles = 2;
-	ops[0].cpu = 0;
-	ops[0].n_ops = 2;
-	ops[0].ops[0].msr = 0xe7;
-	ops[0].ops[0].errno = 0;
-	ops[0].ops[0].d.d64 = 0;
-	ops[0].ops[1].msr = 0xe7;
-	ops[0].ops[1].errno = 0;
-	ops[0].ops[1].d.d64 = 0;
+	bd.bundle = bundle;
 
-	ops[1].cpu = 22;
-	ops[1].n_ops = 1;
-	ops[1].ops[0].msr = 0xe7;
-	ops[1].ops[0].errno = 0;
-	ops[1].ops[0].d.d64 = 0;
-
-	bd.bundle = ops;
-
-	if (ioctl(fd, X86_IOC_RDMSR_BATCH, &bd) < 0) {
+	if (ioctl(fd, X86_IOC_MSR_BATCH, &bd) < 0) {
 		perror("Ioctl failed");
 		for (i = 0; i < bd.n_msr_bundles; ++i) {
-			for (j = 0; j < ops[i].n_ops; ++j) {
-				if (ops[i].ops[j].errno) {
+			for (j = 0; j < bundle[i].n_ops; ++j) {
+				if (bundle[i].ops[j].errno) {
 					fprintf(stderr, 
-					    "CPU %d, MSR %x, Err %d\n", 
-						ops[i].cpu,
-						ops[i].ops[j].msr, 
-						ops[i].ops[j].errno);
+					    "CPU %d, %s %x, Err %d\n", 
+						bundle[i].cpu,
+						bundle[i].ops[j].isread ? 
+							"RDMSR" : "WRMSR",
+						bundle[i].ops[j].msr, 
+						bundle[i].ops[j].errno);
 				}
 			}
 		}
@@ -54,14 +55,18 @@ int main()
 	}
 	
 	for (i = 0; i < bd.n_msr_bundles; ++i) {
-		for (j = 0; j < ops[i].n_ops; ++j) {
-			if (ops[i].ops[j].errno) {
-				fprintf(stderr, "Huh? MSR %x, Err %d\n",
-				     ops[i].ops[j].msr, ops[i].ops[j].errno);
+		for (j = 0; j < bundle[i].n_ops; ++j) {
+			if (bundle[i].ops[j].errno) {
+				fprintf(stderr, "Huh? %s %x, Err %d\n",
+				  bundle[i].ops[j].isread ? "RDMSR" : "WRMSR",
+				     bundle[i].ops[j].msr, 
+					bundle[i].ops[j].errno);
 			}
 			else {
-				printf("MSR %x Data %lld\n", 
-					ops[i].ops[j].msr, ops[i].ops[j].d.d64);
+				printf("%s %x Data %lld\n", 
+				  bundle[i].ops[j].isread ? "RDMSR" : "WRMSR",
+					bundle[i].ops[j].msr, 
+					bundle[i].ops[j].d.d64);
 			}
 		}
 	}

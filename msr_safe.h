@@ -47,7 +47,6 @@ static char *msr_safe_nodename(struct device *dev, umode_t *mode);
 static void msr_safe_cleanup(void);
 static int __init msr_safe_init(void);
 static void __exit msr_safe_exit(void);
-static void msr_rdbundle_postfixup(struct msr_bundle_desc *bd);
-static int msr_rdbundle_check(struct msr_bundle_desc *bd);
-static int msr_wrbundle_fixup(struct msr_bundle_desc *bd);
+static void msr_bundle_postfixup(struct msr_bundle_desc *bd);
+static int msr_bundle_prefixup(struct msr_bundle_desc *bd);
 #endif /* MSR_SAFE_INC */

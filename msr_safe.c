@@ -201,26 +201,27 @@ static long msr_safe_ioctl(struct file *file,
 		break;
 	}
 
-	case X86_IOC_RDMSR_BATCH:
+	case X86_IOC_MSR_BATCH:
 	{
 		struct msr_bundle_desc __user *u_bdes;
 		struct msr_bundle_desc k_bdes;
 		struct msr_cpu_ops __user *u_bundle;
 
-		if (!(file->f_mode & FMODE_READ)) {
+		if ((file->f_mode & (FMODE_READ+FMODE_WRITE)) != 
+						(FMODE_READ+FMODE_WRITE)) {
 			err = -EBADF;
 			break;
 		}
 		u_bdes = (struct msr_bundle_desc *)arg;
 
 		if (copy_from_user(&k_bdes, u_bdes, sizeof k_bdes)) {
-			printk(KERN_ERR "RDMSR_BATCH: copyin(u_bdes) failed\n");
+			printk(KERN_ERR "MSR_BATCH: copyin(u_bdes) failed\n");
 			err = -EFAULT;
 			break;
 		}
 
 		if (k_bdes.n_msr_bundles <= 0) {
-			printk(KERN_ERR "RDMSR_BATCH: Invalid size %d\n", 
+			printk(KERN_ERR "MSR_BATCH: Invalid size %d\n", 
 							k_bdes.n_msr_bundles);
 			err = -EINVAL;
 			break;
@@ -230,111 +231,47 @@ static long msr_safe_ioctl(struct file *file,
 					sizeof(*k_bdes.bundle), GFP_KERNEL);
 		if (!k_bdes.bundle) {
 			printk(KERN_ERR 
-				"RDMSR_BATCH: kzalloc(%lu) Failed", 
+				"MSR_BATCH: kzalloc(%lu) Failed", 
 				k_bdes.n_msr_bundles * sizeof(*k_bdes.bundle));
 			err = -ENOMEM;
 			break;
 		}
 		
 		if (k_bdes.n_msr_bundles <= 0) {
-			printk(KERN_ERR "RDMSR_BATCH: Invalid size %d\n", 
+			printk(KERN_ERR "MSR_BATCH: Invalid size %d\n", 
 							k_bdes.n_msr_bundles);
 			err = -EINVAL;
-			goto rbundle_alloc;
+			goto bundle_alloc;
 		}
 
 		if (copy_from_user(k_bdes.bundle, u_bundle, 
 			      k_bdes.n_msr_bundles * sizeof(*k_bdes.bundle))) {
-			printk(KERN_ERR "RDMSR_BATCH: copyin(bundle) Failed");
+			printk(KERN_ERR "MSR_BATCH: copyin(bundle) Failed");
 			err = -EFAULT;
-			goto rbundle_alloc;
+			goto bundle_alloc;
 		}
 
-		err = msr_rdbundle_check(&k_bdes);
+		err = msr_bundle_prefixup(&k_bdes);
 
 		if (err)
-			goto rbundle_alloc;
+			goto bundle_alloc;
 
 
-		if ((err = rdmsr_safe_bundle(&k_bdes)) != 0) {
+		if ((err = msr_safe_bundle(&k_bdes)) != 0) {
 			printk(KERN_ERR 
-				"RDMSR_BATCH: rdmsr_safe_bundle: %d", err);
-			goto rbundle_alloc;
+				"MSR_BATCH: msr_safe_bundle: %d", err);
+			goto bundle_alloc;
 		}
 
-		msr_rdbundle_postfixup(&k_bdes);
+		msr_bundle_postfixup(&k_bdes);
 
 		if (copy_to_user(u_bundle, k_bdes.bundle, 
 				k_bdes.n_msr_bundles * sizeof(*u_bundle))) {
-			printk(KERN_ERR "RDMSR_BATCH: copyout(bundle) Failed");
+			printk(KERN_ERR "MSR_BATCH: copyout(bundle) Failed");
 			err = -EFAULT;
-			goto rbundle_alloc;
+			goto bundle_alloc;
 		}
-rbundle_alloc:
-		kfree(k_bdes.bundle);
-		break;
-	}
-
-	case X86_IOC_WRMSR_BATCH:
-	{
-		struct msr_bundle_desc __user *u_bdes;
-		struct msr_bundle_desc k_bdes;
-		struct msr_cpu_ops __user *u_bundle;
-
-		if (!(file->f_mode & FMODE_WRITE)) {
-			err = -EBADF;
-			break;
-		}
-		u_bdes = (struct msr_bundle_desc *)arg;
-
-		if (copy_from_user(&k_bdes, u_bdes, sizeof k_bdes)) {
-			printk(KERN_ERR "WRMSR_BATCH: copyin(u_bdes) failed\n");
-			err = -EFAULT;
-			break;
-		}
-
-		if (k_bdes.n_msr_bundles <= 0) {
-			printk(KERN_ERR "WRMSR_BATCH: Invalid size %d\n", 
-							k_bdes.n_msr_bundles);
-			err = -EINVAL;
-			break;
-		}
-		u_bundle = k_bdes.bundle;
-		k_bdes.bundle = kzalloc(k_bdes.n_msr_bundles * 
-					sizeof(*k_bdes.bundle), GFP_KERNEL);
-		if (!k_bdes.bundle) {
-			printk(KERN_ERR 
-				"WRMSR_BATCH: kzalloc(%lu) Failed", 
-				k_bdes.n_msr_bundles * sizeof(*k_bdes.bundle));
-			err = -ENOMEM;
-			break;
-		}
-		
-		if (copy_from_user(k_bdes.bundle, u_bundle, 
-			      k_bdes.n_msr_bundles * sizeof(*k_bdes.bundle))) {
-			printk(KERN_ERR "WRMSR_BATCH: copyin(bundle) Failed");
-			err = -EFAULT;
-			goto wbundle_alloc;
-		}
-
-		if (k_bdes.n_msr_bundles <= 0) {
-			printk(KERN_ERR "WRMSR_BATCH: Invalid size %d\n", 
-							k_bdes.n_msr_bundles);
-			err = -EINVAL;
-			goto wbundle_alloc;
-		}
-
-
-		if ((err = msr_wrbundle_fixup(&k_bdes)) != 0)
-			goto wbundle_alloc;
-
-
-		if ((err = wrmsr_safe_bundle(&k_bdes)) != 0) {
-			printk(KERN_ERR 
-				"WRMSR_BATCH: rdmsr_safe_bundle: %d", err);
-			goto wbundle_alloc;
-		}
-wbundle_alloc:
+bundle_alloc:
 		kfree(k_bdes.bundle);
 		break;
 	}
@@ -346,7 +283,7 @@ wbundle_alloc:
 	return err;
 }
 
-static int msr_rdbundle_check(struct msr_bundle_desc *bd)
+static int msr_bundle_prefixup(struct msr_bundle_desc *bd)
 {
 	struct msr_cpu_ops *ops;
 	struct msr_op *op;
@@ -357,56 +294,36 @@ static int msr_rdbundle_check(struct msr_bundle_desc *bd)
 			return -EINVAL;
 
 		for (op = &ops->ops[0]; op < &ops->ops[ops->n_ops]; ++op) {
-			op->mask = msr_whitelist_readmask(op->msr);
+			op->mask = op->isread ? 
+					msr_whitelist_readmask(op->msr) : 
+					msr_whitelist_writemask(op->msr);
+			
 			if (op->mask == 0) {
 				printk(KERN_ERR
-					"rdcheck: CPU %x MSR %x EPERM",
-					ops->cpu, op->msr);
+					"msr_prefixup: CPU %x MSR %x EPERM",
+						             ops->cpu, op->msr);
 				op->errno = err = -EPERM;
 			}
-			else
+			else {
+				if (!op->isread)
+					op->d.d64 &= op->mask;
 				op->errno = 0;
+			}
 		}
 	}
 
 	return err;
 }
 
-static void msr_rdbundle_postfixup(struct msr_bundle_desc *bd)
+static void msr_bundle_postfixup(struct msr_bundle_desc *bd)
 {
 	struct msr_cpu_ops *ops;
 	struct msr_op *op;
 
 	for (ops = bd->bundle; ops < bd->bundle + bd->n_msr_bundles; ++ops)
 		for (op = &ops->ops[0]; op < &ops->ops[ops->n_ops]; ++op)
-			op->d.d64 &= op->mask;
-}
-
-static int msr_wrbundle_fixup(struct msr_bundle_desc *bd)
-{
-	struct msr_cpu_ops *ops;
-	struct msr_op *op;
-	int err = 0;
-
-	for (ops = bd->bundle; ops < bd->bundle + bd->n_msr_bundles; ++ops) {
-		if (ops->n_ops <= 0 || ops->n_ops >= MSR_MAX_BATCH_OPS)
-			return -EINVAL;
-		for (op = &ops->ops[0]; op < &ops->ops[ops->n_ops]; ++op) {
-			op->mask = msr_whitelist_writemask(op->msr);
-			if (op->mask == 0) {
-				printk(KERN_ERR
-					"wrcheck: CPU %x MSR %x EPERM",
-					ops->cpu, op->msr);
-				op->errno = err = -EPERM;
-			}
-			else {
+			if (op->isread)
 				op->d.d64 &= op->mask;
-				op->errno = 0;
-			}
-		}
-	}
-
-	return err;
 }
 
 /*
