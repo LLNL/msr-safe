@@ -11,20 +11,21 @@
 #define MSR_HFILE_INC 1
 #include <linux/types.h>
 #include <linux/ioctl.h>
-//#include <asm/msr.h>
 
 #define MSR_MAX_BATCH_OPS	50	/* Maximum ops per logical CPU */
 
 struct msr_op {
-	u32 msr;
 	union msrdata {
-		u32 d32[2];		/* For lo/hi access */
-		u64 d64;
+		__u32 d32[2];		/* For lo/hi access */
+		__u64 d64;
 	} d;
+	__u64 mask;			/* Used by kernel */
+	__u32 msr;			/* MSR Address to perform operatio */
+	int errno;			/* zero indicates success */
 };
 
 struct msr_cpu_ops {
-	u32 cpu;			/* Logical CPU # */
+	__u32 cpu;			/* Logical CPU # */
 	int n_ops;			/* # of operations for this CPU */
 	struct msr_op ops[MSR_MAX_BATCH_OPS];
 };
@@ -37,5 +38,8 @@ struct msr_bundle_desc {
 #define X86_IOC_RDMSR_BATCH	_IOWR('c', 0xA2, struct msr_bundle_desc)
 #define X86_IOC_WRMSR_BATCH	_IOWR('c', 0xA3, struct msr_bundle_desc)
 
+#ifdef __KERNEL__
 int rdmsr_safe_bundle(struct msr_bundle_desc *k_bdes);
-#endif // MSR_HFILE_INC
+int wrmsr_safe_bundle(struct msr_bundle_desc *k_bdes);
+#endif /* __KERNEL__ */
+#endif /*  MSR_HFILE_INC */

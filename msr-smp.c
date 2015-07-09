@@ -25,18 +25,20 @@ static void __rdmsr_safe_bundle(void *info)
 	int this_cpu = smp_processor_id();
 	struct msr_cpu_ops *ops;
 	struct msr_op *op;
+	int err = 0;
 
 	for (ops = bd->bundle; ops < bd->bundle + bd->n_msr_bundles; ++ops) {
 		if (ops->cpu != this_cpu)
 			continue;
 
 		for (op = &ops->ops[0]; op < &ops->ops[ops->n_ops]; ++op) {
-			bi->err = rdmsr_safe(op->msr, &op->d.d32[0],
+			op->errno = rdmsr_safe(op->msr, &op->d.d32[0],
 								 &op->d.d32[1]);
-			if (bi->err)
-				break;
+			if (op->errno)
+				err = op->errno;
 		}
 	}
+	bi->err = err;
 }
 
 int rdmsr_safe_bundle(struct msr_bundle_desc *bd)
@@ -48,10 +50,8 @@ int rdmsr_safe_bundle(struct msr_bundle_desc *bd)
 	bi.err = -EIO;
 
 	cpumask_clear(&cpus_to_run_on);
-	for (i = 0; i < bd->n_msr_bundles; ++i) {
-		printk(KERN_DEBUG "cpu %d scheduled", i);
+	for (i = 0; i < bd->n_msr_bundles; ++i)
 		cpumask_set_cpu(bd->bundle[i].cpu, &cpus_to_run_on);
-	}
 
 	on_each_cpu_mask(&cpus_to_run_on, __rdmsr_safe_bundle, &bi, 1);
 	
@@ -65,18 +65,20 @@ static void __wrmsr_safe_bundle(void *info)
 	int this_cpu = smp_processor_id();
 	struct msr_cpu_ops *ops;
 	struct msr_op *op;
+	int err = 0;
 
 	for (ops = bd->bundle; ops < bd->bundle + bd->n_msr_bundles; ++ops) {
 		if (ops->cpu != this_cpu)
 			continue;
 
 		for (op = &ops->ops[0]; op < &ops->ops[ops->n_ops]; ++op) {
-			bi->err = wrmsr_safe(op->msr, op->d.d32[0],
+			op->errno = wrmsr_safe(op->msr, op->d.d32[0],
 								 op->d.d32[1]);
-			if (bi->err)
-				break;
+			if (op->errno)
+				err = op->errno;
 		}
 	}
+	bi->err = err;
 }
 
 int wrmsr_safe_bundle(struct msr_bundle_desc *bd)
