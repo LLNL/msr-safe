@@ -2,6 +2,7 @@
  * MSR Whitelist implentation
  */
 #include <linux/kernel.h>
+#include <linux/version.h>
 #include <linux/hashtable.h>
 #include <linux/mutex.h>
 #include <linux/fs.h>
@@ -220,11 +221,20 @@ static struct whitelist_entry *find_in_whitelist(u64 msr)
 {
 	struct whitelist_entry *entry = 0;
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
+	struct hlist_node *node;
+	if (whitelist) {
+		hash_for_each_possible(whitelist_hash, entry, node, hlist, msr)
+		if (entry && entry->msr == msr)
+			return entry;
+	}
+#else
 	if (whitelist) {
 		hash_for_each_possible(whitelist_hash, entry, hlist, msr)
 		if (entry && entry->msr == msr)
 			return entry;
 	}
+#endif
 	return 0;
 }
 
@@ -285,10 +295,17 @@ static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
 	return *nextinbuf - inbuf;
 }
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
+static char *msr_whitelist_nodename(struct device *dev, mode_t *mode)
+{
+	return kasprintf(GFP_KERNEL, "cpu/msr_whitelist");
+}
+#else
 static char *msr_whitelist_nodename(struct device *dev, umode_t *mode)
 {
 	return kasprintf(GFP_KERNEL, "cpu/msr_whitelist");
 }
+#endif
 
 void msr_whitelist_cleanup(void)
 {
