@@ -493,6 +493,7 @@ static int __init msr_safe_init(void)
 	if (err)
 		kobject_put(msr_safe_kobj);
 
+
 	return 0;
 }
 
