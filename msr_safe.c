@@ -35,7 +35,7 @@
 MODULE_AUTHOR("Marty McFadden <mcfadden8@llnl.gov>");
 MODULE_DESCRIPTION("x86 sanitized MSR driver");
 MODULE_LICENSE("GPL");
-MODULE_SUPPORTED_DEVICE("msr_safe");
+MODULE_SUPPORTED_DEVICE("msr_safe_beta");
 
 static int majordev;
 static struct class *cdev_class;
@@ -340,7 +340,7 @@ static int __cpuinit create_msr_safe_device(int cpu)
 	struct device *dev;
 
 	dev = device_create(cdev_class, NULL, MKDEV(majordev, cpu), 
-	NULL, "msr_safe%d", cpu);
+	NULL, "msr_safe_beta%d", cpu);
 	return IS_ERR(dev) ? PTR_ERR(dev) : 0;
 }
 
@@ -405,7 +405,7 @@ static struct notifier_block __refdata cdev_class_cpu_notifier = {
 
 static char *msr_safe_nodename(struct device *dev, umode_t *mode)
 {
-	return kasprintf(GFP_KERNEL,"cpu/%u/msr_safe",MINOR(dev->devt));
+	return kasprintf(GFP_KERNEL,"cpu/%u/msr_safe_beta",MINOR(dev->devt));
 }
 
 static void msr_safe_cleanup(void)
@@ -438,7 +438,7 @@ static void msr_safe_cleanup(void)
 
 	if (cdev_registered) {
 		cdev_registered = 0;
-		__unregister_chrdev(majordev,0, MSR_NUM_MINORS, "cpu/msr_safe");
+		__unregister_chrdev(majordev,0, MSR_NUM_MINORS, "cpu/msr_safe_beta");
 	}
 }
 
@@ -452,7 +452,7 @@ static int __init msr_safe_init(void)
 	}
 
 	majordev = __register_chrdev(0,0,MSR_NUM_MINORS, 
-					"cpu/msr_safe", &msr_safe_fops);
+					"cpu/msr_safe_beta", &msr_safe_fops);
 	if (majordev < 0) {
 		printk(KERN_ERR "msr_safe: unable to register device number\n");
 		msr_safe_cleanup();
@@ -460,7 +460,7 @@ static int __init msr_safe_init(void)
 	}
 	cdev_registered = 1;
 
-	cdev_class = class_create(THIS_MODULE, "msr_safe");
+	cdev_class = class_create(THIS_MODULE, "msr_safe_beta");
 	if (IS_ERR(cdev_class)) {
 		err = PTR_ERR(cdev_class);
 		msr_safe_cleanup();
@@ -485,7 +485,7 @@ static int __init msr_safe_init(void)
 	register_hotcpu_notifier(&cdev_class_cpu_notifier);
 	hotcpu_notifier_registered = 1;
 
-	msr_safe_kobj = kobject_create_and_add("msr_safe", kernel_kobj);
+	msr_safe_kobj = kobject_create_and_add("msr_safe_beta", kernel_kobj);
 	if (!msr_safe_kobj)
 		return -ENOMEM;
 

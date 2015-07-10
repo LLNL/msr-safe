@@ -18,7 +18,7 @@ if (( $? != 0)); then exit; fi
 modinfo msr-safe.ko
 if (( $? != 0)); then exit; fi
 
-ls -l /dev/cpu/*/msr_safe /dev/cpu/msr_whitelist 
+ls -l /dev/cpu/*/msr_safe_beta /dev/cpu/msr_whitelist 
 if (( $? != 0)); then exit; fi
 
 echo "--------------------------"
@@ -27,7 +27,7 @@ echo "--------------------------"
 # echo "Kernel buffer is:"
 # dmesg -H --nopager --notime
 
-for f in whitelists/* ;  do
+for f in whitelists/wl_* ;  do
 	echo "-"
 	echo "-"
 	echo "-"
