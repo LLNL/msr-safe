@@ -1,9 +1,10 @@
-obj-m = msr_safe.o
+#Note:  this makefile is processed by scripts/Makefile.build in the 
+# 	linux source directory.  
+obj-m += msr-safe.o
+msr-safe-objs := msr_safe.o msr-whitelist.o msr-smp.o
 
-KVERSION = $(shell uname -r)
 all:
-	make -C /lib/modules/$(KVERSION)/build M=$(PWD) modules
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
 
 clean:
-	make -C /lib/modules/$(KVERSION)/build M=$(PWD) clean
-
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
