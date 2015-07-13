@@ -30,6 +30,7 @@
 #include <linux/module.h>
 #include "msr_safe.h"
 #include "msr-whitelist.h"
+#include "msr-batch.h"
 #include "msr.h"
 
 MODULE_AUTHOR("Marty McFadden <mcfadden8@llnl.gov>");
@@ -155,14 +156,12 @@ static long msr_safe_ioctl(struct file *file,
 				unsigned int ioc, unsigned long arg)
 {
 	int err = 0;
+	u32 __user *uregs = (u32 __user *)arg;
+	u32 regs[8];
+	int cpu = iminor(file->f_path.dentry->d_inode);
 
 	switch (ioc) {
 	case X86_IOC_RDMSR_REGS:
-	{
-		u32 __user *uregs = (u32 __user *)arg;
-		u32 regs[8];
-		int cpu = iminor(file->f_path.dentry->d_inode);
-
 		if (!(file->f_mode & FMODE_READ)) {
 			err = -EBADF;
 			break;
@@ -177,14 +176,8 @@ static long msr_safe_ioctl(struct file *file,
 		if (copy_to_user(uregs, &regs, sizeof regs))
 			err = -EFAULT;
 		break;
-	}
 
 	case X86_IOC_WRMSR_REGS:
-	{
-		u32 __user *uregs = (u32 __user *)arg;
-		u32 regs[8];
-		int cpu = iminor(file->f_path.dentry->d_inode);
-
 		if (!(file->f_mode & FMODE_WRITE)) {
 			err = -EBADF;
 			break;
@@ -199,127 +192,12 @@ static long msr_safe_ioctl(struct file *file,
 		if (copy_to_user(uregs, &regs, sizeof regs))
 			err = -EFAULT;
 		break;
-	}
-
-	case X86_IOC_MSR_BATCH:
-	{
-		struct msr_bundle_desc __user *u_bdes;
-		struct msr_bundle_desc k_bdes;
-		struct msr_cpu_ops __user *u_bundle;
-
-		if ((file->f_mode & (FMODE_READ+FMODE_WRITE)) != 
-						(FMODE_READ+FMODE_WRITE)) {
-			err = -EBADF;
-			break;
-		}
-		u_bdes = (struct msr_bundle_desc *)arg;
-
-		if (copy_from_user(&k_bdes, u_bdes, sizeof k_bdes)) {
-			printk(KERN_ERR "MSR_BATCH: copyin(u_bdes) failed\n");
-			err = -EFAULT;
-			break;
-		}
-
-		if (k_bdes.n_msr_bundles <= 0) {
-			printk(KERN_ERR "MSR_BATCH: Invalid size %d\n", 
-							k_bdes.n_msr_bundles);
-			err = -EINVAL;
-			break;
-		}
-		u_bundle = k_bdes.bundle;
-		k_bdes.bundle = kmalloc(k_bdes.n_msr_bundles * 
-					sizeof(*k_bdes.bundle), GFP_KERNEL);
-		if (!k_bdes.bundle) {
-			printk(KERN_ERR 
-				"MSR_BATCH: kzalloc(%lu) Failed", 
-				k_bdes.n_msr_bundles * sizeof(*k_bdes.bundle));
-			err = -ENOMEM;
-			break;
-		}
-		
-		if (k_bdes.n_msr_bundles <= 0) {
-			printk(KERN_ERR "MSR_BATCH: Invalid size %d\n", 
-							k_bdes.n_msr_bundles);
-			err = -EINVAL;
-			goto bundle_alloc;
-		}
-
-		if (copy_from_user(k_bdes.bundle, u_bundle, 
-			      k_bdes.n_msr_bundles * sizeof(*k_bdes.bundle))) {
-			printk(KERN_ERR "MSR_BATCH: copyin(bundle) Failed");
-			err = -EFAULT;
-			goto bundle_alloc;
-		}
-
-		if ((err = msr_bundle_prefixup(&k_bdes)))
-			goto copyout_and_return;
-
-
-		if ((err = msr_safe_bundle(&k_bdes)) != 0)
-			goto copyout_and_return;
-
-		msr_bundle_postfixup(&k_bdes);
-
-copyout_and_return:
-		if (copy_to_user(u_bundle, k_bdes.bundle, 
-				k_bdes.n_msr_bundles * sizeof(*u_bundle))) {
-			printk(KERN_ERR "MSR_BATCH: copyout(bundle) Failed");
-			if (!err)
-				err = -EFAULT;
-		}
-bundle_alloc:
-		kfree(k_bdes.bundle);
-		break;
-	}
 	default:
 		err = -ENOTTY;
 		break;
 	}
 
 	return err;
-}
-
-static int msr_bundle_prefixup(struct msr_bundle_desc *bd)
-{
-	struct msr_cpu_ops *ops;
-	struct msr_op *op;
-	int err = 0;
-
-	for (ops = bd->bundle; ops < bd->bundle + bd->n_msr_bundles; ++ops) {
-		if (ops->n_ops <= 0 || ops->n_ops >= MSR_MAX_BATCH_OPS)
-			return -EINVAL;
-
-		for (op = &ops->ops[0]; op < &ops->ops[ops->n_ops]; ++op) {
-			op->mask = op->isread ? 
-					msr_whitelist_readmask(op->msr) : 
-					msr_whitelist_writemask(op->msr);
-			
-			if (op->mask == 0) {
-				printk(KERN_ERR
-					"msr_prefixup: CPU %x MSR %x EPERM",
-						             ops->cpu, op->msr);
-				op->errno = err = -EPERM;
-			}
-			else {
-				if (!op->isread)
-					op->d.d64 &= op->mask;
-				op->errno = 0;
-			}
-		}
-	}
-
-	return err;
-}
-
-static void msr_bundle_postfixup(struct msr_bundle_desc *bd)
-{
-	struct msr_cpu_ops *ops;
-	struct msr_op *op;
-
-	for (ops = bd->bundle; ops < bd->bundle + bd->n_msr_bundles; ++ops)
-		for (op = &ops->ops[0]; op < &ops->ops[ops->n_ops]; ++op)
-			if (op->isread)
-				op->d.d64 &= op->mask;
 }
 
 /*
@@ -412,6 +290,7 @@ static void msr_safe_cleanup(void)
 {
 	int cpu = 0;
 
+	msrbatch_cleanup();
 	msr_whitelist_cleanup();
 
 	if (msr_safe_kobj) {
@@ -486,13 +365,20 @@ static int __init msr_safe_init(void)
 	hotcpu_notifier_registered = 1;
 
 	msr_safe_kobj = kobject_create_and_add("msr_safe_beta", kernel_kobj);
-	if (!msr_safe_kobj)
+	if (!msr_safe_kobj) {
+		msr_safe_cleanup();
 		return -ENOMEM;
+	}
 
-	err = sysfs_create_group(msr_safe_kobj, &attr_group);
-	if (err)
-		kobject_put(msr_safe_kobj);
+	if ((err = sysfs_create_group(msr_safe_kobj, &attr_group))) {
+		msr_safe_cleanup();
+		return err;
+	}
 
+	if ((err = msrbatch_init())) {
+		msr_safe_cleanup();
+		return err;
+	}
 
 	return 0;
 }
