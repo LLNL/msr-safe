@@ -25,6 +25,7 @@
 #include <linux/sysfs.h>
 #include <linux/module.h>
 #include <linux/init.h>
+#include "msr.h"
 
 #define MSR_NUM_MINORS NR_CPUS
 

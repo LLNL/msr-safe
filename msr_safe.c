@@ -30,11 +30,13 @@
 #include <linux/module.h>
 #include "msr_safe.h"
 #include "msr-whitelist.h"
+#include "msr-batch.h"
+#include "msr.h"
 
 MODULE_AUTHOR("Marty McFadden <mcfadden8@llnl.gov>");
 MODULE_DESCRIPTION("x86 sanitized MSR driver");
 MODULE_LICENSE("GPL");
-MODULE_SUPPORTED_DEVICE("msr_safe");
+MODULE_SUPPORTED_DEVICE("msr_safe_beta");
 
 static int majordev;
 static struct class *cdev_class;
@@ -150,6 +152,54 @@ static ssize_t msr_safe_write(struct file *file,
 	return err ? err : 8;
 }
 
+static long msr_safe_ioctl(struct file *file, 
+				unsigned int ioc, unsigned long arg)
+{
+	int err = 0;
+	u32 __user *uregs = (u32 __user *)arg;
+	u32 regs[8];
+	int cpu = iminor(file->f_path.dentry->d_inode);
+
+	switch (ioc) {
+	case X86_IOC_RDMSR_REGS:
+		if (!(file->f_mode & FMODE_READ)) {
+			err = -EBADF;
+			break;
+		}
+		if (copy_from_user(&regs, uregs, sizeof regs)) {
+			err = -EFAULT;
+			break;
+		}
+		err = rdmsr_safe_regs_on_cpu(cpu, regs);
+		if (err)
+			break;
+		if (copy_to_user(uregs, &regs, sizeof regs))
+			err = -EFAULT;
+		break;
+
+	case X86_IOC_WRMSR_REGS:
+		if (!(file->f_mode & FMODE_WRITE)) {
+			err = -EBADF;
+			break;
+		}
+		if (copy_from_user(&regs, uregs, sizeof regs)) {
+			err = -EFAULT;
+			break;
+		}
+		err = wrmsr_safe_regs_on_cpu(cpu, regs);
+		if (err)
+			break;
+		if (copy_to_user(uregs, &regs, sizeof regs))
+			err = -EFAULT;
+		break;
+	default:
+		err = -ENOTTY;
+		break;
+	}
+
+	return err;
+}
+
 /*
  * File operations we support
  */
@@ -158,7 +208,9 @@ static const struct file_operations msr_safe_fops = {
 	.read = msr_safe_read,
 	.write = msr_safe_write,
 	.open = msr_safe_open,
-	.llseek = msr_safe_seek
+	.llseek = msr_safe_seek,
+	.unlocked_ioctl = msr_safe_ioctl,
+	.compat_ioctl = msr_safe_ioctl
 };
 
 static int __cpuinit create_msr_safe_device(int cpu)
@@ -166,7 +218,7 @@ static int __cpuinit create_msr_safe_device(int cpu)
 	struct device *dev;
 
 	dev = device_create(cdev_class, NULL, MKDEV(majordev, cpu), 
-	NULL, "msr_safe%d", cpu);
+	NULL, "msr_safe_beta%d", cpu);
 	return IS_ERR(dev) ? PTR_ERR(dev) : 0;
 }
 
@@ -231,13 +283,14 @@ static struct notifier_block __refdata cdev_class_cpu_notifier = {
 
 static char *msr_safe_nodename(struct device *dev, umode_t *mode)
 {
-	return kasprintf(GFP_KERNEL,"cpu/%u/msr_safe",MINOR(dev->devt));
+	return kasprintf(GFP_KERNEL,"cpu/%u/msr_safe_beta",MINOR(dev->devt));
 }
 
 static void msr_safe_cleanup(void)
 {
 	int cpu = 0;
 
+	msrbatch_cleanup();
 	msr_whitelist_cleanup();
 
 	if (msr_safe_kobj) {
@@ -264,7 +317,7 @@ static void msr_safe_cleanup(void)
 
 	if (cdev_registered) {
 		cdev_registered = 0;
-		__unregister_chrdev(majordev,0, MSR_NUM_MINORS, "cpu/msr_safe");
+		__unregister_chrdev(majordev,0, MSR_NUM_MINORS, "cpu/msr_safe_beta");
 	}
 }
 
@@ -278,7 +331,7 @@ static int __init msr_safe_init(void)
 	}
 
 	majordev = __register_chrdev(0,0,MSR_NUM_MINORS, 
-					"cpu/msr_safe", &msr_safe_fops);
+					"cpu/msr_safe_beta", &msr_safe_fops);
 	if (majordev < 0) {
 		printk(KERN_ERR "msr_safe: unable to register device number\n");
 		msr_safe_cleanup();
@@ -286,7 +339,7 @@ static int __init msr_safe_init(void)
 	}
 	cdev_registered = 1;
 
-	cdev_class = class_create(THIS_MODULE, "msr_safe");
+	cdev_class = class_create(THIS_MODULE, "msr_safe_beta");
 	if (IS_ERR(cdev_class)) {
 		err = PTR_ERR(cdev_class);
 		msr_safe_cleanup();
@@ -311,13 +364,21 @@ static int __init msr_safe_init(void)
 	register_hotcpu_notifier(&cdev_class_cpu_notifier);
 	hotcpu_notifier_registered = 1;
 
-	msr_safe_kobj = kobject_create_and_add("msr_safe", kernel_kobj);
-	if (!msr_safe_kobj)
+	msr_safe_kobj = kobject_create_and_add("msr_safe_beta", kernel_kobj);
+	if (!msr_safe_kobj) {
+		msr_safe_cleanup();
 		return -ENOMEM;
+	}
 
-	err = sysfs_create_group(msr_safe_kobj, &attr_group);
-	if (err)
-		kobject_put(msr_safe_kobj);
+	if ((err = sysfs_create_group(msr_safe_kobj, &attr_group))) {
+		msr_safe_cleanup();
+		return err;
+	}
+
+	if ((err = msrbatch_init())) {
+		msr_safe_cleanup();
+		return err;
+	}
 
 	return 0;
 }
