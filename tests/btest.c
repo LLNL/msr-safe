@@ -19,6 +19,7 @@
       MR(0x638), MR(0x639), MR(0xE7) }\
   }
 
+int batchfd;
 int fd[100];
 struct msr_cpu_ops bundle[] = 
 {
@@ -157,8 +158,13 @@ int main()
 	bd.n_msr_bundles = sizeof(bundle) / sizeof(bundle[0]);
 	bd.bundle = bundle;
 
+	if ((batchfd = open("/dev/cpu/msr_batch", O_RDWR)) < 0) {
+		perror("/dev/cpu/msr_batch");
+		_exit(1);
+	}
+
 	for (i = 0; i < bd.n_msr_bundles; ++i) {
-		sprintf(fname, "/dev/cpu/%d/msr_safe", i);
+		sprintf(fname, "/dev/cpu/%d/msr_safe_beta", i);
 		if ((fd[i] = open(fname, O_RDWR)) < 0) {
 			perror(fname);
 			_exit(1);
@@ -167,7 +173,7 @@ int main()
 
 	start_tick = get_tick();
 	for (j = 0; j < lcount; ++j) {
-		if (ioctl(fd[0], X86_IOC_MSR_BATCH, &bd) < 0) {
+		if (ioctl(batchfd, X86_IOC_MSR_BATCH, &bd) < 0) {
 			perror("Ioctl failed");
 			print_bundle_err(&bd);
 			_exit(1);
@@ -193,8 +199,11 @@ int main()
 	end_tick = get_tick();
 
 	printf("Serial took %llu ticks\n", (end_tick - start_tick) / lcount);
+
 	for (i = 0; i < bd.n_msr_bundles; ++i)
 		close(fd[i]);
+
+	close(batchfd);
 
 	return 0;
 }
