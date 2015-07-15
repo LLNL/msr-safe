@@ -211,7 +211,7 @@ static int create_whitelist(int nentries)
 	if (!whitelist) {
 		printk(KERN_ALERT 
 			"create_whitelist: %lu byte allocation failed\n",
-					(nentries * sizeof(*whitelist)));
+					(long unsigned)(nentries * sizeof(*whitelist)));
 		return -ENOMEM;
 	}
 	return 0;
