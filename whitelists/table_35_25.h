@@ -1,4 +1,4 @@
-// table_35_25.h
+/* table_35_25.h */
 #ifndef __TABLE_35_25_H
 #define __TABLE_35_25_H
 
@@ -12,4 +12,4 @@
 SMSR_ENTRY( SMSR_TURBO_RATIO_LIMIT1,    0x1AE, 0xFFFFFFFF, 0xFFFFFFFF),\
 SMSR_ENTRY( SMSR_TURBO_RATIO_LIMIT2,    0x1AF, 0xFFFFFFFF, 0xFFFFFFFF),
 
-#endif //__TABLE_35_25_H
+#endif /* __TABLE_35_25_H */

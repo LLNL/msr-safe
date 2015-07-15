@@ -1,4 +1,4 @@
-// table_03_18.h
+/* table_03_18.h */
 #ifndef __TABLE_03_18_H
 #define __TABLE_03_18_H
 /* Table 35-19 : Intel Xeon Processor E5 v3 Product Family
@@ -7,7 +7,7 @@
  * CPUID signature06_3FH
  *
  */
-//                          Low mask    high mask
+/*                          Low mask    high mask */
 #define WL_TABLE_03_18 \
 SMSR_ENTRY( SMSR_C0_MSR_PMON_CTR3,              0x0E0B, 0x0       , 0x0       ),\
 SMSR_ENTRY( SMSR_C0_MSR_PMON_CTR2,              0x0E0A, 0x0       , 0x0       ),\
@@ -243,4 +243,4 @@ SMSR_ENTRY( SMSR_C17_MSR_PMON_BOX_CTL1,         0x0F12, 0xFFFFFFFF, 0x0       ),
 SMSR_ENTRY( SMSR_C17_MSR_PMON_BOX_CTL0,         0x0F11, 0xFFFFFFFF, 0x0       ),\
 SMSR_ENTRY( SMSR_C17_MSR_PMON_BOX_CTL,          0x0F10, 0xFFFFFFFF, 0x0       ),
 
-#endif //__TABLE_03_18_H
+#endif /* __TABLE_03_18_H */
