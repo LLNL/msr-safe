@@ -30,14 +30,14 @@
 #define MSR_NUM_MINORS NR_CPUS
 
 static loff_t msr_safe_seek(struct file *file, loff_t offset, int orig);
-static ssize_t msr_safe_read(struct file *file, char __user *buf, 
+static ssize_t msr_safe_read(struct file *file, char __user *buf,
 						size_t count, loff_t *ppos);
-static ssize_t msr_safe_write(struct file *file, 
+static ssize_t msr_safe_write(struct file *file,
 			const char __user *buf, size_t count, loff_t *ppos);
 static int msr_safe_open(struct inode *inode, struct file *file);
 static int __cpuinit create_msr_safe_device(int cpu);
 static void destroy_msr_safe_device(int cpu);
-static int __cpuinit cdev_class_cpu_callback(struct notifier_block *nfb, 
+static int __cpuinit cdev_class_cpu_callback(struct notifier_block *nfb,
 					unsigned long action, void *hcpu);
 static ssize_t version_show(struct kobject *kobj, struct kobj_attribute *attr,
 								    char *buf);

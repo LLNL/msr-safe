@@ -52,11 +52,11 @@ static int open_whitelist(struct inode *inode, struct file *file)
 
 /*
  * After copying data from user space, we make two passes through it.
- * The first pass is to ensure that the input file is valid. If the file is 
- * valid, we will then delete the current white list and then perform the 
+ * The first pass is to ensure that the input file is valid. If the file is
+ * valid, we will then delete the current white list and then perform the
  * second pass to actually create the new white list.
  */
-static ssize_t write_whitelist(struct file *file, const char __user *buf, 
+static ssize_t write_whitelist(struct file *file, const char __user *buf,
 						size_t count, loff_t *ppos)
 {
 	int err = 0;
@@ -76,7 +76,7 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	}
 
 	if (count+1 > MAX_WLIST_BSIZE) {
-		printk(KERN_ALERT 
+		printk(KERN_ALERT
 		    "write_whitelist: Data buffer of %zu bytes too large\n",
 		    count);
 		return -EINVAL;
@@ -118,7 +118,7 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 
 		if (res) {
 			if (find_in_whitelist(entry->msr)) {
-				printk(KERN_ALERT 
+				printk(KERN_ALERT
 				   "msrw_update: Duplicate entry found: %llx\n",
 					 entry->msr);
 				err = -EINVAL;
@@ -136,7 +136,7 @@ out_freebuffer:
 	return err ? err : count;
 }
 
-static ssize_t read_whitelist(struct file *file, char __user *buf, 
+static ssize_t read_whitelist(struct file *file, char __user *buf,
 						size_t count, loff_t *ppos)
 {
 	loff_t idx = *ppos;
@@ -156,8 +156,8 @@ static ssize_t read_whitelist(struct file *file, char __user *buf,
 	entry = whitelist[idx];
 	mutex_unlock(&whitelist_mutex);
 
-	len = sprintf(kbuf, 
-		"MSR: %08llx Write Mask: %016llx Read Mask: %016llx\n", 
+	len = sprintf(kbuf,
+		"MSR: %08llx Write Mask: %016llx Read Mask: %016llx\n",
 					entry.msr, entry.wmask, entry.rmask);
 
 	if (len > count)
@@ -209,7 +209,7 @@ static int create_whitelist(int nentries)
 	whitelist = kcalloc(nentries, sizeof(*whitelist), GFP_KERNEL);
 
 	if (!whitelist) {
-		printk(KERN_ALERT 
+		printk(KERN_ALERT
 			"create_whitelist: %lu byte allocation failed\n",
 					(long unsigned)(nentries * sizeof(*whitelist)));
 		return -ENOMEM;
@@ -243,7 +243,7 @@ static void add_to_whitelist(struct whitelist_entry *entry)
 	hash_add(whitelist_hash, &entry->hlist, entry->msr);
 }
 
-static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf, 
+static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
 						struct whitelist_entry *entry)
 {
 	char *s = skip_spaces(inbuf);
@@ -260,7 +260,7 @@ static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
 		return 0; /* This means we are done with the input buffer */
 
 	for (i = 0; i < 3; i++) {/* we should have the first of 3 #s now */
-		char *s2; 
+		char *s2;
 		int err;
 		char tmp;
 
@@ -269,7 +269,7 @@ static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
 			s++;
 
 		if (*s == 0) {
-			printk(KERN_ALERT 
+			printk(KERN_ALERT
 				"parse_next_whitelist_entry: Premature EOF");
 			return -EINVAL;
 		}
@@ -277,8 +277,8 @@ static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
 		tmp = *s;
 		*s = 0; /* Null-terminate this portion of string */
 		if ((err = kstrtoull(s2, 0, &data[i]))) {
-			printk(KERN_ALERT 
-			  "parse_next_whitelist_entry kstrtoull %s err=%d\n", 
+			printk(KERN_ALERT
+			  "parse_next_whitelist_entry kstrtoull %s err=%d\n",
 				s2, err);
 			return err;
 		}
@@ -334,7 +334,7 @@ int msr_whitelist_init(void)
 
 	majordev = register_chrdev(0, "cpu/msr_whitelist", &fops);
 	if (majordev < 0) {
-		printk(KERN_ERR 
+		printk(KERN_ERR
 		    "msr_whitelist_init: unable to register chrdev\n");
 		msr_whitelist_cleanup();
 		return -EBUSY;
@@ -351,7 +351,7 @@ int msr_whitelist_init(void)
 
 	cdev_class->devnode = msr_whitelist_nodename;
 
-	dev = device_create(cdev_class, NULL, MKDEV(majordev, 0), 
+	dev = device_create(cdev_class, NULL, MKDEV(majordev, 0),
 						NULL, "msr_whitelist");
 	if (IS_ERR(dev)) {
 		err = PTR_ERR(dev);
@@ -361,4 +361,3 @@ int msr_whitelist_init(void)
 	cdev_created = 1;
 	return 0;
 }
-

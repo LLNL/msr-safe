@@ -85,7 +85,7 @@ static loff_t msr_safe_seek(struct file *file, loff_t offset, int orig)
 	return ret;
 }
 
-static ssize_t msr_safe_read(struct file *file, char __user *buf, 
+static ssize_t msr_safe_read(struct file *file, char __user *buf,
 						size_t count, loff_t *ppos)
 {
 	u32 __user *tmp = (u32 __user *) buf;
@@ -95,8 +95,8 @@ static ssize_t msr_safe_read(struct file *file, char __user *buf,
 	int cpu = iminor(file->f_path.dentry->d_inode);
 	int err = -EACCES; /* Initialize to Permission Denied */
 
-	/* 
-	 * "count" doesn't have any meaning here, as we never want to read 
+	/*
+	 * "count" doesn't have any meaning here, as we never want to read
 	 * more than one msr at at time.
 	 */
 	if (count != 8)
@@ -122,7 +122,7 @@ static ssize_t msr_safe_read(struct file *file, char __user *buf,
 	return err ? err : 8;
 }
 
-static ssize_t msr_safe_write(struct file *file, 
+static ssize_t msr_safe_write(struct file *file,
 		const char __user *buf, size_t count, loff_t *ppos)
 {
 	const u32 __user *tmp = (const u32 __user *)buf;
@@ -150,7 +150,7 @@ static ssize_t msr_safe_write(struct file *file,
 	return err ? err : 8;
 }
 
-static long msr_safe_ioctl(struct file *file, 
+static long msr_safe_ioctl(struct file *file,
 				unsigned int ioc, unsigned long arg)
 {
 	int err = 0;
@@ -215,7 +215,7 @@ static int __cpuinit create_msr_safe_device(int cpu)
 {
 	struct device *dev;
 
-	dev = device_create(cdev_class, NULL, MKDEV(majordev, cpu), 
+	dev = device_create(cdev_class, NULL, MKDEV(majordev, cpu),
 	NULL, "msr_safe_beta%d", cpu);
 	return IS_ERR(dev) ? PTR_ERR(dev) : 0;
 }
@@ -225,8 +225,8 @@ static void destroy_msr_safe_device(int cpu)
 	device_destroy(cdev_class, MKDEV(majordev, cpu));
 }
 
-static int __cpuinit 
-cdev_class_cpu_callback(struct notifier_block *nfb, 
+static int __cpuinit
+cdev_class_cpu_callback(struct notifier_block *nfb,
 					unsigned long action, void *hcpu)
 {
 	unsigned int cpu = (unsigned long)hcpu;
@@ -260,7 +260,7 @@ static ssize_t version_set(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 /* Sysfs attributes cannot be world-writable. */
-static struct kobj_attribute version_attribute = 
+static struct kobj_attribute version_attribute =
 	__ATTR(version, 0444, version_show, version_set);
 
 static struct attribute *attrs[] = {
@@ -327,7 +327,7 @@ static int __init msr_safe_init(void)
 		return err;
 	}
 
-	majordev = __register_chrdev(0,0,MSR_NUM_MINORS, 
+	majordev = __register_chrdev(0,0,MSR_NUM_MINORS,
 					"cpu/msr_safe_beta", &msr_safe_fops);
 	if (majordev < 0) {
 		printk(KERN_ERR "msr_safe: unable to register device number\n");
@@ -387,4 +387,3 @@ static void __exit msr_safe_exit(void)
 
 module_init(msr_safe_init);
 module_exit(msr_safe_exit)
-
