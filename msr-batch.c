@@ -64,8 +64,7 @@ static int msr_batch_prefixup(struct msr_bundle_desc *bd)
 					"msr_prefixup: CPU %x MSR %x EPERM",
 						             ops->cpu, op->msr);
 				op->errno = err = -EPERM;
-			}
-			else {
+			} else {
 				if (!op->isread)
 					op->d.d64 &= op->mask;
 				op->errno = 0;

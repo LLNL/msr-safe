@@ -69,8 +69,7 @@ static loff_t msr_safe_seek(struct file *file, loff_t offset, int orig)
 	struct inode *inode = file->f_mapping->host;
 
 	mutex_lock(&inode->i_mutex);
-	switch (orig)
-	{
+	switch (orig) {
 	case 0:
 		file->f_pos = offset;
 		ret = file->f_pos;
@@ -144,8 +143,7 @@ static ssize_t msr_safe_write(struct file *file,
 
 	if (copy_from_user(&data[0], tmp, 8)) {
 		err = -EFAULT;
-	}
-	else {
+	} else {
 		*pdata &= wl_writemask;
 		err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
 	}
@@ -234,8 +232,7 @@ cdev_class_cpu_callback(struct notifier_block *nfb,
 	unsigned int cpu = (unsigned long)hcpu;
 	int err = 0;
 
-	switch (action)
-	{
+	switch (action) {
 	case CPU_UP_PREPARE:
 		err = create_msr_safe_device(cpu);
 		break;
