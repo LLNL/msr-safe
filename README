@@ -24,4 +24,4 @@ To enumerate current whitelist (as root):
 	cat < /dev/cpu/msr_whitelist
 
 To remove whitelist (as root):
-	echo > whitelist/wl_file
+	echo > /dev/cpu/msr_whitelist

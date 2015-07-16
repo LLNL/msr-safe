@@ -1,7 +1,7 @@
 /*
  * x86 MSR batch access device
  *
- * This device is accessed by ioctl() to submit a batch of MSR requests 
+ * This device is accessed by ioctl() to submit a batch of MSR requests
  * which may be used instead of or in addition to the lseek()/write()/read()
  * mechanism provided by msr_safe.c
  *
@@ -55,8 +55,8 @@ static int msr_batch_prefixup(struct msr_bundle_desc *bd)
 			return -EINVAL;
 
 		for (op = &ops->ops[0]; op < &ops->ops[ops->n_ops]; ++op) {
-			op->mask = op->isread ? 
-					msr_whitelist_readmask(op->msr) : 
+			op->mask = op->isread ?
+					msr_whitelist_readmask(op->msr) :
 					msr_whitelist_writemask(op->msr);
 			
 			if (op->mask == 0) {
@@ -64,8 +64,7 @@ static int msr_batch_prefixup(struct msr_bundle_desc *bd)
 					"msr_prefixup: CPU %x MSR %x EPERM",
 						             ops->cpu, op->msr);
 				op->errno = err = -EPERM;
-			}
-			else {
+			} else {
 				if (!op->isread)
 					op->d.d64 &= op->mask;
 				op->errno = 0;
@@ -109,7 +108,7 @@ static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
 		return -EINVAL;
 
 	u_bundle = k_bdes.bundle;
-	k_bdes.bundle = kmalloc(k_bdes.n_msr_bundles * 
+	k_bdes.bundle = kmalloc(k_bdes.n_msr_bundles *
 					sizeof(*k_bdes.bundle), GFP_KERNEL);
 	if (!k_bdes.bundle)
 		return -ENOMEM;
@@ -119,7 +118,7 @@ static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
 		goto bundle_alloc;
 	}
 
-	if (copy_from_user(k_bdes.bundle, u_bundle, 
+	if (copy_from_user(k_bdes.bundle, u_bundle,
 		      k_bdes.n_msr_bundles * sizeof(*k_bdes.bundle))) {
 		err = -EFAULT;
 		goto bundle_alloc;
@@ -135,7 +134,7 @@ static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
 	msr_batch_postfixup(&k_bdes);
 
 copyout_and_return:
-	if (copy_to_user(u_bundle, k_bdes.bundle, 
+	if (copy_to_user(u_bundle, k_bdes.bundle,
 				k_bdes.n_msr_bundles * sizeof(*u_bundle))) {
 		printk(KERN_ERR "MSR_BATCH: copyout(bundle) Failed");
 		if (!err)
@@ -184,7 +183,7 @@ int msrbatch_init(void)
 
 	majordev = register_chrdev(0, "cpu/msr_batch", &fops);
 	if (majordev < 0) {
-		printk(KERN_ERR 
+		printk(KERN_ERR
 		    "msrbatch_init: unable to register chrdev\n");
 		msrbatch_cleanup();
 		return -EBUSY;
@@ -201,7 +200,7 @@ int msrbatch_init(void)
 
 	cdev_class->devnode = msrbatch_nodename;
 
-	dev = device_create(cdev_class, NULL, MKDEV(majordev, 0), 
+	dev = device_create(cdev_class, NULL, MKDEV(majordev, 0),
 						NULL, "msr_batch");
 	if (IS_ERR(dev)) {
 		err = PTR_ERR(dev);
