@@ -1,5 +1,3 @@
-#Note:  this makefile is processed by scripts/Makefile.build in the 
-# 	linux source directory.  
 obj-m += msr-safe-beta.o
 msr-safe-beta-objs := msr_safe.o msr-whitelist.o msr-smp.o msr-batch.o
 
