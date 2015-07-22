@@ -10,8 +10,24 @@
 #include <linux/uaccess.h>
 #include <linux/ctype.h>
 #include <linux/device.h>
-#include "msr-whitelist-impl.h"
 
+#define MAX_WLIST_BSIZE ((128 * 1024) + 1) /* "+1" for null character */
+
+struct whitelist_entry {
+	u64 wmask;	/* Bits that may be written */
+	u64 msr;	/* Address of msr (used as hash key) */
+	u64 *msrdata;	/* ptr to original msr contents of writable bits */
+	struct hlist_node hlist;
+};
+
+static void delete_whitelist(void);
+static int create_whitelist(int nentries);
+static struct whitelist_entry *find_in_whitelist(u64 msr);
+static void add_to_whitelist(struct whitelist_entry *entry);
+static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
+						struct whitelist_entry *entry);
+static ssize_t read_whitelist(struct file *file, char __user *buf,
+						size_t count, loff_t *ppos);
 static int majordev;
 static struct class *cdev_class;
 static char cdev_created = 0;
@@ -23,7 +39,7 @@ static DEFINE_MUTEX(whitelist_mutex);
 static struct whitelist_entry *whitelist=0;
 static int whitelist_numentries = 0;
 
-u64 msr_whitelist_readmask(loff_t reg)
+int msr_whitelist_maskexists(loff_t reg)
 {
 	struct whitelist_entry *entry;
 
@@ -31,7 +47,7 @@ u64 msr_whitelist_readmask(loff_t reg)
 	entry = find_in_whitelist((u64)reg);
 	mutex_unlock(&whitelist_mutex);
 
-	return entry ? entry->rmask : 0;
+	return entry != NULL;
 }
 
 u64 msr_whitelist_writemask(loff_t reg)
@@ -143,7 +159,7 @@ static ssize_t read_whitelist(struct file *file, char __user *buf,
 	u32 __user *tmp = (u32 __user *) buf;
 	char kbuf[160];
 	int len;
-	struct whitelist_entry entry;
+	struct whitelist_entry e;
 
 	mutex_lock(&whitelist_mutex);
 	*ppos = 0;
@@ -153,12 +169,11 @@ static ssize_t read_whitelist(struct file *file, char __user *buf,
 		return 0;
 	}
 
-	entry = whitelist[idx];
+	e = whitelist[idx];
 	mutex_unlock(&whitelist_mutex);
 
 	len = sprintf(kbuf,
-		"MSR: %08llx Write Mask: %016llx Read Mask: %016llx\n",
-					entry.msr, entry.wmask, entry.rmask);
+		"MSR: %08llx Write Mask: %016llx\n", e.msr, e.wmask);
 
 	if (len > count)
 		return -EFAULT;
@@ -200,7 +215,7 @@ static int create_whitelist(int nentries)
 	if (!whitelist) {
 		printk(KERN_ALERT
 			"create_whitelist: %lu byte allocation failed\n",
-				(long unsigned)(nentries * sizeof(*whitelist)));
+					(nentries * sizeof(*whitelist)));
 		return -ENOMEM;
 	}
 	return 0;
@@ -237,7 +252,7 @@ static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
 {
 	char *s = skip_spaces(inbuf);
 	int i;
-	u64 data[3];
+	u64 data[2];
 
 	while (*s == '#') { /* Skip remaining portion of line */
 		for (s = s + 1; *s && *s != '\n'; s++)
@@ -248,7 +263,7 @@ static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
 	if (*s == 0)
 		return 0; /* This means we are done with the input buffer */
 
-	for (i = 0; i < 3; i++) {/* we should have the first of 3 #s now */
+	for (i = 0; i < 2; i++) {/* we should have the first of 3 #s now */
 		char *s2;
 		int err;
 		char tmp;
@@ -277,7 +292,6 @@ static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
 	if (entry) {
 		entry->msr = data[0];
 		entry->wmask = data[1];
-		entry->rmask = data[2];
 	}
 
 	*nextinbuf = s; /* Return where we left off to caller */
@@ -350,4 +364,3 @@ int msr_whitelist_init(void)
 	cdev_created = 1;
 	return 0;
 }
-

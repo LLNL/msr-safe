@@ -1,9 +1,8 @@
 The msr-safe.ko module is comprised of the following source files:
 
 Makefile
-msr_safe.c		Modified version of msr driver with whitelist 
+msr_entry.c		Modified version of msr driver with whitelist 
 			enhancements
-msr_safe.h		Local definitios required by msr_safe impelementation
 msr-whitelist.c		MSR Whitelist implementation
 msr-whitelist.h		Whitelist functions available to rest of kernel module
 msr-whitelist-impl.h	Local definitions required by whitelist implemnetation

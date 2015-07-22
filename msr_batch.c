@@ -17,8 +17,8 @@
 #include <linux/kobject.h>
 #include <linux/sysfs.h>
 #include <linux/module.h>
-#include "msr-whitelist.h"
-#include "msr-batch.h"
+#include "msr_whitelist.h"
+#include "msr_batch.h"
 #include "msr.h"
 
 static int majordev;
@@ -44,104 +44,68 @@ static int msrbatch_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int msr_batch_prefixup(struct msr_bundle_desc *bd)
+static int msrbatch_check_whitelist(struct msr_batch_rdmsr_array *oa)
 {
-	struct msr_cpu_ops *ops;
-	struct msr_op *op;
+	struct msr_batch_rdmsr_op *op;
 	int err = 0;
 
-	for (ops = bd->bundle; ops < bd->bundle + bd->n_msr_bundles; ++ops) {
-		if (ops->n_ops <= 0 || ops->n_ops >= MSR_MAX_BATCH_OPS)
-			return -EINVAL;
-
-		for (op = &ops->ops[0]; op < &ops->ops[ops->n_ops]; ++op) {
-			op->mask = op->isread ?
-					msr_whitelist_readmask(op->msr) :
-					msr_whitelist_writemask(op->msr);
-			
-			if (op->mask == 0) {
-				printk(KERN_ERR
-					"msr_prefixup: CPU %x MSR %x EPERM",
-						             ops->cpu, op->msr);
-				op->errno = err = -EPERM;
-			} else {
-				if (!op->isread)
-					op->d.d64 &= op->mask;
-				op->errno = 0;
-			}
+	for (op = oa->ops; op < oa->ops + oa->numops; ++op) {
+		op->err = 0;
+		if (!capable(CAP_SYS_RAWIO) &&
+					!msr_whitelist_maskexists(op->msr)) {
+			op->err = err = -EPERM;
 		}
 	}
 
 	return err;
 }
 
-static void msr_batch_postfixup(struct msr_bundle_desc *bd)
-{
-	struct msr_cpu_ops *ops;
-	struct msr_op *op;
-
-	for (ops = bd->bundle; ops < bd->bundle + bd->n_msr_bundles; ++ops)
-		for (op = &ops->ops[0]; op < &ops->ops[ops->n_ops]; ++op)
-			if (op->isread)
-				op->d.d64 &= op->mask;
-}
-
 static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
 {
 	int err = 0;
-	struct msr_bundle_desc __user *u_bdes;
-	struct msr_bundle_desc k_bdes;
-	struct msr_cpu_ops __user *u_bundle;
+	struct msr_batch_rdmsr_array __user *uoa;
+	struct msr_batch_rdmsr_op __user *uops;
+	struct msr_batch_rdmsr_array koa;
 
-	if (ioc != X86_IOC_MSR_BATCH)
+	if (ioc != X86_IOC_MSR_RDMSR_BATCH)
 		return -ENOTTY;
 
-	if ((f->f_mode & (FMODE_READ+FMODE_WRITE)) != (FMODE_READ+FMODE_WRITE))
+	if (!(f->f_mode & FMODE_READ))
 		return -EBADF;
 
-	u_bdes = (struct msr_bundle_desc *)arg;
+	uoa = (struct msr_batch_rdmsr_array *)arg;
 
-	if (copy_from_user(&k_bdes, u_bdes, sizeof k_bdes))
+	if (copy_from_user(&koa, uoa, sizeof koa))
 		return -EFAULT;
 
-	if (k_bdes.n_msr_bundles <= 0)
+	if (koa.numops <= 0)
 		return -EINVAL;
 
-	u_bundle = k_bdes.bundle;
-	k_bdes.bundle = kmalloc(k_bdes.n_msr_bundles *
-					sizeof(*k_bdes.bundle), GFP_KERNEL);
-	if (!k_bdes.bundle)
+	uops = koa.ops;
+	koa.ops = kmalloc(koa.numops * sizeof(*koa.ops), GFP_KERNEL);
+	if (!koa.ops)
 		return -ENOMEM;
 	
-	if (k_bdes.n_msr_bundles <= 0) {
-		err = -EINVAL;
-		goto bundle_alloc;
-	}
-
-	if (copy_from_user(k_bdes.bundle, u_bundle,
-		      k_bdes.n_msr_bundles * sizeof(*k_bdes.bundle))) {
+	if (copy_from_user(koa.ops, uops, koa.numops * sizeof(*koa.ops))) {
 		err = -EFAULT;
 		goto bundle_alloc;
 	}
 
-	if ((err = msr_batch_prefixup(&k_bdes)))
+	if ((err = msrbatch_check_whitelist(&koa)))
 		goto copyout_and_return;
 
 
-	if ((err = msr_safe_bundle(&k_bdes)) != 0)
+	if ((err = rdmsr_safe_batch(&koa)) != 0)
 		goto copyout_and_return;
-
-	msr_batch_postfixup(&k_bdes);
 
 copyout_and_return:
-	if (copy_to_user(u_bundle, k_bdes.bundle,
-				k_bdes.n_msr_bundles * sizeof(*u_bundle))) {
-		printk(KERN_ERR "MSR_BATCH: copyout(bundle) Failed");
+	if (copy_to_user(uops, koa.ops, koa.numops * sizeof(*uops))) {
+		printk(KERN_ERR "msrbatch_ioctl: copyout(uops) Failed");
 		if (!err)
 			err = -EFAULT;
 	}
 bundle_alloc:
-	kfree(k_bdes.bundle);
+	kfree(koa.ops);
 
 	return err;
 }

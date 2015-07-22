@@ -1,6 +1,4 @@
 /*
- * (proposed) extensions to arch/x86/include/asm/msr.h
- *
  * This file defines linux kernel data structures and function prototypes
  * for proposed extensions to arch/x86/lib/msr_smp.c that will allow for
  * batching rdmsr/wrmsr requests.
@@ -12,33 +10,21 @@
 #include <linux/types.h>
 #include <linux/ioctl.h>
 
-#define MSR_MAX_BATCH_OPS	50	/* Maximum ops per logical CPU */
-
-struct msr_op {
-	union msrdata {
-		__u32 d32[2];		/* For lo/hi access */
-		__u64 d64;
-	} d;
-	__u64 mask;			/* Used by kernel */
-	__u32 msr;			/* MSR Address to perform operatio */
-	__u32 isread;			/* non-zero for rdmsr, zero for wrmsr */
-	int errno;			/* zero indicates success */
+struct msr_batch_rdmsr_op {
+	__u16 err;		/* Out: set if error occuurred with this op */
+	__u16 cpu;		/* In: CPU to execute {rd/wr}msr ins. */
+	__u32 msr;		/* In: MSR Address to perform op */
+	__u64 msrdata;		/* In/Out: Input/Result to/from operation */
 };
 
-struct msr_cpu_ops {
-	__u32 cpu;			/* Logical CPU # */
-	int n_ops;			/* # of operations for this CPU */
-	struct msr_op ops[MSR_MAX_BATCH_OPS];
+struct msr_batch_rdmsr_array {
+	int numops;		/* In: # of operations in ops array */
+	struct msr_batch_rdmsr_op *ops;	/* In: Array[numops] of operations */
 };
 
-struct msr_bundle_desc {
-	int n_msr_bundles;			/* # of jobs in batch */
-	struct msr_cpu_ops *bundle;	/* Bundle of msr ops for CPUs */
-};
-
-#define X86_IOC_MSR_BATCH	_IOWR('c', 0xA2, struct msr_bundle_desc)
+#define X86_IOC_MSR_RDMSR_BATCH	_IOWR('c', 0xA2, struct msr_batch_rdmsr_array)
 
 #ifdef __KERNEL__
-int msr_safe_bundle(struct msr_bundle_desc *k_bdes);
+int rdmsr_safe_batch(struct msr_batch_rdmsr_array *oa);
 #endif /* __KERNEL__ */
 #endif /*  MSR_HFILE_INC */
