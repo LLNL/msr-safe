@@ -114,9 +114,9 @@ unsigned long long get_tick()
 {
 	unsigned long long rval = 0;
 
-	if (pread(fd[0], &rval, sizeof(rval), 0xE7) < 0) {
+	if (pread(fd[0], &rval, sizeof(rval), 0x10) < 0) {
 		perror("get_tick(): pread");
-		//_exit(1);
+		_exit(1);
 	}
 	return rval;
 }
@@ -193,6 +193,78 @@ void run_test(int pass, int cpu)
 	CPU_FREE(cpuset);
 }
 
+#include <sys/time.h>
+void run_test_batch_alone(int pass, int cpu)
+{
+	const int lcount = 10000;
+	unsigned long long start_tick, batch_ticks;
+	char fname[100];
+	int i, j;
+	struct msr_batch_rdmsr_op *op;
+	int mycpu;
+	int cpucheck;
+	size_t cpusetsz;
+	cpu_set_t *cpuset;
+	size_t size;
+	struct timeval stime, etime;
+	struct timezone tz;
+	suseconds_t usec;
+
+	if ((cpuset = CPU_ALLOC(ncpus)) == NULL) {
+		perror("CPU_ALLOC");
+		_exit(1);
+	}
+
+	size = CPU_ALLOC_SIZE(ncpus);
+
+	CPU_ZERO_S(size, cpuset);
+	CPU_SET_S(cpu, size, cpuset);
+
+	if (sched_setaffinity(0, size, cpuset) < 0) {
+		perror("sched_setaffinity: SKIPPED");
+		return;
+	}
+
+	if ((mycpu = sched_getcpu()) < 0) {
+		perror("GetCPU Failed");
+		_exit(2);
+	}
+
+	if (gettimeofday(&stime, &tz) < 0) {
+		perror("gettimeofday");
+		_exit(2);
+	}
+	start_tick = get_tick();
+	for (j = 0; j < lcount; ++j) {
+		if (ioctl(batchfd, X86_IOC_MSR_RDMSR_BATCH, &barray) < 0) {
+			perror("Ioctl failed");
+			print_array_err(&barray);
+			_exit(1);
+		}
+	}
+	batch_ticks = get_tick() - start_tick;
+	if (gettimeofday(&etime, &tz) < 0) {
+		perror("gettimeofday");
+		_exit(2);
+	}
+	usec = (etime.tv_sec - stime.tv_sec) * 1000000;
+	usec += etime.tv_usec - stime.tv_usec;
+	check_array(&barray);
+	//print_array_info(&barray);
+
+	if ((cpucheck = sched_getcpu()) < 0) {
+		perror("GetCPU Failed");
+		_exit(2);
+	}
+
+	if (cpucheck != mycpu)
+		printf("WARNING: CPU Migration Occurred\n");
+
+	printf("Pass %2d: CPU %2u: Batch %f, %f usec\n",
+		pass, cpucheck, (double)((double)batch_ticks / (double)lcount), (double)((double)usec/(double)lcount));
+	CPU_FREE(cpuset);
+}
+
 int main()
 {
 	char fname[100];
@@ -214,7 +286,8 @@ int main()
 		}
 	}
 
-	for (i = 0; i < ncpus; ++i)
+	for (i = 0; i < ncpus; i++)
+		//run_test_batch_alone(i+1, i);
 		run_test(i+1, i);
 
 	for (i = 0; i < ncpus; ++i)

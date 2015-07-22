@@ -27,6 +27,7 @@
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/fcntl.h>
+#include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/poll.h>
 #include <linux/smp.h>
@@ -43,6 +44,9 @@
 #include "msr_batch.h"
 
 static struct class *msr_class;
+struct msr_session_info {
+	int rawio_allowed;
+};
 
 static loff_t msr_seek(struct file *file, loff_t offset, int orig)
 {
@@ -75,11 +79,12 @@ static ssize_t msr_read(struct file *file, char __user *buf,
 	int cpu = iminor(file_inode(file));
 	int err = 0;
 	ssize_t bytes = 0;
+	struct msr_session_info *myinfo = file->private_data;
 
 	if (count % 8)
 		return -EINVAL;	/* Invalid chunk size */
 
-	if (!capable(CAP_SYS_RAWIO) && !msr_whitelist_maskexists(reg))
+	if (!myinfo->rawio_allowed && !msr_whitelist_maskexists(reg))
 		return -EACCES;
 
 	for (; count; count -= 8) {
@@ -109,11 +114,12 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 	int cpu = iminor(file_inode(file));
 	int err = 0;
 	ssize_t bytes = 0;
+	struct msr_session_info *myinfo = file->private_data;
 
 	if (count % 8)
 		return -EINVAL;	/* Invalid chunk size */
 
-	mask = capable(CAP_SYS_RAWIO) ? 0xffffffffffffffff :
+	mask = myinfo->rawio_allowed ? 0xffffffffffffffff :
 						msr_whitelist_writemask(reg);
 
 	if (mask == 0)
@@ -198,6 +204,7 @@ static int msr_open(struct inode *inode, struct file *file)
 {
 	unsigned int cpu = iminor(file_inode(file));
 	struct cpuinfo_x86 *c;
+	struct msr_session_info *myinfo;
 
 	if (cpu >= nr_cpu_ids || !cpu_online(cpu))
 		return -ENXIO;	/* No such CPU */
@@ -205,6 +212,23 @@ static int msr_open(struct inode *inode, struct file *file)
 	c = &cpu_data(cpu);
 	if (!cpu_has(c, X86_FEATURE_MSR))
 		return -EIO;	/* MSR not supported */
+
+	myinfo = kmalloc(sizeof(*myinfo), GFP_KERNEL);
+	if (!myinfo)
+		return -ENOMEM;
+	
+	myinfo->rawio_allowed = capable(CAP_SYS_RAWIO);
+	file->private_data = myinfo;
+
+	return 0;
+}
+
+static int msr_close(struct inode *inode, struct file *file)
+{
+	if (file->private_data)
+		kfree(file->private_data);
+
+	file->private_data = 0;
 
 	return 0;
 }
@@ -220,6 +244,7 @@ static const struct file_operations msr_fops = {
 	.open = msr_open,
 	.unlocked_ioctl = msr_ioctl,
 	.compat_ioctl = msr_ioctl,
+	.release = msr_close
 };
 
 static int msr_device_create(int cpu)

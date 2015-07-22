@@ -27,10 +27,15 @@ static char cdev_created;
 static char cdev_registered = 0;
 static char cdev_class_created = 0;
 
+struct msrbatch_session_info {
+	int rawio_allowed;
+};
+
 static int msrbatch_open(struct inode *inode, struct file *file)
 {
 	unsigned int cpu;
 	struct cpuinfo_x86 *c;
+	struct msrbatch_session_info *myinfo;
 
 	cpu = iminor(file->f_path.dentry->d_inode);
 
@@ -41,19 +46,39 @@ static int msrbatch_open(struct inode *inode, struct file *file)
 	if (!cpu_has(c, X86_FEATURE_MSR))
 		return -EIO;	/* MSR not supported */
 
+	myinfo = kmalloc(sizeof(*myinfo), GFP_KERNEL);
+	if (!myinfo)
+		return -ENOMEM;
+	
+	myinfo->rawio_allowed = capable(CAP_SYS_RAWIO);
+	file->private_data = myinfo;
+
 	return 0;
 }
 
-static int msrbatch_check_whitelist(struct msr_batch_rdmsr_array *oa)
+static int msrbatch_close(struct inode *inode, struct file *file)
+{
+	if (file->private_data)
+		kfree(file->private_data);
+
+	file->private_data = 0;
+
+	return 0;
+}
+
+static int msrbatch_check_whitelist(struct msr_batch_rdmsr_array *oa, 
+			struct msrbatch_session_info *myinfo)
 {
 	struct msr_batch_rdmsr_op *op;
 	int err = 0;
 
-	for (op = oa->ops; op < oa->ops + oa->numops; ++op) {
+	for (op = oa->ops; op < oa->ops + oa->numops; ++op)
 		op->err = 0;
-		if (!capable(CAP_SYS_RAWIO) &&
-					!msr_whitelist_maskexists(op->msr)) {
-			op->err = err = -EPERM;
+
+	if (!myinfo->rawio_allowed) {
+		for (op = oa->ops; op < oa->ops + oa->numops; ++op) {
+			if (!msr_whitelist_maskexists(op->msr))
+				op->err = err = -EPERM;
 		}
 	}
 
@@ -66,6 +91,7 @@ static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
 	struct msr_batch_rdmsr_array __user *uoa;
 	struct msr_batch_rdmsr_op __user *uops;
 	struct msr_batch_rdmsr_array koa;
+	struct msrbatch_session_info *myinfo = f->private_data;
 
 	if (ioc != X86_IOC_MSR_RDMSR_BATCH)
 		return -ENOTTY;
@@ -83,6 +109,7 @@ static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
 
 	uops = koa.ops;
 	koa.ops = kmalloc(koa.numops * sizeof(*koa.ops), GFP_KERNEL);
+	
 	if (!koa.ops)
 		return -ENOMEM;
 	
@@ -91,9 +118,8 @@ static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
 		goto bundle_alloc;
 	}
 
-	if ((err = msrbatch_check_whitelist(&koa)))
+	if ((err = msrbatch_check_whitelist(&koa, myinfo)))
 		goto copyout_and_return;
-
 
 	if ((err = rdmsr_safe_batch(&koa)) != 0)
 		goto copyout_and_return;
@@ -114,7 +140,8 @@ static const struct file_operations fops = {
 	.owner = THIS_MODULE,
 	.open = msrbatch_open,
 	.unlocked_ioctl = msrbatch_ioctl,
-	.compat_ioctl = msrbatch_ioctl
+	.compat_ioctl = msrbatch_ioctl,
+	.release = msrbatch_close
 };
 
 void msrbatch_cleanup(void)
