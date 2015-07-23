@@ -1,4 +1,4 @@
-// Program to test out new ioctl interface to /dev/cpu/0/msr_safe
+/* Program to test out new ioctl interface to /dev/cpu/0/msr_safe */
 #include <linux/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -21,69 +21,79 @@
 
 int batchfd;
 int fd[100];
-struct msr_cpu_ops bundle[] = 
+struct msr_cpu_ops bundle[] =
 {
-  { .cpu = 0, .n_ops = 33, 
+  { .cpu = 0, .n_ops = 33,
     {
-      MR(0x10),	// IA32_TIME_STAMP_COUNTER, thread
-      // MR(0x3B),	// IA32_TSC_ADJUST, thread
-      MR(0xE7),	// IA32_MPERF, varies (unique to thread)
-      MR(0xE8),	// IA32_APERF, varies (unique to thread)
-      MR(0x199),	// IA32_PERF_CTL, varies (unique to thread)
-      MR(0x19A),	// IA32_CLOCK_MODULATION, varies (unique to thread)
-      MR(0x1A0),	// IA32_MISC_ENABLE, varies (pretty much all of them even for bitfields)
-      MR(0x19C),	// IA32_THERM_STATUS, all except thread
-      MR(0x19B),	// MSR_THERM2_CTL, unique and shared
-      MR(0x1A2),	// MSR_TEMPERATURE_TARGET, varies (pretty much all of them)
-      MR(0x309),	// IA32_FIXED_CTR0, unique, core and thread
-      MR(0x30A),	// IA32_FIXED_CTR1, unique, core and thread
-      MR(0x30B),	// IA32_FIXED_CTR2, unique, core and thread
-      MR(0x38D),	// IA32_FIXED_CTR_CTRL, Unique, shared, core, and thread
-      MR(0xC1),	// IA32_PMC0, thread, core and unique
-      MR(0xC2),	// IA32_PMC1
-      MR(0xC3),	// IA32_PMC2
-      MR(0xC4),	// IA32_PMC3
-      // MR(0xC5),	// IA32_PMC4
-      // MR(0xC6),	// IA32_PMC5
-      // MR(0xC7),	// IA32_PMC6
-      // MR(0xC8),	// IA32_PMC7
-      MR(0x345),	// IA32_PERF_CAPABILITIES, unique, shared, core, and thread
-      MR(0x38E),	// IA32_PERF_GLOBAL_STATUS, thread, core, and unique
-      MR(0x38F),	// IA32_PERF_GLOBAL_CTRL, thread, core, and unique
-      MR(0x390),	// IA32_PERF_GLOBAL_OVF_CTRL, thread, core, and unique
-      // MR(0x391),	// MSR_UNCORE_PERF_GLOBAL_CTRL, package
-      // MR(0x392),	// MSR_UNCORE_PERF_GLOBAL_CTRL, package
-      MR(0x3F1),	// MSR_PEBS_ENABLE, thread, shared, unique, core
-      MR(0x606),	// MSR_RAPL_POWER_UNIT, package
-      MR(0x610),	// MSR_PKG_POWER_LIMIT, package
-      MR(0x611),	// MSR_PKG_ENERGY_STATUS, package
-      // MR(0x613),	// MSR_PKG_PERF_STATUS, package
-      MR(0x614),	// MSR_PKG_POWER_INFO, package
-      MR(0x618),	// MSR_DRAM_POWER_LIMIT, package
-      MR(0x619),	// MSR_DRAM_ENERGY_STATUS, package
-      MR(0x61B),	// MSR_DRAM_PERF_STATUS, package
-      MR(0x61C),	// MSR_DRAM_POWER_INFO, package
-      MR(0x638),	// MSR_PP0_POWER_LIMIT, package
-      MR(0x639),	// MSR_PP0_ENERGY_STATUS, package
-      // MR(0x63A),	// MSR_PP0_POLICY, package
-      // MR(0x63B),	// MSR_PP0_PERF_STATUS, package
-      // MR(0x640),	// MSR_PP1_POWER_LIMIT, package
-      // MR(0x641),	// MSR_PP1_ENERGY_STATUS, package
-      // MR(0x642),	// MSR_PP1_POLICY, package
-      // MR(0x64C),	// MSR_TURBO_ACTIVATION_RATIO, package
-      // MR(0x66E),	// MSR_PKG_POWER_INFO, package
-      // MR(0x690),	// MSR_CORE_PERF_LIMIT_REASONS, package
-      // MR(0x6B0),	// MSR_GRAPHICS_PERF_LIMIT_REASONS, package
-      // MR(0x6B1),	// MSR_RING_PERF_LIMIT_REASONS, package
-      MR(0xE7)	// IA32_MPERF, varies (unique to thread)
+      MR(0x10),	/* IA32_TIME_STAMP_COUNTER, thread */
+#if 0
+      MR(0x3B),	/* IA32_TSC_ADJUST, thread */
+#endif
+      MR(0xE7),	/* IA32_MPERF, varies (unique to thread) */
+      MR(0xE8),	/* IA32_APERF, varies (unique to thread) */
+      MR(0x199),	/* IA32_PERF_CTL, varies (unique to thread) */
+      MR(0x19A),	/* IA32_CLOCK_MODULATION, varies (unique to thread) */
+      MR(0x1A0),	/* IA32_MISC_ENABLE, varies (pretty much all of them even for bitfields) */
+      MR(0x19C),	/* IA32_THERM_STATUS, all except thread */
+      MR(0x19B),	/* MSR_THERM2_CTL, unique and shared */
+      MR(0x1A2),	/* MSR_TEMPERATURE_TARGET, varies (pretty much all of them) */
+      MR(0x309),	/* IA32_FIXED_CTR0, unique, core and thread */
+      MR(0x30A),	/* IA32_FIXED_CTR1, unique, core and thread */
+      MR(0x30B),	/* IA32_FIXED_CTR2, unique, core and thread */
+      MR(0x38D),	/* IA32_FIXED_CTR_CTRL, Unique, shared, core, and thread */
+      MR(0xC1),	/* IA32_PMC0, thread, core and unique */
+      MR(0xC2),	/* IA32_PMC1 */
+      MR(0xC3),	/* IA32_PMC2 */
+      MR(0xC4),	/* IA32_PMC3 */
+#if 0
+      MR(0xC5),	/* IA32_PMC4 */
+      MR(0xC6),	/* IA32_PMC5 */
+      MR(0xC7),	/* IA32_PMC6 */
+      MR(0xC8),	/* IA32_PMC7 */
+#endif
+      MR(0x345),	/* IA32_PERF_CAPABILITIES, unique, shared, core, and thread */
+      MR(0x38E),	/* IA32_PERF_GLOBAL_STATUS, thread, core, and unique */
+      MR(0x38F),	/* IA32_PERF_GLOBAL_CTRL, thread, core, and unique */
+      MR(0x390),	/* IA32_PERF_GLOBAL_OVF_CTRL, thread, core, and unique */
+#if 0
+      MR(0x391),	/* MSR_UNCORE_PERF_GLOBAL_CTRL, package */
+      MR(0x392),	/* MSR_UNCORE_PERF_GLOBAL_CTRL, package */
+#endif
+      MR(0x3F1),	/* MSR_PEBS_ENABLE, thread, shared, unique, core */
+      MR(0x606),	/* MSR_RAPL_POWER_UNIT, package */
+      MR(0x610),	/* MSR_PKG_POWER_LIMIT, package */
+      MR(0x611),	/* MSR_PKG_ENERGY_STATUS, package */
+#if 0
+      MR(0x613),	/* MSR_PKG_PERF_STATUS, package */
+#endif
+      MR(0x614),	/* MSR_PKG_POWER_INFO, package */
+      MR(0x618),	/* MSR_DRAM_POWER_LIMIT, package */
+      MR(0x619),	/* MSR_DRAM_ENERGY_STATUS, package */
+      MR(0x61B),	/* MSR_DRAM_PERF_STATUS, package */
+      MR(0x61C),	/* MSR_DRAM_POWER_INFO, package */
+      MR(0x638),	/* MSR_PP0_POWER_LIMIT, package */
+      MR(0x639),	/* MSR_PP0_ENERGY_STATUS, package */
+#if 0
+      MR(0x63A),	/* MSR_PP0_POLICY, package */
+      MR(0x63B),	/* MSR_PP0_PERF_STATUS, package */
+      MR(0x640),	/* MSR_PP1_POWER_LIMIT, package */
+      MR(0x641),	/* MSR_PP1_ENERGY_STATUS, package */
+      MR(0x642),	/* MSR_PP1_POLICY, package */
+      MR(0x64C),	/* MSR_TURBO_ACTIVATION_RATIO, package */
+      MR(0x66E),	/* MSR_PKG_POWER_INFO, package */
+      MR(0x690),	/* MSR_CORE_PERF_LIMIT_REASONS, package */
+      MR(0x6B0),	/* MSR_GRAPHICS_PERF_LIMIT_REASONS, package */
+      MR(0x6B1),	/* MSR_RING_PERF_LIMIT_REASONS, package */
+#endif
+      MR(0xE7)	/* IA32_MPERF, varies (unique to thread) */
     }
   },
   MRCOPY(1), MRCOPY(2), MRCOPY(3), MRCOPY(4), MRCOPY(5), MRCOPY(6), MRCOPY(7),
-  MRCOPY(8), MRCOPY(9), MRCOPY(10), MRCOPY(10), MRCOPY(11), MRCOPY(12), 
-  MRCOPY(13), MRCOPY(14), MRCOPY(15), MRCOPY(16), MRCOPY(17), MRCOPY(18), 
-  MRCOPY(19), MRCOPY(20), MRCOPY(21), MRCOPY(22), MRCOPY(23), MRCOPY(24), 
-  MRCOPY(25), MRCOPY(26), MRCOPY(27), MRCOPY(28), MRCOPY(29), MRCOPY(30), 
-  MRCOPY(31), MRCOPY(32), MRCOPY(33), MRCOPY(34), MRCOPY(35), MRCOPY(36), 
+  MRCOPY(8), MRCOPY(9), MRCOPY(10), MRCOPY(10), MRCOPY(11), MRCOPY(12),
+  MRCOPY(13), MRCOPY(14), MRCOPY(15), MRCOPY(16), MRCOPY(17), MRCOPY(18),
+  MRCOPY(19), MRCOPY(20), MRCOPY(21), MRCOPY(22), MRCOPY(23), MRCOPY(24),
+  MRCOPY(25), MRCOPY(26), MRCOPY(27), MRCOPY(28), MRCOPY(29), MRCOPY(30),
+  MRCOPY(31), MRCOPY(32), MRCOPY(33), MRCOPY(34), MRCOPY(35), MRCOPY(36),
   MRCOPY(37), MRCOPY(38), MRCOPY(39), MRCOPY(40), MRCOPY(41), MRCOPY(42)
 };
 
@@ -96,7 +106,7 @@ void check_bundle(struct msr_bundle_desc *bd)
 		for (op = mco->ops; op < &mco->ops[mco->n_ops]; ++op) {
 			if (!op->errno)
 				continue;
-			fprintf(stderr, "***CHECK***: CPU %d, %s %x, Err %d\n", 
+			fprintf(stderr, "***CHECK***: CPU %d, %s %x, Err %d\n",
 				mco->cpu, op->isread ?  "RDMSR" : "WRMSR",
 							op->msr, op->errno);
 		}
@@ -112,7 +122,7 @@ void print_bundle_err(struct msr_bundle_desc *bd)
 		for (op = mco->ops; op < &mco->ops[mco->n_ops]; ++op) {
 			if (!op->errno)
 				continue;
-			fprintf(stderr, "CPU %d, %s %x, Err %d\n", 
+			fprintf(stderr, "CPU %d, %s %x, Err %d\n",
 				mco->cpu, op->isread ?  "RDMSR" : "WRMSR",
 							op->msr, op->errno);
 		}
@@ -126,7 +136,7 @@ void print_bundle_info(struct msr_bundle_desc *bd)
 
 	for (mco = bd->bundle; mco < bd->bundle + bd->n_msr_bundles; ++mco) {
 		for (op = mco->ops; op < &mco->ops[mco->n_ops]; ++op) {
-			printf("CPU %d: %s %x Data %lld\n", 
+			printf("CPU %d: %s %x Data %lld\n",
 				  mco->cpu, op->isread ? "RDMSR" : "WRMSR",
 							op->msr, op->d.d64);
 		}
@@ -181,7 +191,9 @@ int main()
 	}
 	end_tick = get_tick();
 	check_bundle(&bd);
-	//print_bundle_info(&bd);
+#if 0
+	print_bundle_info(&bd);
+#endif
 
 	printf("Batch took %llu ticks\n", (end_tick - start_tick) / lcount);
 
