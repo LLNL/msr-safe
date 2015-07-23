@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <linux/ioctl.h>
 #include <unistd.h>
+#include <sys/time.h>
 #include "../msr.h"
 
 #define MR(__CPU__, __m__) {.err=0, .cpu = __CPU__, .msr=__m__, .msrdata=0}
@@ -49,6 +50,7 @@
 
 /* #define ADA 1 */
 #ifndef ADA
+#ifdef MULT_THREAD
 int ncpus = 48;
 struct msr_batch_rdmsr_op batch_ops[] =
 {
@@ -57,6 +59,14 @@ struct msr_batch_rdmsr_op batch_ops[] =
 	THR(24), THR(25), THR(26), THR(27), THR(28), THR(29), THR(30), THR(31), THR(32), THR(33), THR(34), THR(35),
 	THR(36), THR(37), THR(38), THR(39), THR(40), THR(41), THR(42), THR(43), THR(44), THR(45), THR(46), THR(47)
 };
+#else
+int ncpus = 24;
+struct msr_batch_rdmsr_op batch_ops[] =
+{
+	PKG(0),  THR(1),  THR(2),  THR(3),  THR(4),  THR(5),  THR(6),  THR(7),  THR(8),  THR(9),  THR(10), THR(11),
+	PKG(12), THR(13), THR(14), THR(15), THR(16), THR(17), THR(18), THR(19), THR(20), THR(21), THR(22), THR(23)
+};
+#endif // MULT_THREAD
 #else
 int ncpus = 72;
 struct msr_batch_rdmsr_op batch_ops[] =
@@ -121,114 +131,12 @@ unsigned long long get_tick()
 	return rval;
 }
 
-void run_test(int pass, int cpu)
+void run_batch(const int lcount, double *ticks_per_op, double *us_per_op)
 {
-	const int lcount = 10000;
-	unsigned long long start_tick, sequential_ticks, batch_ticks;
-	char fname[100];
-	int i, j;
-	struct msr_batch_rdmsr_op *op;
-	double factor;
-	int mycpu;
-	int cpucheck;
-	size_t cpusetsz;
-	cpu_set_t *cpuset;
-	size_t size;
-
-	if ((cpuset = CPU_ALLOC(ncpus)) == NULL) {
-		perror("CPU_ALLOC");
-		_exit(1);
-	}
-
-	size = CPU_ALLOC_SIZE(ncpus);
-
-	CPU_ZERO_S(size, cpuset);
-	CPU_SET_S(cpu, size, cpuset);
-
-	if (sched_setaffinity(0, size, cpuset) < 0) {
-		perror("sched_setaffinity: SKIPPED");
-		return;
-	}
-
-	if ((mycpu = sched_getcpu()) < 0) {
-		perror("GetCPU Failed");
-		_exit(2);
-	}
-
-	start_tick = get_tick();
-	for (j = 0; j < lcount; ++j) {
-		if (ioctl(batchfd, X86_IOC_MSR_RDMSR_BATCH, &barray) < 0) {
-			perror("Ioctl failed");
-			print_array_err(&barray);
-			_exit(1);
-		}
-	}
-	batch_ticks = get_tick() - start_tick;
-
-	check_array(&barray);
-	//print_array_info(&barray);
-
-	start_tick = get_tick();
-	for (j = 0; j < lcount; ++j) {
-		for (op = barray.ops; op < barray.ops + barray.numops; ++op) {
-			if (pread(fd[op->cpu], &op->msrdata, sizeof(op->msrdata), op->msr) < 0) {
-				perror("pread");
-				_exit(1);
-			}
-		}
-	}
-	sequential_ticks = get_tick() - start_tick;
-
-	if ((cpucheck = sched_getcpu()) < 0) {
-		perror("GetCPU Failed");
-		_exit(2);
-	}
-
-	if (cpucheck != mycpu)
-		printf("WARNING: CPU Migration Occurred\n");
-
-	factor = (double)sequential_ticks / (double)batch_ticks;
-	printf("Pass %2d: CPU %u: (Serial %llu) / (Batch %llu) =  %f factor\n",
-		pass, cpucheck, sequential_ticks / lcount, batch_ticks / lcount, factor);
-	CPU_FREE(cpuset);
-}
-
-#include <sys/time.h>
-void run_test_batch_alone(int pass, int cpu)
-{
-	const int lcount = 10000;
-	unsigned long long start_tick, batch_ticks;
-	char fname[100];
-	int i, j;
-	struct msr_batch_rdmsr_op *op;
-	int mycpu;
-	int cpucheck;
-	size_t cpusetsz;
-	cpu_set_t *cpuset;
-	size_t size;
+	unsigned long long start_tick, ticks;
+	int j;
 	struct timeval stime, etime;
 	struct timezone tz;
-	suseconds_t usec;
-
-	if ((cpuset = CPU_ALLOC(ncpus)) == NULL) {
-		perror("CPU_ALLOC");
-		_exit(1);
-	}
-
-	size = CPU_ALLOC_SIZE(ncpus);
-
-	CPU_ZERO_S(size, cpuset);
-	CPU_SET_S(cpu, size, cpuset);
-
-	if (sched_setaffinity(0, size, cpuset) < 0) {
-		perror("sched_setaffinity: SKIPPED");
-		return;
-	}
-
-	if ((mycpu = sched_getcpu()) < 0) {
-		perror("GetCPU Failed");
-		_exit(2);
-	}
 
 	if (gettimeofday(&stime, &tz) < 0) {
 		perror("gettimeofday");
@@ -242,27 +150,121 @@ void run_test_batch_alone(int pass, int cpu)
 			_exit(1);
 		}
 	}
-	batch_ticks = get_tick() - start_tick;
+	ticks = get_tick() - start_tick;
 	if (gettimeofday(&etime, &tz) < 0) {
 		perror("gettimeofday");
 		_exit(2);
 	}
-	usec = (etime.tv_sec - stime.tv_sec) * 1000000;
-	usec += etime.tv_usec - stime.tv_usec;
-	check_array(&barray);
-	//print_array_info(&barray);
+	*ticks_per_op = (double)((double)ticks / (double)lcount);
+	*us_per_op = (double)((((etime.tv_sec - stime.tv_sec) * 1000000) + etime.tv_usec - stime.tv_usec) / (double)lcount);
+}
 
-	if ((cpucheck = sched_getcpu()) < 0) {
+void run_sequential(const int lcount, double *ticks_per_op, double *us_per_op)
+{
+	unsigned long long start_tick, ticks;
+	int j;
+	struct timeval stime, etime;
+	struct timezone tz;
+	struct msr_batch_rdmsr_op *op;
+
+	if (gettimeofday(&stime, &tz) < 0) {
+		perror("gettimeofday");
+		_exit(2);
+	}
+	start_tick = get_tick();
+	for (j = 0; j < lcount; ++j) {
+		for (op = barray.ops; op < barray.ops + barray.numops; ++op) {
+			if (pread(fd[op->cpu], &op->msrdata, sizeof(op->msrdata), op->msr) < 0) {
+				perror("pread");
+				_exit(1);
+			}
+		}
+	}
+	ticks = get_tick() - start_tick;
+	if (gettimeofday(&etime, &tz) < 0) {
+		perror("gettimeofday");
+		_exit(2);
+	}
+	*ticks_per_op = (double)((double)ticks / (double)lcount);
+	*us_per_op = (double)((((etime.tv_sec - stime.tv_sec) * 1000000) + etime.tv_usec - stime.tv_usec) / (double)lcount);
+}
+
+void set_affinity(int cpu)
+{
+	int mycpu;
+	int cpucheck;
+	size_t cpusetsz;
+	cpu_set_t *cpuset;
+	size_t size;
+
+	if ((cpuset = CPU_ALLOC(ncpus)) == NULL) {
+		perror("CPU_ALLOC");
+		_exit(1);
+	}
+
+	size = CPU_ALLOC_SIZE(ncpus);
+
+	CPU_ZERO_S(size, cpuset);
+	CPU_SET_S(cpu, size, cpuset);
+
+	if (sched_setaffinity(0, size, cpuset) < 0) {
+		perror("sched_setaffinity: SKIPPED");
+		return;
+	}
+
+	if ((mycpu = sched_getcpu()) < 0) {
 		perror("GetCPU Failed");
 		_exit(2);
 	}
 
-	if (cpucheck != mycpu)
-		printf("WARNING: CPU Migration Occurred\n");
+	if (mycpu != cpu) {
+		fprintf(stderr, "Did not bind to processor %d\n", cpu);
+		_exit(2);
+	}
+}
 
-	printf("Pass %2d: CPU %2u: Batch %f, %f usec\n",
-		pass, cpucheck, (double)((double)batch_ticks / (double)lcount), (double)((double)usec/(double)lcount));
-	CPU_FREE(cpuset);
+void run_test(int pass, int cpu)
+{
+	static double bat_op_ticks_tot = 0, seq_op_ticks_tot = 0, bat_op_usec_tot = 0, seq_op_usec_tot = 0;
+	static int passes = 0;
+	const int lcount = 10000;
+	double bat_op_ticks = 0, seq_op_ticks = 0, bat_op_usec = 0, seq_op_usec = 0;
+	double speedup;
+
+	if (pass == -1) {
+		speedup = seq_op_usec_tot / bat_op_usec_tot;
+		bat_op_ticks_tot /= passes;
+		seq_op_ticks_tot /= passes;
+		bat_op_usec_tot /= passes;
+		seq_op_usec_tot /= passes;
+
+		printf("-----+----+------------+-----------------+-------------\n");
+		printf("AVG  |NA  |%11.3f |%15.3f  |%13.3f\n",
+			bat_op_usec_tot, seq_op_usec_tot, speedup);
+		printf("-----+----+------------+-----------------+-------------\n");
+		return;
+	}
+
+
+	set_affinity(cpu);
+
+	run_batch(lcount, &bat_op_ticks, &bat_op_usec);
+	run_sequential(lcount, &seq_op_ticks, &seq_op_usec);
+	bat_op_ticks_tot += bat_op_ticks;
+	seq_op_ticks_tot += seq_op_ticks;
+	bat_op_usec_tot += bat_op_usec;
+	seq_op_usec_tot += seq_op_usec;
+	++passes;
+
+	speedup = seq_op_usec / bat_op_usec;
+
+	if (pass == 1) {
+		printf("Pass  CPU  Batch us/op  Sequential us/op  Batch Speedup\n");
+		printf("-----+----+------------+-----------------+-------------\n");
+	}
+
+	printf("%4d |%3u |%11.3f |%15.3f  |%13.3f\n",
+		pass, sched_getcpu(), bat_op_usec, seq_op_usec, speedup);
 }
 
 int main()
@@ -287,8 +289,8 @@ int main()
 	}
 
 	for (i = 0; i < ncpus; i++)
-		//run_test_batch_alone(i+1, i);
 		run_test(i+1, i);
+	run_test(-1, 0);
 
 	for (i = 0; i < ncpus; ++i)
 		close(fd[i]);
