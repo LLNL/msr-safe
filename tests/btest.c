@@ -13,7 +13,7 @@
 #define NCPUS		24
 #define BATCH_TABLE	batch24_ops
 
-#define MR(__CPU__, __m__) {.err=0, .cpu = __CPU__, .msr=__m__, .msrdata=0}
+#define MR(__CPU__, __m__) {.err=0, .cpu = __CPU__, .msr=__m__, .msrdata=0, .isrdmsr=1, .wmask=0}
 
 #define THR(__CPU__) \
 	MR(__CPU__,  0x10), MR(__CPU__,  0xE7), MR(__CPU__,  0xE8), MR(__CPU__, 0x1A0), MR(__CPU__, 0x19C),\
@@ -24,24 +24,24 @@
 #define PKG(__CPU__) \
 	THR(__CPU__), MR(__CPU__, 0x611), MR(__CPU__, 0x61B), MR(__CPU__, 0x619), MR(__CPU__, 0x638), MR(__CPU__, 0x639) 
 
-struct msr_batch_rdmsr_op batch1_ops[] =
+struct msr_batch_op batch1_ops[] =
 {
 	PKG(12), THR(12), THR(12), THR(12), THR(12), THR(12), THR(12), THR(12), THR(12), THR(12), THR(12), THR(12),
 	PKG(12), THR(12), THR(12), THR(12), THR(12), THR(12), THR(12), THR(12), THR(12), THR(12), THR(12), THR(12)
 };
-struct msr_batch_rdmsr_op batch24_ops[] =
+struct msr_batch_op batch24_ops[] =
 {
 	PKG(0),  THR(1),  THR(2),  THR(3),  THR(4),  THR(5),  THR(6),  THR(7),  THR(8),  THR(9),  THR(10), THR(11),
 	PKG(12), THR(13), THR(14), THR(15), THR(16), THR(17), THR(18), THR(19), THR(20), THR(21), THR(22), THR(23)
 };
-struct msr_batch_rdmsr_op batch48_ops[] =
+struct msr_batch_op batch48_ops[] =
 {
 	PKG(0),  THR(1),  THR(2),  THR(3),  THR(4),  THR(5),  THR(6),  THR(7),  THR(8),  THR(9),  THR(10), THR(11),
 	PKG(12), THR(13), THR(14), THR(15), THR(16), THR(17), THR(18), THR(19), THR(20), THR(21), THR(22), THR(23),
 	THR(24), THR(25), THR(26), THR(27), THR(28), THR(29), THR(30), THR(31), THR(32), THR(33), THR(34), THR(35),
 	THR(36), THR(37), THR(38), THR(39), THR(40), THR(41), THR(42), THR(43), THR(44), THR(45), THR(46), THR(47)
 };
-struct msr_batch_rdmsr_op batch72_ops[] =
+struct msr_batch_op batch72_ops[] =
 {
 	PKG(0),  THR(1),  THR(2),  THR(3),  THR(4),  THR(5),  THR(6),  THR(7),  THR(8),  
 	THR(9),  THR(10), THR(11), THR(12), THR(13), THR(14), THR(15), THR(16), THR(17),
@@ -53,9 +53,9 @@ struct msr_batch_rdmsr_op batch72_ops[] =
 	THR(63), THR(64), THR(65), THR(66), THR(67), THR(68), THR(69), THR(70), THR(71)
 };
 
-void check_array(struct msr_batch_rdmsr_array *ba)
+void check_array(struct msr_batch_array *ba)
 {
-	struct msr_batch_rdmsr_op *op;
+	struct msr_batch_op *op;
 
 	for (op = ba->ops; op < ba->ops + ba->numops; ++op) {
 		if (!op->err)
@@ -65,9 +65,9 @@ void check_array(struct msr_batch_rdmsr_array *ba)
 	}
 }
 
-void print_array_err(struct msr_batch_rdmsr_array *ba)
+void print_array_err(struct msr_batch_array *ba)
 {
-	struct msr_batch_rdmsr_op *op;
+	struct msr_batch_op *op;
 
 	for (op = ba->ops; op < ba->ops + ba->numops; ++op) {
 		if (!op->err)
@@ -77,9 +77,9 @@ void print_array_err(struct msr_batch_rdmsr_array *ba)
 	}
 }
 
-void print_array_info(struct msr_batch_rdmsr_array *ba)
+void print_array_info(struct msr_batch_array *ba)
 {
-	struct msr_batch_rdmsr_op *op;
+	struct msr_batch_op *op;
 
 	for (op = ba->ops; op < ba->ops + ba->numops; ++op) {
 		printf("CPU %d: %s %x Data %lld\n",
@@ -98,7 +98,7 @@ unsigned long long get_tick(int *fd)
 	return rval;
 }
 
-void run_batch(int *fd, int batchfd, struct msr_batch_rdmsr_array *oa, const int lcount, double *ticks_per_op, double *us_per_op)
+void run_batch(int *fd, int batchfd, struct msr_batch_array *oa, const int lcount, double *ticks_per_op, double *us_per_op)
 {
 	unsigned long long start_tick, ticks;
 	int j;
@@ -111,7 +111,7 @@ void run_batch(int *fd, int batchfd, struct msr_batch_rdmsr_array *oa, const int
 	}
 	start_tick = get_tick(fd);
 	for (j = 0; j < lcount; ++j) {
-		if (ioctl(batchfd, X86_IOC_MSR_RDMSR_BATCH, oa) < 0) {
+		if (ioctl(batchfd, X86_IOC_MSR_BATCH, oa) < 0) {
 			perror("Ioctl failed");
 			print_array_err(oa);
 			_exit(1);
@@ -126,14 +126,14 @@ void run_batch(int *fd, int batchfd, struct msr_batch_rdmsr_array *oa, const int
 	*us_per_op = (double)((((etime.tv_sec - stime.tv_sec) * 1000000) + etime.tv_usec - stime.tv_usec) / (double)lcount);
 }
 
-void run_sequential(int *fd, struct msr_batch_rdmsr_array *oa, const int lcount, double *ticks_per_op, double *us_per_op)
+void run_sequential(int *fd, struct msr_batch_array *oa, const int lcount, double *ticks_per_op, double *us_per_op)
 	
 {
 	unsigned long long start_tick, ticks;
 	int j;
 	struct timeval stime, etime;
 	struct timezone tz;
-	struct msr_batch_rdmsr_op *op;
+	struct msr_batch_op *op;
 
 	if (gettimeofday(&stime, &tz) < 0) {
 		perror("gettimeofday");
@@ -191,7 +191,7 @@ void set_affinity(int cpu)
 	}
 }
 
-void run_test(int *fd, int batchfd, struct msr_batch_rdmsr_array *oa, int pass, int cpu)
+void run_test(int *fd, int batchfd, struct msr_batch_array *oa, int pass, int cpu)
 {
 	static double bat_op_ticks_tot, seq_op_ticks_tot, bat_op_usec_tot, seq_op_usec_tot;
 	static int passes;
@@ -206,7 +206,7 @@ void run_test(int *fd, int batchfd, struct msr_batch_rdmsr_array *oa, int pass, 
 		seq_op_usec_tot = 0;
 		passes = 0;
 		printf("========================================================\n");
-		printf("||              %3d rdmsr operations                  ||\n", oa->numops);
+		printf("||                %3d msr operations                  ||\n", oa->numops);
 		printf("========================================================\n");
 		printf("Pass |CPU |Batch Kop/s |Sequential Kop/s |Batch Speedup|\n");
 		printf("-----+----+------------+-----------------+-------------+\n");
@@ -246,7 +246,7 @@ int main()
 {
 	char fname[100];
 	int i;
-	struct msr_batch_rdmsr_array barray, bsingle;
+	struct msr_batch_array barray, bsingle;
 	int batchfd;
 	int fd[100];
 

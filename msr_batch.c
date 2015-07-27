@@ -66,20 +66,23 @@ static int msrbatch_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int msrbatch_check_whitelist(struct msr_batch_rdmsr_array *oa, 
-			struct msrbatch_session_info *myinfo)
+static int msrbatch_apply_whitelist(struct msr_batch_array *oa,
+				struct msrbatch_session_info *myinfo)
 {
-	struct msr_batch_rdmsr_op *op;
+	struct msr_batch_op *op;
 	int err = 0;
 
-	for (op = oa->ops; op < oa->ops + oa->numops; ++op)
+	for (op = oa->ops; op < oa->ops + oa->numops; ++op) {
 		op->err = 0;
-
-	if (!myinfo->rawio_allowed) {
-		for (op = oa->ops; op < oa->ops + oa->numops; ++op) {
-			if (!msr_whitelist_maskexists(op->msr))
-				op->err = err = -EPERM;
+		if (myinfo->rawio_allowed) {
+			op->wmask = 0xffffffffffffffff;
+			continue;
 		}
+
+		if (!msr_whitelist_maskexists(op->msr))
+			op->err = err = -EPERM;
+		else
+			op->wmask = msr_whitelist_writemask(op->msr);
 	}
 
 	return err;
@@ -88,18 +91,18 @@ static int msrbatch_check_whitelist(struct msr_batch_rdmsr_array *oa,
 static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
 {
 	int err = 0;
-	struct msr_batch_rdmsr_array __user *uoa;
-	struct msr_batch_rdmsr_op __user *uops;
-	struct msr_batch_rdmsr_array koa;
+	struct msr_batch_array __user *uoa;
+	struct msr_batch_op __user *uops;
+	struct msr_batch_array koa;
 	struct msrbatch_session_info *myinfo = f->private_data;
 
-	if (ioc != X86_IOC_MSR_RDMSR_BATCH)
+	if (ioc != X86_IOC_MSR_BATCH)
 		return -ENOTTY;
 
 	if (!(f->f_mode & FMODE_READ))
 		return -EBADF;
 
-	uoa = (struct msr_batch_rdmsr_array *)arg;
+	uoa = (struct msr_batch_array *)arg;
 
 	if (copy_from_user(&koa, uoa, sizeof koa))
 		return -EFAULT;
@@ -118,10 +121,10 @@ static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
 		goto bundle_alloc;
 	}
 
-	if ((err = msrbatch_check_whitelist(&koa, myinfo)))
+	if ((err = msrbatch_apply_whitelist(&koa, myinfo)))
 		goto copyout_and_return;
 
-	if ((err = rdmsr_safe_batch(&koa)) != 0)
+	if ((err = msr_safe_batch(&koa)) != 0)
 		goto copyout_and_return;
 
 copyout_and_return:
