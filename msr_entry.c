@@ -47,6 +47,7 @@
 #include "msr_batch.h"
 
 static struct class *msr_class;
+static int majordev;
 struct msr_session_info {
 	int rawio_allowed;
 };
@@ -250,14 +251,14 @@ static int msr_device_create(int cpu)
 {
 	struct device *dev;
 
-	dev = device_create(msr_class, NULL, MKDEV(MSR_MAJOR, cpu), NULL,
-			    "msr%d", cpu);
+	dev = device_create(msr_class, NULL, MKDEV(majordev, cpu), NULL,
+			    "msr_safe%d", cpu);
 	return IS_ERR(dev) ? PTR_ERR(dev) : 0;
 }
 
 static void msr_device_destroy(int cpu)
 {
-	device_destroy(msr_class, MKDEV(MSR_MAJOR, cpu));
+	device_destroy(msr_class, MKDEV(majordev, cpu));
 }
 
 static int msr_class_cpu_callback(struct notifier_block *nfb,
@@ -285,7 +286,7 @@ static struct notifier_block __refdata msr_class_cpu_notifier = {
 
 static char *msr_devnode(struct device *dev, mode_t *mode)
 {
-	return kasprintf(GFP_KERNEL, "cpu/%u/msr", MINOR(dev->devt));
+	return kasprintf(GFP_KERNEL, "cpu/%u/msr_safe", MINOR(dev->devt));
 }
 
 static int __init msr_init(void)
@@ -303,13 +304,14 @@ static int __init msr_init(void)
 		pr_err("failed to initialize whitelist for msr\n");
 		goto out_batch;
 	}
-	if (__register_chrdev(MSR_MAJOR, 0, num_possible_cpus(),
-					"cpu/msr", &msr_fops)) {
-		pr_err("unable to get major %d for msr\n", MSR_MAJOR);
+	majordev = __register_chrdev(0, 0, num_possible_cpus(),
+					  "cpu/msr_safe", &msr_fops);
+	if (majordev < 0) {
+		pr_err("unable to get major %d for msr_safe\n", majordev);
 		err = -EBUSY;
 		goto out_wlist;
 	}
-	msr_class = class_create(THIS_MODULE, "msr");
+	msr_class = class_create(THIS_MODULE, "msr_safe");
 	if (IS_ERR(msr_class)) {
 		err = PTR_ERR(msr_class);
 		goto out_chrdev;
@@ -332,7 +334,7 @@ out_class:
 		msr_device_destroy(i);
 	class_destroy(msr_class);
 out_chrdev:
-	__unregister_chrdev(MSR_MAJOR, 0, num_possible_cpus(), "cpu/msr");
+	__unregister_chrdev(majordev, 0, num_possible_cpus(), "cpu/msr_safe");
 out_wlist:
 	msr_whitelist_cleanup();
 out_batch:
@@ -348,7 +350,7 @@ static void __exit msr_exit(void)
 	for_each_online_cpu(cpu)
 		msr_device_destroy(cpu);
 	class_destroy(msr_class);
-	__unregister_chrdev(MSR_MAJOR, 0, num_possible_cpus(), "cpu/msr");
+	__unregister_chrdev(majordev, 0, num_possible_cpus(), "cpu/msr_safe");
 	unregister_hotcpu_notifier(&msr_class_cpu_notifier);
 	msr_whitelist_cleanup();
 	msrbatch_cleanup();
