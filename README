@@ -1,13 +1,26 @@
 The msr-safe.ko module is comprised of the following source files:
 
 Makefile
-msr_safe.c		Modified version of msr driver with whitelist 
+msr_entry.c		Modified version of msr driver with whitelist 
 			enhancements
-msr_safe.h		Local definitios required by msr_safe impelementation
 msr-whitelist.c		MSR Whitelist implementation
 msr-whitelist.h		Whitelist functions available to rest of kernel module
 msr-whitelist-impl.h	Local definitions required by whitelist implemnetation
 whitelist		Sample text whitelist that may be input to msr_safe
-tests			Experiments and tests.  Some of the tests below are
-			hacked kernel modules which should not (ever!) be part
-			of a shipping kernel.
+tests			Experiments and tests.
+
+Configuration notes after install:
+
+Set up permissions and groups for /dev/cpu/#/msr_safe as you like since white
+list will protect you from harm.
+
+Sample white lists for each architecture are provided in whitelists directory.
+
+To configure whitelist (as root):
+	cat whitelist/wl_file > /dev/cpu/msr_whitelist
+
+To enumerate current whitelist (as root):
+	cat < /dev/cpu/msr_whitelist
+
+To remove whitelist (as root):
+	echo > /dev/cpu/msr_whitelist

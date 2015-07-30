@@ -1,0 +1,652 @@
+From 8a30f078b82d1409692182f175a40263641cf724 Mon Sep 17 00:00:00 2001
+From: Marty McFadden <mcfadden8@llnl.gov>
+Date: Thu, 30 Jul 2015 08:45:45 -0700
+Subject: [PATCH 2/3] x86: MSR whitelist implementation
+
+This patch addresses the following two problems:
+  1. The current msr module grants all-or-nothing access to MSRs,
+     thus making user-level runtime performance adjustments 
+     problematic, particularly for power-constrained HPC systems.
+
+  2. The current msr module requires a separate system call and the
+     acquisition of the preemption lock for each individual MSR access. 
+     This overhead degrades performance of runtime tools that would
+     ideally sample multiple MSRs at high frequencies.
+    
+Problem #1 is addressed by introducing a whitelist policy for MSR access.
+A batch meachnism is added to address problem #2.
+
+[PATCH 1/3] - x86: Move msr.c to msr_entry.c.
+    Prepares for providing the overall MSR kernel module as a set of
+    three implementation files: msr_entry.c, msr_whitelist.c, and
+    msr_batch.c.
+
+    Additonal changes made besides renaming to stop scripts/checkpatch.pl
+    complaining.
+
+[PATCH 2/3] - x86: MSR Whitelist implementation
+    Allows the administrator to configure a set of bit masks for MSRs
+    where access is permitted.
+
+    Whitelist Administration:
+        To configure whitelist (as root):
+            cat whitelistfile > /dev/cpu/msr_whitelist
+
+            This operation will cause the previous whitelist to be
+            replaced by the specified whitelist.
+
+        To enumerate current whitelist (as root):
+            cat < /dev/cpu/msr_whitelist
+
+        To remove whitelist (as root):
+            echo > /dev/cpu/msr_whitelist
+
+        Security model:
+            If user has CAP_SYS_RAWIO privileges, they will enjoy full
+            access to MSRs like they do today.
+
+            Otherwise, if the user is able to open the /dev/cpu/*/msr
+            file, they will have access to MSR operations as follows:
+
+                If the write mask exists for a particular MSR, then 
+                rdmsr access to that MSR access is granted.
+
+                If the write mask is set to all ones (0xffffffffffffffff),
+                then the user may perform a "raw" wrmsr operation with all
+                64 bits being overwritten to that MSR.
+ 
+                If the write mask is not 0xffffffffffffffff, then a rdmsr
+                will be performed first and only the bits set in the write
+                mask will be affected in the MSR.
+
+[PATCH 3/3] - x86: MSR batch processing feature
+    Provides a new ioctl interface through /dev/cpu/msr_batch.  Each
+    element in the batch list is subject to the whitelist security model
+    described above.
+
+    This implementation will cause an Inter Processor Interrupt to be sent
+    to each destination processor and will wait until all processors have
+    finished processing their respective batch of MSR operations before
+    returning.
+
+    Implementation Note: A separate "error" field is maintained per MSR
+    operation in order to maintain reentrancy into the IPI callback
+    function.
+
+Signed-off-by: Marty McFadden <mcfadden8@llnl.gov>
+---
+ arch/x86/kernel/Makefile        |   2 +-
+ arch/x86/kernel/msr_entry.c     |  59 ++++++-
+ arch/x86/kernel/msr_whitelist.c | 344 ++++++++++++++++++++++++++++++++++++++++
+ arch/x86/kernel/msr_whitelist.h |  38 +++++
+ 4 files changed, 438 insertions(+), 5 deletions(-)
+ create mode 100644 arch/x86/kernel/msr_whitelist.c
+ create mode 100644 arch/x86/kernel/msr_whitelist.h
+
+diff --git a/arch/x86/kernel/Makefile b/arch/x86/kernel/Makefile
+index 7192111..24d65e8 100644
+--- a/arch/x86/kernel/Makefile
++++ b/arch/x86/kernel/Makefile
+@@ -53,7 +53,7 @@ obj-y				+= cpu/
+ obj-y				+= acpi/
+ obj-y				+= reboot.o
+ obj-$(CONFIG_X86_MSR)		+= msr.o
+-msr-y				:= msr_entry.o
++msr-y				:= msr_entry.o msr_whitelist.o
+ obj-$(CONFIG_X86_CPUID)		+= cpuid.o
+ obj-$(CONFIG_PCI)		+= early-quirks.o
+ apm-y				:= apm_32.o
+diff --git a/arch/x86/kernel/msr_entry.c b/arch/x86/kernel/msr_entry.c
+index eda4aa0..de522a3 100644
+--- a/arch/x86/kernel/msr_entry.c
++++ b/arch/x86/kernel/msr_entry.c
+@@ -29,6 +29,7 @@
+ #include <linux/types.h>
+ #include <linux/errno.h>
+ #include <linux/fcntl.h>
++#include <linux/slab.h>
+ #include <linux/init.h>
+ #include <linux/poll.h>
+ #include <linux/smp.h>
+@@ -42,8 +43,12 @@
+ 
+ #include <asm/processor.h>
+ #include <asm/msr.h>
++#include "msr_whitelist.h"
+ 
+ static struct class *msr_class;
++struct msr_session_info {
++	int rawio_allowed;
++};
+ 
+ static loff_t msr_seek(struct file *file, loff_t offset, int orig)
+ {
+@@ -76,10 +81,14 @@ static ssize_t msr_read(struct file *file, char __user *buf,
+ 	int cpu = iminor(file_inode(file));
+ 	int err = 0;
+ 	ssize_t bytes = 0;
++	struct msr_session_info *myinfo = file->private_data;
+ 
+ 	if (count % 8)
+ 		return -EINVAL;	/* Invalid chunk size */
+ 
++	if (!myinfo->rawio_allowed && !msr_whitelist_maskexists(reg))
++		return -EACCES;
++
+ 	for (; count; count -= 8) {
+ 		err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
+ 		if (err)
+@@ -99,20 +108,41 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
+ 			 size_t count, loff_t *ppos)
+ {
+ 	const u32 __user *tmp = (const u32 __user *)buf;
++	u32 curdata[2];
+ 	u32 data[2];
+ 	u32 reg = *ppos;
++	u64 mask;
+ 	int cpu = iminor(file_inode(file));
+ 	int err = 0;
+ 	ssize_t bytes = 0;
++	struct msr_session_info *myinfo = file->private_data;
+ 
+ 	if (count % 8)
+ 		return -EINVAL;	/* Invalid chunk size */
+ 
++	mask = myinfo->rawio_allowed ? 0xffffffffffffffff :
++						msr_whitelist_writemask(reg);
++
++	if (!myinfo->rawio_allowed && mask == 0)
++		return -EACCES;
++
+ 	for (; count; count -= 8) {
+ 		if (copy_from_user(&data, tmp, 8)) {
+ 			err = -EFAULT;
+ 			break;
+ 		}
++
++		if (mask != 0xffffffffffffffff) {
++			err = rdmsr_safe_on_cpu(cpu, reg,
++						&curdata[0], &curdata[1]);
++			if (err)
++				break;
++
++			*(u64 *)&curdata[0] &= ~mask;
++			*(u64 *)&data[0] &= mask;
++			*(u64 *)&data[0] |= *(u64 *)&curdata[0];
++		}
++
+ 		err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
+ 		if (err)
+ 			break;
+@@ -175,9 +205,7 @@ static int msr_open(struct inode *inode, struct file *file)
+ {
+ 	unsigned int cpu = iminor(file_inode(file));
+ 	struct cpuinfo_x86 *c;
+-
+-	if (!capable(CAP_SYS_RAWIO))
+-		return -EPERM;
++	struct msr_session_info *myinfo;
+ 
+ 	if (cpu >= nr_cpu_ids || !cpu_online(cpu))
+ 		return -ENXIO;	/* No such CPU */
+@@ -186,6 +214,20 @@ static int msr_open(struct inode *inode, struct file *file)
+ 	if (!cpu_has(c, X86_FEATURE_MSR))
+ 		return -EIO;	/* MSR not supported */
+ 
++	myinfo = kmalloc(sizeof(*myinfo), GFP_KERNEL);
++	if (!myinfo)
++		return -ENOMEM;
++
++	myinfo->rawio_allowed = capable(CAP_SYS_RAWIO);
++	file->private_data = myinfo;
++
++	return 0;
++}
++
++static int msr_close(struct inode *inode, struct file *file)
++{
++	kfree(file->private_data);
++	file->private_data = 0;
+ 	return 0;
+ }
+ 
+@@ -200,6 +242,7 @@ static const struct file_operations msr_fops = {
+ 	.open = msr_open,
+ 	.unlocked_ioctl = msr_ioctl,
+ 	.compat_ioctl = msr_ioctl,
++	.release = msr_close
+ };
+ 
+ static int msr_device_create(int cpu)
+@@ -249,11 +292,16 @@ static int __init msr_init(void)
+ 	int i = 0;
+ 	int err = 0;
+ 
++	err = msr_whitelist_init();
++	if (err != 0) {
++		pr_err("failed to initialize whitelist for msr\n");
++		goto out;
++	}
+ 	if (__register_chrdev(MSR_MAJOR, 0, num_possible_cpus(),
+ 					"cpu/msr", &msr_fops)) {
+ 		pr_err("unable to get major %d for msr\n", MSR_MAJOR);
+ 		err = -EBUSY;
+-		goto out;
++		goto out_wlist;
+ 	}
+ 	msr_class = class_create(THIS_MODULE, "msr");
+ 	if (IS_ERR(msr_class)) {
+@@ -282,6 +330,8 @@ out_class:
+ 	class_destroy(msr_class);
+ out_chrdev:
+ 	__unregister_chrdev(MSR_MAJOR, 0, num_possible_cpus(), "cpu/msr");
++out_wlist:
++	msr_whitelist_cleanup();
+ out:
+ 	return err;
+ }
+@@ -297,6 +347,7 @@ static void __exit msr_exit(void)
+ 	__unregister_chrdev(MSR_MAJOR, 0, num_possible_cpus(), "cpu/msr");
+ 	__unregister_hotcpu_notifier(&msr_class_cpu_notifier);
+ 	cpu_notifier_register_done();
++	msr_whitelist_cleanup();
+ }
+ 
+ module_init(msr_init);
+diff --git a/arch/x86/kernel/msr_whitelist.c b/arch/x86/kernel/msr_whitelist.c
+new file mode 100644
+index 0000000..7d8affc
+--- /dev/null
++++ b/arch/x86/kernel/msr_whitelist.c
+@@ -0,0 +1,344 @@
++/*
++ * MSR Whitelist implementation
++ */
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/kernel.h>
++#include <linux/hashtable.h>
++#include <linux/mutex.h>
++#include <linux/fs.h>
++#include <linux/slab.h>
++#include <linux/uaccess.h>
++#include <linux/ctype.h>
++#include <linux/device.h>
++
++#define MAX_WLIST_BSIZE ((128 * 1024) + 1) /* "+1" for null character */
++
++struct whitelist_entry {
++	u64 wmask;	/* Bits that may be written */
++	u64 msr;	/* Address of msr (used as hash key) */
++	u64 *msrdata;	/* ptr to original msr contents of writable bits */
++	struct hlist_node hlist;
++};
++
++static void delete_whitelist(void);
++static int create_whitelist(int nentries);
++static struct whitelist_entry *find_in_whitelist(u64 msr);
++static void add_to_whitelist(struct whitelist_entry *entry);
++static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
++						struct whitelist_entry *entry);
++static ssize_t read_whitelist(struct file *file, char __user *buf,
++						size_t count, loff_t *ppos);
++static int majordev;
++static struct class *cdev_class;
++static char cdev_created;
++static char cdev_registered;
++static char cdev_class_created;
++
++static DEFINE_HASHTABLE(whitelist_hash, 6);
++static DEFINE_MUTEX(whitelist_mutex);
++static struct whitelist_entry *whitelist;
++static int whitelist_numentries;
++
++int msr_whitelist_maskexists(loff_t reg)
++{
++	struct whitelist_entry *entry;
++
++	mutex_lock(&whitelist_mutex);
++	entry = find_in_whitelist((u64)reg);
++	mutex_unlock(&whitelist_mutex);
++
++	return entry != NULL;
++}
++
++u64 msr_whitelist_writemask(loff_t reg)
++{
++	struct whitelist_entry *entry;
++
++	mutex_lock(&whitelist_mutex);
++	entry = find_in_whitelist((u64)reg);
++	mutex_unlock(&whitelist_mutex);
++
++	return entry ? entry->wmask : 0;
++}
++
++static int open_whitelist(struct inode *inode, struct file *file)
++{
++	return 0;
++}
++
++/*
++ * After copying data from user space, we make two passes through it.
++ * The first pass is to ensure that the input file is valid. If the file is
++ * valid, we will then delete the current white list and then perform the
++ * second pass to actually create the new white list.
++ */
++static ssize_t write_whitelist(struct file *file, const char __user *buf,
++						size_t count, loff_t *ppos)
++{
++	int err = 0;
++	const u32 __user *tmp = (const u32 __user *)buf;
++	char *s;
++	int res;
++	int num_entries;
++	struct whitelist_entry *entry;
++	char *kbuf;
++
++	if (count <= 2) {
++		mutex_lock(&whitelist_mutex);
++		delete_whitelist();
++		hash_init(whitelist_hash);
++		mutex_unlock(&whitelist_mutex);
++		return count;
++	}
++
++	if (count+1 > MAX_WLIST_BSIZE) {
++		pr_err("write_whitelist: buffer of %zu bytes too large\n",
++		    count);
++		return -EINVAL;
++	}
++
++	kbuf = kzalloc(count+1, GFP_KERNEL);
++	if (!kbuf)
++		return -ENOMEM;
++
++	if (copy_from_user(kbuf, tmp, count)) {
++		err = -EFAULT;
++		goto out_freebuffer;
++	}
++
++	/* Pass 1: */
++	for (num_entries = 0, s = kbuf, res = 1; res > 0; ) {
++		res = parse_next_whitelist_entry(s, &s, 0);
++		if (res < 0) {
++			err = res;
++			goto out_freebuffer;
++		}
++
++		if (res)
++			num_entries++;
++	}
++
++	/* Pass 2: */
++	mutex_lock(&whitelist_mutex);
++	res = create_whitelist(num_entries);
++	if (res < 0) {
++		err = res;
++		goto out_releasemutex;
++	}
++
++	for (entry = whitelist, s = kbuf, res = 1; res > 0; entry++) {
++		res = parse_next_whitelist_entry(s, &s, entry);
++		if (res < 0) {
++			pr_alert("write_whitelist: Table corrupted\n");
++			delete_whitelist();
++			err = res; /* This should not happen! */
++			goto out_releasemutex;
++		}
++
++		if (res) {
++			if (find_in_whitelist(entry->msr)) {
++				pr_err("write_whitelist: Duplicate: %llx\n",
++							 entry->msr);
++				err = -EINVAL;
++				delete_whitelist();
++				goto out_releasemutex;
++			}
++			add_to_whitelist(entry);
++		}
++	}
++
++out_releasemutex:
++	mutex_unlock(&whitelist_mutex);
++out_freebuffer:
++	kfree(kbuf);
++	return err ? err : count;
++}
++
++static ssize_t read_whitelist(struct file *file, char __user *buf,
++						size_t count, loff_t *ppos)
++{
++	loff_t idx = *ppos;
++	u32 __user *tmp = (u32 __user *) buf;
++	char kbuf[160];
++	int len;
++	struct whitelist_entry e;
++
++	mutex_lock(&whitelist_mutex);
++	*ppos = 0;
++
++	if (idx >= whitelist_numentries || idx < 0) {
++		mutex_unlock(&whitelist_mutex);
++		return 0;
++	}
++
++	e = whitelist[idx];
++	mutex_unlock(&whitelist_mutex);
++
++	len = sprintf(kbuf,
++		"MSR: %08llx Write Mask: %016llx\n", e.msr, e.wmask);
++
++	if (len > count)
++		return -EFAULT;
++
++	if (copy_to_user(tmp, kbuf, len))
++		return -EFAULT;
++
++	*ppos = idx+1;
++	return len;
++}
++
++static const struct file_operations fops = {
++	.owner = THIS_MODULE,
++	.read = read_whitelist,
++	.write = write_whitelist,
++	.open = open_whitelist
++};
++
++static void delete_whitelist(void)
++{
++	if (whitelist == 0)
++		return;
++
++	if (whitelist->msrdata != 0)
++		kfree(whitelist->msrdata);
++
++	kfree(whitelist);
++	whitelist = 0;
++	whitelist_numentries = 0;
++}
++
++static int create_whitelist(int nentries)
++{
++	hash_init(whitelist_hash);
++	delete_whitelist();
++	whitelist_numentries = nentries;
++	whitelist = kcalloc(nentries, sizeof(*whitelist), GFP_KERNEL);
++
++	if (!whitelist)
++		return -ENOMEM;
++	return 0;
++}
++
++static struct whitelist_entry *find_in_whitelist(u64 msr)
++{
++	struct whitelist_entry *entry = 0;
++
++	if (whitelist) {
++		hash_for_each_possible(whitelist_hash, entry, hlist, msr)
++			if (entry && entry->msr == msr)
++				return entry;
++	}
++	return 0;
++}
++
++static void add_to_whitelist(struct whitelist_entry *entry)
++{
++	hash_add(whitelist_hash, &entry->hlist, entry->msr);
++}
++
++static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
++						struct whitelist_entry *entry)
++{
++	char *s = skip_spaces(inbuf);
++	int i;
++	u64 data[2];
++
++	while (*s == '#') { /* Skip remaining portion of line */
++		for (s = s + 1; *s && *s != '\n'; s++)
++			;
++		s = skip_spaces(s);
++	}
++
++	if (*s == 0)
++		return 0; /* This means we are done with the input buffer */
++
++	for (i = 0; i < 2; i++) {/* we should have the first of 3 #s now */
++		char *s2;
++		int err;
++		char tmp;
++
++		s2 = s = skip_spaces(s);
++		while (!isspace(*s) && *s)
++			s++;
++
++		if (*s == 0) {
++			pr_err("parse_next_whitelist_entry: Premature EOF");
++			return -EINVAL;
++		}
++
++		tmp = *s;
++		*s = 0; /* Null-terminate this portion of string */
++		err = kstrtoull(s2, 0, &data[i]);
++		if (err)
++			return err;
++		*s++ = tmp;
++	}
++
++	if (entry) {
++		entry->msr = data[0];
++		entry->wmask = data[1];
++	}
++
++	*nextinbuf = s; /* Return where we left off to caller */
++	return *nextinbuf - inbuf;
++}
++
++static char *msr_whitelist_nodename(struct device *dev, umode_t *mode)
++{
++	return kasprintf(GFP_KERNEL, "cpu/msr_whitelist");
++}
++
++void msr_whitelist_cleanup(void)
++{
++	delete_whitelist();
++
++	if (cdev_created) {
++		cdev_created = 0;
++		device_destroy(cdev_class, MKDEV(majordev, 0));
++	}
++
++	if (cdev_class_created) {
++		cdev_class_created = 0;
++		class_destroy(cdev_class);
++	}
++
++	if (cdev_registered) {
++		cdev_registered = 0;
++		unregister_chrdev(majordev, "cpu/msr_whitelist");
++	}
++}
++
++int msr_whitelist_init(void)
++{
++	int err;
++	struct device *dev;
++
++	majordev = register_chrdev(0, "cpu/msr_whitelist", &fops);
++	if (majordev < 0) {
++		pr_err("msr_whitelist_init: unable to register chrdev\n");
++		msr_whitelist_cleanup();
++		return -EBUSY;
++	}
++	cdev_registered = 1;
++
++	cdev_class = class_create(THIS_MODULE, "msr_whitelist");
++	if (IS_ERR(cdev_class)) {
++		err = PTR_ERR(cdev_class);
++		msr_whitelist_cleanup();
++		return err;
++	}
++	cdev_class_created = 1;
++
++	cdev_class->devnode = msr_whitelist_nodename;
++
++	dev = device_create(cdev_class, NULL, MKDEV(majordev, 0),
++						NULL, "msr_whitelist");
++	if (IS_ERR(dev)) {
++		err = PTR_ERR(dev);
++		msr_whitelist_cleanup();
++		return err;
++	}
++	cdev_created = 1;
++	return 0;
++}
+diff --git a/arch/x86/kernel/msr_whitelist.h b/arch/x86/kernel/msr_whitelist.h
+new file mode 100644
+index 0000000..529b4af
+--- /dev/null
++++ b/arch/x86/kernel/msr_whitelist.h
+@@ -0,0 +1,38 @@
++/*
++ * Internal declarations for x86 MSR whitelist implementation functions.
++ *
++ * Copyright (c) 2015, Lawrence Livermore National Security, LLC.
++ * Produced at the Lawrence Livermore National Laboratory
++ * All rights reserved.
++ *
++ * This copyrighted material is made available to anyone wishing to use,
++ * modify, copy, or redistribute it subject to the terms and conditions
++ * of the GNU General Public License v.2.
++ *
++ * Thank you to everyone who has contributed and helped with this project:
++ *
++ * Kathleen Shoga
++ * Peter Bailey
++ * Trent D'Hooge
++ * Jim Foraker
++ * David Lowenthal
++ * Tapasya Patki
++ * Barry Rountree
++ * Marty McFadden
++ *
++ * Special thanks to Kendrick Shaw at Case Western Reserve University for
++ * his initial suggestion to explore MSRs.
++ *
++ * Latest Updates from: Marty McFadden, mcfadden8@llnl.gov
++ */
++#ifndef _ARCH_X68_KERNEL_MSR_WHITELIST_H
++#define _ARCH_X68_KERNEL_MSR_WHITELIST_H 1
++
++#include <linux/types.h>
++
++int msr_whitelist_init(void);
++int msr_whitelist_cleanup(void);
++int msr_whitelist_maskexists(loff_t reg);
++u64 msr_whitelist_writemask(loff_t reg);
++
++#endif /* _ARCH_X68_KERNEL_MSR_WHITELIST_H */
+-- 
+2.1.0
+

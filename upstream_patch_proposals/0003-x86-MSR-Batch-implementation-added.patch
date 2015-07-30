@@ -1,0 +1,502 @@
+From f8dee56d34c17244b9f16c8f905a66087c149c24 Mon Sep 17 00:00:00 2001
+From: Marty McFadden <mcfadden8@llnl.gov>
+Date: Thu, 30 Jul 2015 08:48:35 -0700
+Subject: [PATCH 3/3] x86: MSR Batch implementation added
+
+This patch addresses the following two problems:
+  1. The current msr module grants all-or-nothing access to MSRs,
+     thus making user-level runtime performance adjustments 
+     problematic, particularly for power-constrained HPC systems.
+
+  2. The current msr module requires a separate system call and the
+     acquisition of the preemption lock for each individual MSR access. 
+     This overhead degrades performance of runtime tools that would
+     ideally sample multiple MSRs at high frequencies.
+    
+Problem #1 is addressed by introducing a whitelist policy for MSR access.
+A batch meachnism is added to address problem #2.
+
+[PATCH 1/3] - x86: Move msr.c to msr_entry.c.
+    Prepares for providing the overall MSR kernel module as a set of
+    three implementation files: msr_entry.c, msr_whitelist.c, and
+    msr_batch.c.
+
+    Additonal changes made besides renaming to stop scripts/checkpatch.pl
+    complaining.
+
+[PATCH 2/3] - x86: MSR Whitelist implementation
+    Allows the administrator to configure a set of bit masks for MSRs
+    where access is permitted.
+
+    Whitelist Administration:
+        To configure whitelist (as root):
+            cat whitelistfile > /dev/cpu/msr_whitelist
+
+            This operation will cause the previous whitelist to be
+            replaced by the specified whitelist.
+
+        To enumerate current whitelist (as root):
+            cat < /dev/cpu/msr_whitelist
+
+        To remove whitelist (as root):
+            echo > /dev/cpu/msr_whitelist
+
+        Security model:
+            If user has CAP_SYS_RAWIO privileges, they will enjoy full
+            access to MSRs like they do today.
+
+            Otherwise, if the user is able to open the /dev/cpu/*/msr
+            file, they will have access to MSR operations as follows:
+
+                If the write mask exists for a particular MSR, then 
+                rdmsr access to that MSR access is granted.
+
+                If the write mask is set to all ones (0xffffffffffffffff),
+                then the user may perform a "raw" wrmsr operation with all
+                64 bits being overwritten to that MSR.
+ 
+                If the write mask is not 0xffffffffffffffff, then a rdmsr
+                will be performed first and only the bits set in the write
+                mask will be affected in the MSR.
+
+[PATCH 3/3] - x86: MSR batch processing feature
+    Provides a new ioctl interface through /dev/cpu/msr_batch.  Each
+    element in the batch list is subject to the whitelist security model
+    described above.
+
+    This implementation will cause an Inter Processor Interrupt to be sent
+    to each destination processor and will wait until all processors have
+    finished processing their respective batch of MSR operations before
+    returning.
+
+    Implementation Note: A separate "error" field is maintained per MSR
+    operation in order to maintain reentrancy into the IPI callback
+    function.
+
+Signed-off-by: Marty McFadden <mcfadden8@llnl.gov>
+---
+ arch/x86/include/asm/msr.h      |   1 +
+ arch/x86/include/uapi/asm/msr.h |  15 +++
+ arch/x86/kernel/Makefile        |   2 +-
+ arch/x86/kernel/msr_batch.c     | 234 ++++++++++++++++++++++++++++++++++++++++
+ arch/x86/kernel/msr_batch.h     |   7 ++
+ arch/x86/kernel/msr_entry.c     |  11 +-
+ arch/x86/lib/msr-smp.c          |  51 +++++++++
+ 7 files changed, 319 insertions(+), 2 deletions(-)
+ create mode 100644 arch/x86/kernel/msr_batch.c
+ create mode 100644 arch/x86/kernel/msr_batch.h
+
+diff --git a/arch/x86/include/asm/msr.h b/arch/x86/include/asm/msr.h
+index e6a707e..7366209 100644
+--- a/arch/x86/include/asm/msr.h
++++ b/arch/x86/include/asm/msr.h
+@@ -236,6 +236,7 @@ int rdmsrl_safe_on_cpu(unsigned int cpu, u32 msr_no, u64 *q);
+ int wrmsrl_safe_on_cpu(unsigned int cpu, u32 msr_no, u64 q);
+ int rdmsr_safe_regs_on_cpu(unsigned int cpu, u32 regs[8]);
+ int wrmsr_safe_regs_on_cpu(unsigned int cpu, u32 regs[8]);
++int msr_safe_batch(struct msr_batch_array *oa);
+ #else  /*  CONFIG_SMP  */
+ static inline int rdmsr_on_cpu(unsigned int cpu, u32 msr_no, u32 *l, u32 *h)
+ {
+diff --git a/arch/x86/include/uapi/asm/msr.h b/arch/x86/include/uapi/asm/msr.h
+index c41f4fe..b678914 100644
+--- a/arch/x86/include/uapi/asm/msr.h
++++ b/arch/x86/include/uapi/asm/msr.h
+@@ -6,8 +6,23 @@
+ #include <linux/types.h>
+ #include <linux/ioctl.h>
+ 
++struct msr_batch_op {
++	__u16 cpu;		/* In: CPU to execute {rd/wr}msr ins. */
++	__u16 isrdmsr;		/* In: 0=wrmsr, non-zero=rdmsr */
++	__s32 err;		/* Out: set if error occurred with this op */
++	__u32 msr;		/* In: MSR Address to perform op */
++	__u64 msrdata;		/* In/Out: Input/Result to/from operation */
++	__u64 wmask;		/* Out: Write mask applied to wrmsr */
++};
++
++struct msr_batch_array {
++	__u32 numops;			/* In: # of operations in ops array */
++	struct msr_batch_op *ops;	/* In: Array[numops] of operations */
++};
++
+ #define X86_IOC_RDMSR_REGS	_IOWR('c', 0xA0, __u32[8])
+ #define X86_IOC_WRMSR_REGS	_IOWR('c', 0xA1, __u32[8])
++#define X86_IOC_MSR_BATCH	_IOWR('c', 0xA2, struct msr_batch_array)
+ 
+ #endif /* __ASSEMBLY__ */
+ #endif /* _UAPI_ASM_X86_MSR_H */
+diff --git a/arch/x86/kernel/Makefile b/arch/x86/kernel/Makefile
+index 24d65e8..3d6f88f 100644
+--- a/arch/x86/kernel/Makefile
++++ b/arch/x86/kernel/Makefile
+@@ -53,7 +53,7 @@ obj-y				+= cpu/
+ obj-y				+= acpi/
+ obj-y				+= reboot.o
+ obj-$(CONFIG_X86_MSR)		+= msr.o
+-msr-y				:= msr_entry.o msr_whitelist.o
++msr-y				:= msr_entry.o msr_whitelist.o msr_batch.o
+ obj-$(CONFIG_X86_CPUID)		+= cpuid.o
+ obj-$(CONFIG_PCI)		+= early-quirks.o
+ apm-y				:= apm_32.o
+diff --git a/arch/x86/kernel/msr_batch.c b/arch/x86/kernel/msr_batch.c
+new file mode 100644
+index 0000000..21b253c
+--- /dev/null
++++ b/arch/x86/kernel/msr_batch.c
+@@ -0,0 +1,234 @@
++/*
++ * x86 MSR batch access device
++ *
++ * This device is accessed by ioctl() to submit a batch of MSR requests
++ * which may be used instead of or in addition to the lseek()/write()/read()
++ * mechanism provided by msr_safe.c
++ *
++ * This driver uses /dev/cpu/msr_batch as its device file.
++ */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/kernel.h>
++#include <linux/fs.h>
++#include <linux/slab.h>
++#include <linux/device.h>
++#include <linux/cpu.h>
++#include <linux/uaccess.h>
++#include <linux/mutex.h>
++#include <linux/kobject.h>
++#include <linux/sysfs.h>
++#include <linux/module.h>
++#include <asm/msr.h>
++#include "msr_whitelist.h"
++#include "msr_batch.h"
++
++static int majordev;
++static struct class *cdev_class;
++static char cdev_created;
++static char cdev_registered;
++static char cdev_class_created;
++
++struct msrbatch_session_info {
++	int rawio_allowed;
++};
++
++static int msrbatch_open(struct inode *inode, struct file *file)
++{
++	unsigned int cpu;
++	struct cpuinfo_x86 *c;
++	struct msrbatch_session_info *myinfo;
++
++	cpu = iminor(file->f_path.dentry->d_inode);
++	if (cpu >= nr_cpu_ids || !cpu_online(cpu)) {
++		pr_err("cpu #%u does not exist\n", cpu);
++		return -ENXIO; /* No such CPU */
++	}
++
++	c = &cpu_data(cpu);
++	if (!cpu_has(c, X86_FEATURE_MSR)) {
++		pr_err("cpu #%u does not have MSR feature.\n", cpu);
++		return -EIO;	/* MSR not supported */
++	}
++
++	myinfo = kmalloc(sizeof(*myinfo), GFP_KERNEL);
++	if (!myinfo)
++		return -ENOMEM;
++
++	myinfo->rawio_allowed = capable(CAP_SYS_RAWIO);
++	file->private_data = myinfo;
++
++	return 0;
++}
++
++static int msrbatch_close(struct inode *inode, struct file *file)
++{
++	kfree(file->private_data);
++	file->private_data = 0;
++	return 0;
++}
++
++static int msrbatch_apply_whitelist(struct msr_batch_array *oa,
++				struct msrbatch_session_info *myinfo)
++{
++	struct msr_batch_op *op;
++	int err = 0;
++
++	for (op = oa->ops; op < oa->ops + oa->numops; ++op) {
++		op->err = 0;
++		if (myinfo->rawio_allowed) {
++			op->wmask = 0xffffffffffffffff;
++			continue;
++		}
++
++		if (!msr_whitelist_maskexists(op->msr)) {
++			pr_err("No whitelist entry for MSR %x\n", op->msr);
++			op->err = err = -EACCES;
++		} else {
++			op->wmask = msr_whitelist_writemask(op->msr);
++			/*
++			 * Check for read-only case
++			 */
++			if (op->wmask == 0 && !op->isrdmsr) {
++				if (!myinfo->rawio_allowed) {
++					pr_err("MSR %x is read-only\n",
++								op->msr);
++					op->err = err = -EACCES;
++				}
++			}
++		}
++	}
++	return err;
++}
++
++static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
++{
++	int err = 0;
++	struct msr_batch_array __user *uoa;
++	struct msr_batch_op __user *uops;
++	struct msr_batch_array koa;
++	struct msrbatch_session_info *myinfo = f->private_data;
++
++	if (ioc != X86_IOC_MSR_BATCH) {
++		pr_err("Invalid ioctl op %u\n", ioc);
++		return -ENOTTY;
++	}
++
++	if (!(f->f_mode & FMODE_READ)) {
++		pr_err("File not open for reading\n");
++		return -EBADF;
++	}
++
++	uoa = (struct msr_batch_array *)arg;
++
++	if (copy_from_user(&koa, uoa, sizeof(koa))) {
++		pr_err("Copy of batch array descriptor failed\n");
++		return -EFAULT;
++	}
++
++	if (koa.numops <= 0) {
++		pr_err("Invalid # of ops %d\n", koa.numops);
++		return -EINVAL;
++	}
++
++	uops = koa.ops;
++
++	koa.ops = kmalloc_array(koa.numops, sizeof(*koa.ops), GFP_KERNEL);
++	if (!koa.ops)
++		return -ENOMEM;
++
++	if (copy_from_user(koa.ops, uops, koa.numops * sizeof(*koa.ops))) {
++		pr_err("Copy of batch array failed\n");
++		err = -EFAULT;
++		goto bundle_alloc;
++	}
++
++	err = msrbatch_apply_whitelist(&koa, myinfo);
++	if (err) {
++		pr_err("Failed to apply whitelist %d\n", err);
++		goto copyout_and_return;
++	}
++
++	err = msr_safe_batch(&koa);
++	if (err != 0) {
++		pr_err("msr_safe_batch failed: %d\n", err);
++		goto copyout_and_return;
++	}
++
++copyout_and_return:
++	if (copy_to_user(uops, koa.ops, koa.numops * sizeof(*uops))) {
++		pr_err("copy batch data back to user failed\n");
++		if (!err)
++			err = -EFAULT;
++	}
++bundle_alloc:
++	kfree(koa.ops);
++
++	return err;
++}
++
++static const struct file_operations fops = {
++	.owner = THIS_MODULE,
++	.open = msrbatch_open,
++	.unlocked_ioctl = msrbatch_ioctl,
++	.compat_ioctl = msrbatch_ioctl,
++	.release = msrbatch_close
++};
++
++void msrbatch_cleanup(void)
++{
++	if (cdev_created) {
++		cdev_created = 0;
++		device_destroy(cdev_class, MKDEV(majordev, 0));
++	}
++
++	if (cdev_class_created) {
++		cdev_class_created = 0;
++		class_destroy(cdev_class);
++	}
++
++	if (cdev_registered) {
++		cdev_registered = 0;
++		unregister_chrdev(majordev, "cpu/msr_batch");
++	}
++}
++
++static char *msrbatch_nodename(struct device *dev, umode_t *mode)
++{
++	return kasprintf(GFP_KERNEL, "cpu/msr_batch");
++}
++
++int msrbatch_init(void)
++{
++	int err;
++	struct device *dev;
++
++	majordev = register_chrdev(0, "cpu/msr_batch", &fops);
++	if (majordev < 0) {
++		pr_err("msrbatch_init: unable to register chrdev\n");
++		msrbatch_cleanup();
++		return -EBUSY;
++	}
++	cdev_registered = 1;
++
++	cdev_class = class_create(THIS_MODULE, "msr_batch");
++	if (IS_ERR(cdev_class)) {
++		err = PTR_ERR(cdev_class);
++		msrbatch_cleanup();
++		return err;
++	}
++	cdev_class_created = 1;
++
++	cdev_class->devnode = msrbatch_nodename;
++
++	dev = device_create(cdev_class, NULL, MKDEV(majordev, 0),
++						NULL, "msr_batch");
++	if (IS_ERR(dev)) {
++		err = PTR_ERR(dev);
++		msrbatch_cleanup();
++		return err;
++	}
++	cdev_created = 1;
++	return 0;
++}
+diff --git a/arch/x86/kernel/msr_batch.h b/arch/x86/kernel/msr_batch.h
+new file mode 100644
+index 0000000..da224c3
+--- /dev/null
++++ b/arch/x86/kernel/msr_batch.h
+@@ -0,0 +1,7 @@
++#ifndef MSR_BATCH_INC
++#define MSR_BATCH_INC 1
++#include <asm/msr.h>
++
++extern void msrbatch_cleanup(void);
++extern int msrbatch_init(void);
++#endif /* MSR_BATCH_INC */
+diff --git a/arch/x86/kernel/msr_entry.c b/arch/x86/kernel/msr_entry.c
+index de522a3..90309db 100644
+--- a/arch/x86/kernel/msr_entry.c
++++ b/arch/x86/kernel/msr_entry.c
+@@ -44,6 +44,7 @@
+ #include <asm/processor.h>
+ #include <asm/msr.h>
+ #include "msr_whitelist.h"
++#include "msr_batch.h"
+ 
+ static struct class *msr_class;
+ struct msr_session_info {
+@@ -292,10 +293,15 @@ static int __init msr_init(void)
+ 	int i = 0;
+ 	int err = 0;
+ 
++	err = msrbatch_init();
++	if (err != 0) {
++		pr_err("failed to initialize msrbatch\n");
++		goto out;
++	}
+ 	err = msr_whitelist_init();
+ 	if (err != 0) {
+ 		pr_err("failed to initialize whitelist for msr\n");
+-		goto out;
++		goto out_batch;
+ 	}
+ 	if (__register_chrdev(MSR_MAJOR, 0, num_possible_cpus(),
+ 					"cpu/msr", &msr_fops)) {
+@@ -332,6 +338,8 @@ out_chrdev:
+ 	__unregister_chrdev(MSR_MAJOR, 0, num_possible_cpus(), "cpu/msr");
+ out_wlist:
+ 	msr_whitelist_cleanup();
++out_batch:
++	msrbatch_cleanup();
+ out:
+ 	return err;
+ }
+@@ -348,6 +356,7 @@ static void __exit msr_exit(void)
+ 	__unregister_hotcpu_notifier(&msr_class_cpu_notifier);
+ 	cpu_notifier_register_done();
+ 	msr_whitelist_cleanup();
++	msrbatch_cleanup();
+ }
+ 
+ module_init(msr_init);
+diff --git a/arch/x86/lib/msr-smp.c b/arch/x86/lib/msr-smp.c
+index 518532e..98a3f19 100644
+--- a/arch/x86/lib/msr-smp.c
++++ b/arch/x86/lib/msr-smp.c
+@@ -264,3 +264,54 @@ int wrmsr_safe_regs_on_cpu(unsigned int cpu, u32 *regs)
+ 	return err ? err : rv.err;
+ }
+ EXPORT_SYMBOL(wrmsr_safe_regs_on_cpu);
++
++static void __msr_safe_batch(void *info)
++{
++	struct msr_batch_array *oa = info;
++	struct msr_batch_op *op;
++	int this_cpu = smp_processor_id();
++	u32 *dp;
++	u64 oldmsr;
++	u64 newmsr;
++
++	for (op = oa->ops; op < oa->ops + oa->numops; ++op) {
++		if (op->cpu != this_cpu)
++			continue;
++
++		op->err = 0;
++		dp = (u32 *)&oldmsr;
++		if (rdmsr_safe(op->msr, &dp[0], &dp[1])) {
++			op->err = -EIO;
++			continue;
++		}
++		if (op->isrdmsr) {
++			op->msrdata = oldmsr;
++			continue;
++		}
++
++		newmsr = op->msrdata & op->wmask;
++		newmsr |= (oldmsr & ~op->wmask);
++		dp = (u32 *)&newmsr;
++		if (wrmsr_safe(op->msr, dp[0], dp[1]))
++			op->err = -EIO;
++	}
++}
++
++int msr_safe_batch(struct msr_batch_array *oa)
++{
++	struct cpumask cpus_to_run_on;
++	struct msr_batch_op *op;
++
++	cpumask_clear(&cpus_to_run_on);
++	for (op = oa->ops; op < oa->ops + oa->numops; ++op)
++		cpumask_set_cpu(op->cpu, &cpus_to_run_on);
++
++	on_each_cpu_mask(&cpus_to_run_on, __msr_safe_batch, oa, 1);
++
++	for (op = oa->ops; op < oa->ops + oa->numops; ++op)
++		if (op->err)
++			return op->err;
++
++	return 0;
++}
++EXPORT_SYMBOL(msr_safe_batch);
+-- 
+2.1.0
+

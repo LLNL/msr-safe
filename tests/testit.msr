@@ -1,24 +1,24 @@
 #!/bin/bash
 #
 echo "Starting Test"
-lsmod | grep msr_safe
+lsmod | grep msr
 if (( $? == 0 )) ; then
 	echo "Unloading Previous Driver"
-	rmmod msr-safe-beta.ko
+	rmmod msr
 	if (( $? != 0)); then exit; fi
 fi
 
 echo "Installing New Driver"
-insmod msr-safe-beta.ko
+modprobe msr
 if (( $? != 0)); then exit; fi
 
-lsmod | grep msr_safe
+lsmod | grep msr
 if (( $? != 0)); then exit; fi
 
-modinfo msr-safe-beta.ko
+modinfo msr
 if (( $? != 0)); then exit; fi
 
-ls -l /dev/cpu/*/msr_safe_beta /dev/cpu/msr_whitelist 
+ls -l /dev/cpu/*/msr /dev/cpu/msr_whitelist 
 if (( $? != 0)); then exit; fi
 
 echo "--------------------------"

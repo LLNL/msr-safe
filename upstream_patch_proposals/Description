@@ -1,0 +1,69 @@
+This patch addresses the following two problems:
+  1. The current msr module grants all-or-nothing access to MSRs,
+     thus making user-level runtime performance adjustments 
+     problematic, particularly for power-constrained HPC systems.
+
+  2. The current msr module requires a separate system call and the
+     acquisition of the preemption lock for each individual MSR access. 
+     This overhead degrades performance of runtime tools that would
+     ideally sample multiple MSRs at high frequencies.
+    
+Problem #1 is addressed by introducing a whitelist policy for MSR access.
+A batch meachnism is added to address problem #2.
+
+[PATCH 1/3] - x86: Move msr.c to msr_entry.c.
+    Prepares for providing the overall MSR kernel module as a set of
+    three implementation files: msr_entry.c, msr_whitelist.c, and
+    msr_batch.c.
+
+    Additonal changes made besides renaming to stop scripts/checkpatch.pl
+    complaining.
+
+[PATCH 2/3] - x86: MSR Whitelist implementation
+    Allows the administrator to configure a set of bit masks for MSRs
+    where access is permitted.
+
+    Whitelist Administration:
+        To configure whitelist (as root):
+            cat whitelistfile > /dev/cpu/msr_whitelist
+
+            This operation will cause the previous whitelist to be
+            replaced by the specified whitelist.
+
+        To enumerate current whitelist (as root):
+            cat < /dev/cpu/msr_whitelist
+
+        To remove whitelist (as root):
+            echo > /dev/cpu/msr_whitelist
+
+        Security model:
+            If user has CAP_SYS_RAWIO privileges, they will enjoy full
+            access to MSRs like they do today.
+
+            Otherwise, if the user is able to open the /dev/cpu/*/msr
+            file, they will have access to MSR operations as follows:
+
+                If the write mask exists for a particular MSR, then 
+                rdmsr access to that MSR access is granted.
+
+                If the write mask is set to all ones (0xffffffffffffffff),
+                then the user may perform a "raw" wrmsr operation with all
+                64 bits being overwritten to that MSR.
+ 
+                If the write mask is not 0xffffffffffffffff, then a rdmsr
+                will be performed first and only the bits set in the write
+                mask will be affected in the MSR.
+
+[PATCH 3/3] - x86: MSR batch processing feature
+    Provides a new ioctl interface through /dev/cpu/msr_batch.  Each
+    element in the batch list is subject to the whitelist security model
+    described above.
+
+    This implementation will cause an Inter Processor Interrupt to be sent
+    to each destination processor and will wait until all processors have
+    finished processing their respective batch of MSR operations before
+    returning.
+
+    Implementation Note: A separate "error" field is maintained per MSR
+    operation in order to maintain reentrancy into the IPI callback
+    function.
