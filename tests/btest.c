@@ -17,12 +17,12 @@
 
 #define THR(__CPU__) \
 	MR(__CPU__,  0x10), MR(__CPU__,  0xE7), MR(__CPU__,  0xE8), MR(__CPU__, 0x1A0), MR(__CPU__, 0x19C),\
-	MR(__CPU__, 0x19B), MR(__CPU__, 0x1A2), MR(__CPU__, 0x309), MR(__CPU__, 0x30A), MR(__CPU__, 0x38D)
+MR(__CPU__, 0x19B), MR(__CPU__, 0x1A2), MR(__CPU__, 0x309), MR(__CPU__, 0x30A), MR(__CPU__, 0x38D)
 
 #define CORE(__CPU__) /* TBD */
 
 #define PKG(__CPU__) \
-	THR(__CPU__), MR(__CPU__, 0x611), MR(__CPU__, 0x61B), MR(__CPU__, 0x619), MR(__CPU__, 0x638), MR(__CPU__, 0x639) 
+	THR(__CPU__), MR(__CPU__, 0x611), MR(__CPU__, 0x61B), MR(__CPU__, 0x619), MR(__CPU__, 0x638), MR(__CPU__, 0x639)
 
 struct msr_batch_op batch1_ops[] =
 {
@@ -61,7 +61,7 @@ void check_array(struct msr_batch_array *ba)
 		if (!op->err)
 			continue;
 		fprintf(stderr, "***CHECK***: CPU %d, RDMSR %x, Err %d\n",
-			op->cpu, op->msr, op->err);
+				op->cpu, op->msr, op->err);
 	}
 }
 
@@ -72,8 +72,8 @@ void print_array_err(struct msr_batch_array *ba)
 	for (op = ba->ops; op < ba->ops + ba->numops; ++op) {
 		if (!op->err)
 			continue;
-		fprintf(stderr, "CPU %d, RDMSR %x, Err %d\n",
-			op->cpu, op->msr, op->err);
+		fprintf(stderr, "CPU %d, %s %x, Err %d 0x%llx\n",
+				op->cpu, op->isrdmsr ? "RDMSR" : "WRMSR", op->msr, op->err, op->wmask);
 	}
 }
 
@@ -83,9 +83,48 @@ void print_array_info(struct msr_batch_array *ba)
 
 	for (op = ba->ops; op < ba->ops + ba->numops; ++op) {
 		printf("CPU %d: %s %x Data %lld\n",
-		  op->cpu, "RDMSR", op->msr, op->msrdata);
+				op->cpu, op->isrdmsr ? "RDMSR" : "WRMSR", op->msr, op->msrdata);
 	}
 }
+
+void run_rwtest(int *fd, int batchfd)
+{
+	struct msr_batch_op ops[3];
+	struct msr_batch_array ba;
+
+	ops[0].err = 0;
+	ops[0].cpu = 0;
+	ops[0].msr = 0x1A0;
+	ops[0].msrdata = 0;
+	ops[0].isrdmsr = 1;
+	ops[0].wmask = 0;
+
+	ops[1].err = 0;
+	ops[1].cpu = 0;
+	ops[1].msr = 0x1A0;
+	ops[1].msrdata = 0x9;
+	ops[1].isrdmsr = 0;
+	ops[1].wmask = 0;
+
+	ops[2].err = 0;
+	ops[2].cpu = 0;
+	ops[2].msr = 0x1A0;
+	ops[2].msrdata = 0;
+	ops[2].isrdmsr = 1;
+	ops[2].wmask = 0;
+
+	ba.numops = sizeof(ops) / sizeof(ops[0]);
+	ba.ops = ops;
+
+	if (ioctl(batchfd, X86_IOC_MSR_BATCH, &ba) < 0) {
+		perror("Ioctl failed");
+		print_array_err(&ba);
+		_exit(1);
+	}
+	print_array_err(&ba);
+	print_array_info(&ba);
+}
+
 
 unsigned long long get_tick(int *fd)
 {
@@ -262,6 +301,8 @@ int main()
 			_exit(1);
 		}
 	}
+	run_rwtest(fd, batchfd);
+	_exit(0);
 
 	bsingle.numops = sizeof(batch1_ops) / sizeof(batch1_ops[0]);
 	bsingle.ops = batch1_ops;
