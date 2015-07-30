@@ -302,7 +302,6 @@ int main()
 		}
 	}
 	run_rwtest(fd, batchfd);
-	_exit(0);
 
 	bsingle.numops = sizeof(batch1_ops) / sizeof(batch1_ops[0]);
 	bsingle.ops = batch1_ops;

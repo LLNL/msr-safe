@@ -124,6 +124,9 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 	mask = myinfo->rawio_allowed ? 0xffffffffffffffff :
 						msr_whitelist_writemask(reg);
 
+	if (!myinfo->rawio_allowed && mask == 0)
+		return -EACCES;
+
 	for (; count; count -= 8) {
 		if (copy_from_user(&data, tmp, 8)) {
 			err = -EFAULT;

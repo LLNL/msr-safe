@@ -7,12 +7,12 @@
 #include <linux/ioctl.h>
 
 struct msr_batch_op {
-	__u16 err;		/* Out: set if error occurred with this op */
 	__u16 cpu;		/* In: CPU to execute {rd/wr}msr ins. */
+	__u16 isrdmsr;		/* In: 0=wrmsr, non-zero=rdmsr */
+	__s32 err;		/* Out: set if error occurred with this op */
 	__u32 msr;		/* In: MSR Address to perform op */
 	__u64 msrdata;		/* In/Out: Input/Result to/from operation */
 	__u64 wmask;		/* Out: Write mask applied to wrmsr */
-	__u8  isrdmsr;		/* In: 0=wrmsr, non-zero=rdmsr */
 };
 
 struct msr_batch_array {

@@ -84,12 +84,21 @@ static int msrbatch_apply_whitelist(struct msr_batch_array *oa,
 
 		if (!msr_whitelist_maskexists(op->msr)) {
 			pr_err("No whitelist entry for MSR %x\n", op->msr);
-			op->err = err = -EPERM;
+			op->err = err = -EACCES;
 		} else {
 			op->wmask = msr_whitelist_writemask(op->msr);
+			/*
+			 * Check for read-only case
+			 */
+			if (op->wmask == 0 && !op->isrdmsr) {
+				if (!myinfo->rawio_allowed) {
+					pr_err("MSR %x is read-only\n",
+								op->msr);
+					op->err = err = -EACCES;
+				}
+			}
 		}
 	}
-
 	return err;
 }
 
