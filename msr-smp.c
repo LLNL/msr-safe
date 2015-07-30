@@ -18,26 +18,30 @@ static void __msr_safe_batch(void *info)
 	struct msr_batch_array *oa = info;
 	struct msr_batch_op *op;
 	int this_cpu = smp_processor_id();
-	u32 *d;
-	u64 data;
+	u32 *dp;
+	u64 oldmsr;
+	u64 newmsr;
 
 	for (op = oa->ops; op < oa->ops + oa->numops; ++op) {
 		if (op->cpu != this_cpu)
 			continue;
 
-		d = (u32 *)&data;
-		op->err = rdmsr_safe(op->msr, &d[0], &d[1]);
-
-		if (op->isrdmsr || op->err) {
-			op->msrdata = data;
+		op->err = 0;
+		dp = (u32 *)&oldmsr;
+		if (rdmsr_safe(op->msr, &dp[0], &dp[1])) {
+			op->err = -EIO;
+			continue;
+		}
+		if (op->isrdmsr) {
+			op->msrdata = oldmsr;
 			continue;
 		}
 
-		data &= ~op->wmask;
-		op->msrdata &= op->wmask;
-		op->msrdata |= data;
-		d = (u32 *)&op->msrdata;
-		op->err = wrmsr_safe(op->msr, d[0], d[1]);
+		newmsr = op->msrdata & op->wmask;
+		newmsr |= (oldmsr & ~op->wmask);
+		dp = (u32 *)&newmsr;
+		if (wrmsr_safe(op->msr, dp[0], dp[1]))
+			op->err = -EIO;
 	}
 }
 
@@ -51,7 +55,7 @@ int msr_safe_batch(struct msr_batch_array *oa)
 		cpumask_set_cpu(op->cpu, &cpus_to_run_on);
 
 	on_each_cpu_mask(&cpus_to_run_on, __msr_safe_batch, oa, 1);
-	
+
 	for (op = oa->ops; op < oa->ops + oa->numops; ++op)
 		if (op->err)
 			return op->err;

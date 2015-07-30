@@ -1,8 +1,9 @@
 /*
- * MSR Whitelist implentation
+ * MSR Whitelist implementation
  */
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/kernel.h>
-#include <linux/version.h>
 #include <linux/hashtable.h>
 #include <linux/mutex.h>
 #include <linux/fs.h>
@@ -30,14 +31,14 @@ static ssize_t read_whitelist(struct file *file, char __user *buf,
 						size_t count, loff_t *ppos);
 static int majordev;
 static struct class *cdev_class;
-static char cdev_created = 0;
-static char cdev_registered = 0;
-static char cdev_class_created = 0;
+static char cdev_created;
+static char cdev_registered;
+static char cdev_class_created;
 
 static DEFINE_HASHTABLE(whitelist_hash, 6);
 static DEFINE_MUTEX(whitelist_mutex);
-static struct whitelist_entry *whitelist=0;
-static int whitelist_numentries = 0;
+static struct whitelist_entry *whitelist;
+static int whitelist_numentries;
 
 int msr_whitelist_maskexists(loff_t reg)
 {
@@ -92,13 +93,13 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	}
 
 	if (count+1 > MAX_WLIST_BSIZE) {
-		printk(KERN_ALERT
-		    "write_whitelist: Data buffer of %zu bytes too large\n",
+		pr_err("write_whitelist: buffer of %zu bytes too large\n",
 		    count);
 		return -EINVAL;
 	}
 
-	if (!(kbuf = kzalloc(count+1, GFP_KERNEL)))
+	kbuf = kzalloc(count+1, GFP_KERNEL);
+	if (!kbuf)
 		return -ENOMEM;
 
 	if (copy_from_user(kbuf, tmp, count)) {
@@ -108,7 +109,8 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 
 	/* Pass 1: */
 	for (num_entries = 0, s = kbuf, res = 1; res > 0; ) {
-		if ((res = parse_next_whitelist_entry(s, &s, 0)) < 0) {
+		res = parse_next_whitelist_entry(s, &s, 0);
+		if (res < 0) {
 			err = res;
 			goto out_freebuffer;
 		}
@@ -119,14 +121,16 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 
 	/* Pass 2: */
 	mutex_lock(&whitelist_mutex);
-	if ((res = create_whitelist(num_entries)) < 0) {
+	res = create_whitelist(num_entries);
+	if (res < 0) {
 		err = res;
 		goto out_releasemutex;
 	}
 
 	for (entry = whitelist, s = kbuf, res = 1; res > 0; entry++) {
-		if ((res = parse_next_whitelist_entry(s, &s, entry)) < 0) {
-			printk(KERN_ALERT "msrw_update: Table corrupted\n");
+		res = parse_next_whitelist_entry(s, &s, entry);
+		if (res < 0) {
+			pr_alert("write_whitelist: Table corrupted\n");
 			delete_whitelist();
 			err = res; /* This should not happen! */
 			goto out_releasemutex;
@@ -134,9 +138,8 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 
 		if (res) {
 			if (find_in_whitelist(entry->msr)) {
-				printk(KERN_ALERT
-				   "msrw_update: Duplicate entry found: %llx\n",
-					 entry->msr);
+				pr_err("write_whitelist: Duplicate: %llx\n",
+							 entry->msr);
 				err = -EINVAL;
 				delete_whitelist();
 				goto out_releasemutex;
@@ -212,33 +215,22 @@ static int create_whitelist(int nentries)
 	whitelist_numentries = nentries;
 	whitelist = kcalloc(nentries, sizeof(*whitelist), GFP_KERNEL);
 
-	if (!whitelist) {
-		printk(KERN_ALERT
-			"create_whitelist: %lu byte allocation failed\n",
-					(nentries * sizeof(*whitelist)));
+	if (!whitelist)
 		return -ENOMEM;
-	}
 	return 0;
 }
 
 static struct whitelist_entry *find_in_whitelist(u64 msr)
 {
 	struct whitelist_entry *entry = 0;
-
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
 	struct hlist_node *node;
+
 	if (whitelist) {
 		hash_for_each_possible(whitelist_hash, entry, node, hlist, msr)
-		if (entry && entry->msr == msr)
-			return entry;
+			if (entry && entry->msr == msr)
+				return entry;
 	}
-#else
-	if (whitelist) {
-		hash_for_each_possible(whitelist_hash, entry, hlist, msr)
-		if (entry && entry->msr == msr)
-			return entry;
-	}
-#endif
+
 	return 0;
 }
 
@@ -273,19 +265,15 @@ static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
 			s++;
 
 		if (*s == 0) {
-			printk(KERN_ALERT
-				"parse_next_whitelist_entry: Premature EOF");
+			pr_err("parse_next_whitelist_entry: Premature EOF");
 			return -EINVAL;
 		}
 
 		tmp = *s;
 		*s = 0; /* Null-terminate this portion of string */
-		if ((err = kstrtoull(s2, 0, &data[i]))) {
-			printk(KERN_ALERT
-			  "parse_next_whitelist_entry kstrtoull %s err=%d\n",
-				s2, err);
+		err = kstrtoull(s2, 0, &data[i]);
+		if (err)
 			return err;
-		}
 		*s++ = tmp;
 	}
 
@@ -298,17 +286,10 @@ static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
 	return *nextinbuf - inbuf;
 }
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
 static char *msr_whitelist_nodename(struct device *dev, mode_t *mode)
 {
 	return kasprintf(GFP_KERNEL, "cpu/msr_whitelist");
 }
-#else
-static char *msr_whitelist_nodename(struct device *dev, umode_t *mode)
-{
-	return kasprintf(GFP_KERNEL, "cpu/msr_whitelist");
-}
-#endif
 
 void msr_whitelist_cleanup(void)
 {
@@ -337,8 +318,7 @@ int msr_whitelist_init(void)
 
 	majordev = register_chrdev(0, "cpu/msr_whitelist", &fops);
 	if (majordev < 0) {
-		printk(KERN_ERR
-		    "msr_whitelist_init: unable to register chrdev\n");
+		pr_err("msr_whitelist_init: unable to register chrdev\n");
 		msr_whitelist_cleanup();
 		return -EBUSY;
 	}

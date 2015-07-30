@@ -22,6 +22,8 @@
  * an SMP box will direct the access to CPU %d.
  */
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/module.h>
 
 #include <linux/types.h>
@@ -38,6 +40,7 @@
 #include <linux/notifier.h>
 #include <linux/uaccess.h>
 #include <linux/gfp.h>
+
 #include <asm/processor.h>
 #include <asm/msr.h>
 #include "msr_whitelist.h"
@@ -51,15 +54,15 @@ struct msr_session_info {
 static loff_t msr_seek(struct file *file, loff_t offset, int orig)
 {
 	loff_t ret;
-	struct inode *inode = file_inode(file);
+	struct inode *inode = file->f_mapping->host;
 
 	mutex_lock(&inode->i_mutex);
 	switch (orig) {
-	case 0:
+	case SEEK_SET:
 		file->f_pos = offset;
 		ret = file->f_pos;
 		break;
-	case 1:
+	case SEEK_CUR:
 		file->f_pos += offset;
 		ret = file->f_pos;
 		break;
@@ -76,7 +79,7 @@ static ssize_t msr_read(struct file *file, char __user *buf,
 	u32 __user *tmp = (u32 __user *) buf;
 	u32 data[2];
 	u32 reg = *ppos;
-	int cpu = iminor(file_inode(file));
+	int cpu = iminor(file->f_path.dentry->d_inode);
 	int err = 0;
 	ssize_t bytes = 0;
 	struct msr_session_info *myinfo = file->private_data;
@@ -91,7 +94,6 @@ static ssize_t msr_read(struct file *file, char __user *buf,
 		err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
 		if (err)
 			break;
-
 		if (copy_to_user(tmp, &data, 8)) {
 			err = -EFAULT;
 			break;
@@ -109,9 +111,9 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 	const u32 __user *tmp = (const u32 __user *)buf;
 	u32 curdata[2];
 	u32 data[2];
-	u64 mask;
 	u32 reg = *ppos;
-	int cpu = iminor(file_inode(file));
+	u64 mask;
+	int cpu = iminor(file->f_path.dentry->d_inode);
 	int err = 0;
 	ssize_t bytes = 0;
 	struct msr_session_info *myinfo = file->private_data;
@@ -122,7 +124,7 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 	mask = myinfo->rawio_allowed ? 0xffffffffffffffff :
 						msr_whitelist_writemask(reg);
 
-	if (mask == 0)
+	if (!myinfo->rawio_allowed && mask == 0)
 		return -EACCES;
 
 	for (; count; count -= 8) {
@@ -137,9 +139,9 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 			if (err)
 				break;
 
-			*(u64*)&curdata[0] &= ~mask;
-			*(u64*)&data[0] &= mask;
-			*(u64*)&data[0] |= *(u64*)&curdata[0];
+			*(u64 *)&curdata[0] &= ~mask;
+			*(u64 *)&data[0] &= mask;
+			*(u64 *)&data[0] |= *(u64 *)&curdata[0];
 		}
 
 		err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
@@ -156,7 +158,7 @@ static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
 {
 	u32 __user *uregs = (u32 __user *)arg;
 	u32 regs[8];
-	int cpu = iminor(file_inode(file));
+	int cpu = iminor(file->f_path.dentry->d_inode);
 	int err;
 
 	switch (ioc) {
@@ -165,14 +167,14 @@ static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
 			err = -EBADF;
 			break;
 		}
-		if (copy_from_user(&regs, uregs, sizeof regs)) {
+		if (copy_from_user(&regs, uregs, sizeof(regs))) {
 			err = -EFAULT;
 			break;
 		}
 		err = rdmsr_safe_regs_on_cpu(cpu, regs);
 		if (err)
 			break;
-		if (copy_to_user(uregs, &regs, sizeof regs))
+		if (copy_to_user(uregs, &regs, sizeof(regs)))
 			err = -EFAULT;
 		break;
 
@@ -181,14 +183,14 @@ static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
 			err = -EBADF;
 			break;
 		}
-		if (copy_from_user(&regs, uregs, sizeof regs)) {
+		if (copy_from_user(&regs, uregs, sizeof(regs))) {
 			err = -EFAULT;
 			break;
 		}
 		err = wrmsr_safe_regs_on_cpu(cpu, regs);
 		if (err)
 			break;
-		if (copy_to_user(uregs, &regs, sizeof regs))
+		if (copy_to_user(uregs, &regs, sizeof(regs)))
 			err = -EFAULT;
 		break;
 
@@ -202,7 +204,7 @@ static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
 
 static int msr_open(struct inode *inode, struct file *file)
 {
-	unsigned int cpu = iminor(file_inode(file));
+	unsigned int cpu = iminor(file->f_path.dentry->d_inode);
 	struct cpuinfo_x86 *c;
 	struct msr_session_info *myinfo;
 
@@ -216,7 +218,7 @@ static int msr_open(struct inode *inode, struct file *file)
 	myinfo = kmalloc(sizeof(*myinfo), GFP_KERNEL);
 	if (!myinfo)
 		return -ENOMEM;
-	
+
 	myinfo->rawio_allowed = capable(CAP_SYS_RAWIO);
 	file->private_data = myinfo;
 
@@ -225,11 +227,8 @@ static int msr_open(struct inode *inode, struct file *file)
 
 static int msr_close(struct inode *inode, struct file *file)
 {
-	if (file->private_data)
-		kfree(file->private_data);
-
+	kfree(file->private_data);
 	file->private_data = 0;
-
 	return 0;
 }
 
@@ -284,35 +283,31 @@ static struct notifier_block __refdata msr_class_cpu_notifier = {
 	.notifier_call = msr_class_cpu_callback,
 };
 
-static char *msr_devnode(struct device *dev, umode_t *mode)
+static char *msr_devnode(struct device *dev, mode_t *mode)
 {
 	return kasprintf(GFP_KERNEL, "cpu/%u/msr", MINOR(dev->devt));
 }
 
 static int __init msr_init(void)
 {
-	int i, err = 0;
-	i = 0;
+	int i = 0;
+	int err = 0;
 
 	err = msrbatch_init();
-
 	if (err != 0) {
-		printk(KERN_ERR "msr: failed to init msrbatch\n");
+		pr_err("failed to initialize msrbatch\n");
 		goto out;
 	}
-
 	err = msr_whitelist_init();
-
 	if (err != 0) {
-		printk(KERN_ERR "msr: failed to init whitelist\n");
-		goto out;
+		pr_err("failed to initialize whitelist for msr\n");
+		goto out_batch;
 	}
-
-	if (__register_chrdev(MSR_MAJOR, 0, NR_CPUS, "cpu/msr", &msr_fops)) {
-		printk(KERN_ERR "msr: unable to get major %d for msr\n",
-		       MSR_MAJOR);
+	if (__register_chrdev(MSR_MAJOR, 0, num_possible_cpus(),
+					"cpu/msr", &msr_fops)) {
+		pr_err("unable to get major %d for msr\n", MSR_MAJOR);
 		err = -EBUSY;
-		goto out;
+		goto out_wlist;
 	}
 	msr_class = class_create(THIS_MODULE, "msr");
 	if (IS_ERR(msr_class)) {
@@ -321,14 +316,12 @@ static int __init msr_init(void)
 	}
 	msr_class->devnode = msr_devnode;
 
-	cpu_notifier_register_begin();
 	for_each_online_cpu(i) {
 		err = msr_device_create(i);
 		if (err != 0)
 			goto out_class;
 	}
-	__register_hotcpu_notifier(&msr_class_cpu_notifier);
-	cpu_notifier_register_done();
+	register_hotcpu_notifier(&msr_class_cpu_notifier);
 
 	err = 0;
 	goto out;
@@ -337,10 +330,13 @@ out_class:
 	i = 0;
 	for_each_online_cpu(i)
 		msr_device_destroy(i);
-	cpu_notifier_register_done();
 	class_destroy(msr_class);
 out_chrdev:
-	__unregister_chrdev(MSR_MAJOR, 0, NR_CPUS, "cpu/msr");
+	__unregister_chrdev(MSR_MAJOR, 0, num_possible_cpus(), "cpu/msr");
+out_wlist:
+	msr_whitelist_cleanup();
+out_batch:
+	msrbatch_cleanup();
 out:
 	return err;
 }
@@ -349,13 +345,11 @@ static void __exit msr_exit(void)
 {
 	int cpu = 0;
 
-	cpu_notifier_register_begin();
 	for_each_online_cpu(cpu)
 		msr_device_destroy(cpu);
 	class_destroy(msr_class);
-	__unregister_chrdev(MSR_MAJOR, 0, NR_CPUS, "cpu/msr");
-	__unregister_hotcpu_notifier(&msr_class_cpu_notifier);
-	cpu_notifier_register_done();
+	__unregister_chrdev(MSR_MAJOR, 0, num_possible_cpus(), "cpu/msr");
+	unregister_hotcpu_notifier(&msr_class_cpu_notifier);
 	msr_whitelist_cleanup();
 	msrbatch_cleanup();
 }
