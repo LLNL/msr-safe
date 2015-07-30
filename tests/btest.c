@@ -82,7 +82,7 @@ void print_array_info(struct msr_batch_array *ba)
 	struct msr_batch_op *op;
 
 	for (op = ba->ops; op < ba->ops + ba->numops; ++op) {
-		printf("CPU %d: %s %x Data %lld\n",
+		printf("CPU %d: %s %x Data 0x%016llX\n",
 				op->cpu, op->isrdmsr ? "RDMSR" : "WRMSR", op->msr, op->msrdata);
 	}
 }
