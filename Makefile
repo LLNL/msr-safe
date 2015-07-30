@@ -24,12 +24,12 @@
 #  of Energy's Lawrence Livermore National Laboratory. Office of 
 #  Science, under Award number DE-AC52-07NA27344.
 
-
-obj-m += msr-safe.o
+obj-m += msr-safe.o 
 msr-safe-objs := msr_entry.o msr_whitelist.o msr-smp.o msr_batch.o
 
 all:
-	make -C $(KDIR) M=$(PWD) modules
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules 
 
 clean:
-	make -C $(KDIR) M=$(PWD) clean
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+
