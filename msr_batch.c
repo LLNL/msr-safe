@@ -77,6 +77,13 @@ static int msrbatch_apply_whitelist(struct msr_batch_array *oa,
 
 	for (op = oa->ops; op < oa->ops + oa->numops; ++op) {
 		op->err = 0;
+
+		if (op->cpu >= nr_cpu_ids || !cpu_online(op->cpu)) {
+			pr_err("No such CPU %d\n", op->cpu);
+			op->err = err = -ENXIO;	/* No such CPU */
+			continue;
+		}
+
 		if (myinfo->rawio_allowed) {
 			op->wmask = 0xffffffffffffffff;
 			continue;
