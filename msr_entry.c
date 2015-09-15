@@ -27,6 +27,7 @@
 #include <linux/module.h>
 
 #include <linux/types.h>
+#include <linux/version.h>
 #include <linux/errno.h>
 #include <linux/fcntl.h>
 #include <linux/slab.h>
@@ -284,7 +285,11 @@ static struct notifier_block __refdata msr_class_cpu_notifier = {
 	.notifier_call = msr_class_cpu_callback,
 };
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
 static char *msr_devnode(struct device *dev, mode_t *mode)
+#else
+static char *msr_devnode(struct device *dev, umode_t *mode)
+#endif // LINUX_VERSION
 {
 	return kasprintf(GFP_KERNEL, "cpu/%u/msr_safe", MINOR(dev->devt));
 }

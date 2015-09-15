@@ -10,6 +10,7 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/kernel.h>
+#include <linux/version.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/device.h>
@@ -77,6 +78,13 @@ static int msrbatch_apply_whitelist(struct msr_batch_array *oa,
 
 	for (op = oa->ops; op < oa->ops + oa->numops; ++op) {
 		op->err = 0;
+
+		if (op->cpu >= nr_cpu_ids || !cpu_online(op->cpu)) {
+			pr_err("No such CPU %d\n", op->cpu);
+			op->err = err = -ENXIO;	/* No such CPU */
+			continue;
+		}
+
 		if (myinfo->rawio_allowed) {
 			op->wmask = 0xffffffffffffffff;
 			continue;
@@ -194,7 +202,11 @@ void msrbatch_cleanup(void)
 	}
 }
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
 static char *msrbatch_nodename(struct device *dev, mode_t *mode)
+#else
+static char *msrbatch_nodename(struct device *dev, umode_t *mode)
+#endif
 {
 	return kasprintf(GFP_KERNEL, "cpu/msr_batch");
 }
