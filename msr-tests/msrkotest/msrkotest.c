@@ -1,3 +1,4 @@
+#include <time.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -66,12 +67,15 @@ int main(int ac, char** av)
 
 	if (msrdata == 0LL) {	/* Assume read */
 		printf("Reading from MSR 0x%x, %d times\n", msr, iterations);
+		struct timeval st, et;
+		gettimeofday(&st, NULL);
 		for (int i = 0; i < iterations; i++) {
 			if (pread(fd, &data, sizeof(data), msr) < 0) {
 				perror("pread");
 				_exit(-2);
 			}
 		}
+		gettimeofday(&et, NULL);
 	}
 	else {
 		printf("Writing 0x%llx to MSR 0x%x, %d times\n", msrdata, msr, iterations);
