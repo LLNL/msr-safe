@@ -1,5 +1,5 @@
 msrko.x: msrkotest.c 
-	gcc -Ofast -Wall -o $@ $?
+	gcc -D_GNU_SOURCE -Ofast -o $@ $?
 
 clean:
 	rm -f msrko.x
