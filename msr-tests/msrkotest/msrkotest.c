@@ -126,15 +126,40 @@ int main(int ac, char** av)
 		else
 			nsdelta += (et.tv_nsec - st.tv_nsec);
 
-		printf("Reading %s 0x%04X: "
+		printf("rdmsr(0x%04X) Source CPU %2d, Target CPU %2d, (%u times): "
 			"%fns, %f Khz\n", 
-			filename,
 			g_MSR, 
+			g_MYCPU,
+			g_MSRCPU,
+			g_ITERATIONS,
 			(nsdelta / g_ITERATIONS), 
 			((1000000000 / (nsdelta / g_ITERATIONS)) / 1000));
 	}
 	else {
-		printf("Writing 0x%llX to MSR 0x%04X\n", g_MSRDATA, g_MSR);
+		struct timespec st, et;
+		double nsdelta;
+		clock_gettime(CLOCK_MONOTONIC, &st);
+		for (int i = 0; i < g_ITERATIONS; i++) {
+			if (pwrite(fd, &g_MSRDATA, sizeof(g_MSRDATA), g_MSR) < 0) {
+				perror("pwrite");
+				_exit(-2);
+			}
+		}
+		clock_gettime(CLOCK_MONOTONIC, &et);
+		nsdelta = 1000000000 * (et.tv_sec - st.tv_sec);
+		if (et.tv_nsec <= st.tv_nsec)
+			nsdelta += ((1000000000 - et.tv_sec) + st.tv_nsec);
+		else
+			nsdelta += (et.tv_nsec - st.tv_nsec);
+
+		printf("wrmsr(0x%04X) Source CPU %2d, Target CPU %2d, (%u times): "
+			"%fns, %f Khz\n", 
+			g_MSR, 
+			g_MYCPU,
+			g_MSRCPU,
+			g_ITERATIONS,
+			(nsdelta / g_ITERATIONS), 
+			((1000000000 / (nsdelta / g_ITERATIONS)) / 1000));
 	}
 
 	(void)close(fd);
