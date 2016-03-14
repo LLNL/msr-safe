@@ -1,3 +1,7 @@
+uname -a
+Linux valencia 4.4.0-msr+ #2 SMP Mon Mar 7 13:23:02 PST 2016 x86_64 x86_64 x86_64 GNU/Linux
+
+lscpu
 MSR.KO pread/pwrite test
 Architecture:          x86_64
 CPU op-mode(s):        32-bit, 64-bit

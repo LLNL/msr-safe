@@ -11,7 +11,7 @@
 char* g_PROGNAME = NULL;
 char* g_PROGVERSION = "0.0.1";
 unsigned int g_ITERATIONS = 500000000;
-unsigned int g_MSR = 0x0;		// No-op
+unsigned int g_MSR = 0x017A;
 unsigned long long g_MSRDATA = 0x0LL;
 unsigned int g_MYCPU = 0;
 unsigned int g_MSRCPU = 0;
@@ -68,12 +68,32 @@ void set_affinity(int usecpu)
 	}
 }
 
+void gettimes(
+	struct timespec *start,
+	struct timespec *end,
+	double *ns_per_io,
+	double *mghz)
+{
+	unsigned long long nsdelta = 1000000000 * (end->tv_sec - start->tv_sec);
+
+	if (end->tv_nsec <= start->tv_nsec)
+		nsdelta += ((1000000000 - end->tv_sec) + start->tv_nsec);
+	else
+		nsdelta += (end->tv_nsec - start->tv_nsec);
+
+	*ns_per_io = (double)nsdelta / g_ITERATIONS;
+	*mghz = (1000 / *ns_per_io);
+}
+
 int main(int ac, char** av)
 {
 	int argidx = 0;
 	char filename[80];
 	unsigned long long data;
 	int fd;
+	struct timespec st, et;
+	unsigned long long nsdelta;
+	double nspio, mhrz;
 
 	/* Process Command line arguments */
 	g_PROGNAME = av[argidx++];
@@ -110,8 +130,6 @@ int main(int ac, char** av)
 	}
 
 	if (g_MSRDATA == 0LL) {	/* Assume read */
-		struct timespec st, et;
-		double nsdelta;
 		clock_gettime(CLOCK_MONOTONIC, &st);
 		for (int i = 0; i < g_ITERATIONS; i++) {
 			if (pread(fd, &data, sizeof(data), g_MSR) < 0) {
@@ -120,24 +138,13 @@ int main(int ac, char** av)
 			}
 		}
 		clock_gettime(CLOCK_MONOTONIC, &et);
-		nsdelta = 1000000000 * (et.tv_sec - st.tv_sec);
-		if (et.tv_nsec <= st.tv_nsec)
-			nsdelta += ((1000000000 - et.tv_sec) + st.tv_nsec);
-		else
-			nsdelta += (et.tv_nsec - st.tv_nsec);
-
+		gettimes(&st, &et, &nspio, &mhrz);
 		printf("rdmsr(0x%04X) Source CPU %2d, Target CPU %2d, (%u times): "
-			"%fns, %f Khz\n", 
-			g_MSR, 
-			g_MYCPU,
-			g_MSRCPU,
-			g_ITERATIONS,
-			(nsdelta / g_ITERATIONS), 
-			((1000000000 / (nsdelta / g_ITERATIONS)) / 1000));
+			"%f ns per msrop, %f Mhz\n",
+			g_MSR, g_MYCPU, g_MSRCPU,
+			g_ITERATIONS, nspio, mhrz);
 	}
 	else {
-		struct timespec st, et;
-		double nsdelta;
 		clock_gettime(CLOCK_MONOTONIC, &st);
 		for (int i = 0; i < g_ITERATIONS; i++) {
 			if (pwrite(fd, &g_MSRDATA, sizeof(g_MSRDATA), g_MSR) < 0) {
@@ -146,20 +153,12 @@ int main(int ac, char** av)
 			}
 		}
 		clock_gettime(CLOCK_MONOTONIC, &et);
-		nsdelta = 1000000000 * (et.tv_sec - st.tv_sec);
-		if (et.tv_nsec <= st.tv_nsec)
-			nsdelta += ((1000000000 - et.tv_sec) + st.tv_nsec);
-		else
-			nsdelta += (et.tv_nsec - st.tv_nsec);
+		gettimes(&st, &et, &nspio, &mhrz);
 
 		printf("wrmsr(0x%04X) Source CPU %2d, Target CPU %2d, (%u times): "
-			"%fns, %f Khz\n", 
-			g_MSR, 
-			g_MYCPU,
-			g_MSRCPU,
-			g_ITERATIONS,
-			(nsdelta / g_ITERATIONS), 
-			((1000000000 / (nsdelta / g_ITERATIONS)) / 1000));
+			"%f ns per msrop, %f Mhz\n",
+			g_MSR, g_MYCPU, g_MSRCPU,
+			g_ITERATIONS, nspio, mhrz);
 	}
 
 	(void)close(fd);
