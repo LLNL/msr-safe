@@ -1,5 +1,6 @@
 #!/bin/bash
 echo "MSR.KO pread/pwrite test"
+uname -a
 lscpu
 
 for msr in 0x17a 0xe2 0xce
