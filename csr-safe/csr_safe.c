@@ -296,15 +296,11 @@ static __u64 set_bar(void)
 				BAR = ((__u64) *tempbar) & 0xFC000000;
 				break;
 			case 0x063F:
-				BAR = (((__u64) *tempbar) & 0x7FFFFFC) >> 26;
+				BAR = ((__u64) *tempbar) & 0xFC000000;
 				break;
 			default:
 				pr_err("%s wrong architecture. This is bad.\n", __NODENAME);
 				return -PCIENER;
-		}
-		if (BAR != 0xC0000000) {
-			pr_err("%s unable to fetch BAR\n", __NODENAME);
-			return -PCIENER;
 		}
 	}
 	else {
