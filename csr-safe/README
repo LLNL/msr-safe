@@ -1,10 +1,10 @@
 Configuration Space Register Safe Access Driver (CSR_SAFE)
 Copyright (c) 2015-2016 by Lawrence Livermore National Security
 Authors: Scott Walker   | walker91@llnl.gov
-	 Marty McFadden | mcfadden8@llnl.gov
-	 Kathleen Shoga | shoga1@llnl.gov
+	 	 Marty McFadden | mcfadden8@llnl.gov
+	 	 Kathleen Shoga | shoga1@llnl.gov
 
-Version 0.4 alpha
+Version 0.5 alpha
 
 csr_safe.c		Main driver. Userspace can interact with it using an ioctl.
 csr_whitelist.[ch]	Puts the 'safe' in csr-safe.
