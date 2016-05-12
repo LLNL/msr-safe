@@ -1,0 +1,22 @@
+# /etc/systemd/system/llnl-whitelist.service
+# (C) 2015 Steve Sylvester (steve.s.sylvester <at> intel.com)
+#
+# msr-safe systemd unit file:
+#	 Set a default MSR whitelist via /dev/cpu/msr_whitelist.
+
+[Unit]
+Description=Sets default MSR whitelist
+
+[Service]
+EnvironmentFile=/etc/sysconfig/msr-safe
+Type=oneshot
+RemainAfterExit=yes
+User=root
+ExecStartPre=/sbin/modprobe msr-safe
+ExecStart=/usr/bin/sh -c "cat ${WHITELIST} > /dev/cpu/msr_whitelist"
+ExecStop=/usr/bin/sh -c "echo > /dev/cpu/msr_whitelist"
+ExecStopPost=/sbin/rmmod msr-safe
+
+[Install]
+WantedBy=multi-user.target
+
