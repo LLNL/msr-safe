@@ -1,0 +1,1 @@
+SUBSYSTEM=="msr_safe", GROUP="msr", MODE="0660"
