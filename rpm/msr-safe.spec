@@ -1,4 +1,4 @@
-%global commit0 7667118e9d47dc3662269ca69aa00cc174845c49
+%global commit0 %(git show-ref -s HEAD)
 %global shortcommit0 %(c=%{commit0}; echo ${c:0:7})
 
 Name:		msr-safe
