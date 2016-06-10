@@ -57,6 +57,7 @@ exit 0
 
 %post
 /usr/bin/udevadm control --reload-rules
+echo /lib/modules/%{latest_kernel}/extra/msr-safe/msr-safe.ko | weak-modules --add-modules
 /usr/bin/systemctl daemon-reload >/dev/null 2>&1
 /usr/bin/systemctl enable msr-safe >/dev/null 2>&1 || :
 
@@ -65,6 +66,7 @@ if [ $1 -eq 0 ] ; then
     /usr/bin/systemctl stop msr-safe >/dev/null 2>&1
     /usr/bin/systemctl disable msr-safe >/dev/null 2>&1
 fi
+echo /lib/modules/%{latest_kernel}/extra/msr-safe/msr-safe.ko | weak-modules --remove-modules
 
 %postun
 if [ "$1" -ge "1" ] ; then
