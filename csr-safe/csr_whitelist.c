@@ -374,6 +374,8 @@ static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
 	char *s = skip_spaces(inbuf);
 	int i;
 	u64 data[2];
+	int err;
+	char *s2;
 
 	while (*s == '#') { /* Skip remaining portion of line */
 		for (s = s + 1; *s && *s != '\n'; s++)
@@ -384,9 +386,20 @@ static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
 	if (*s == 0)
 		return 0; /* This means we are done with the input buffer */
 
+	if (*s == '%')
+	{
+		s++;
+		s2 = s = skip_spaces(s);
+		err = kstrtoull(s2, 0, &data[0]);
+		if (data[0] != get_cpuid_mf())
+		{
+			pr_err("whitelist target architecture does not match, do not use wrong whitelist!");
+			return -EINVAL;
+		}
+	}
+
 	for (i = 0; i < 2; i++) {/* we should have the first of 3 #s now */
 		char *s2;
-		int err;
 		char tmp;
 
 		s2 = s = skip_spaces(s);
