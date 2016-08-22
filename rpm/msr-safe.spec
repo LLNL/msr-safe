@@ -1,14 +1,13 @@
 %global commit0 %(git show-ref -s HEAD)
-%global shortcommit0 %(c=%{commit0}; echo ${c:0:7})
 
 Name:		msr-safe
-Version:	%{shortcommit0}
+Version:	%{commit0}
 Release:	1%{?dist}
 License:	GPLv3+
 Summary:	Allows safer access to model specific registers (MSRs)
 Url:		https://github.com/LLNL/msr-safe
 Group:		System
-Source0:  	https://github.com/LLNL/%{name}/archive/%{commit0}.tar.gz#/%{name}-%{shortcommit0}.tar.gz
+Source0:  	https://github.com/LLNL/%{name}/archive/%{commit0}.tar.gz#/%{name}-%{commit0}.tar.gz
 Source1:	msr-safe.service
 Source2:	msr-safe.sysconfig
 Source3:	10-msr-safe.rules
