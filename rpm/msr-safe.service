@@ -6,6 +6,7 @@
 
 [Unit]
 Description=Sets default MSR whitelist
+After=nss-user-lookup.target nslcd.service
 
 [Service]
 EnvironmentFile=/etc/sysconfig/msr-safe
