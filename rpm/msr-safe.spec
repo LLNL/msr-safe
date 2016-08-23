@@ -1,17 +1,18 @@
-%global commit0 %(git show-ref -s HEAD)
+%global rev         %(git rev-parse HEAD)
+%global shortrev    %(r=%{rev}; echo ${r:0:12})
 
-Name:		msr-safe
-Version:	%{commit0}
-Release:	1%{?dist}
-License:	GPLv3+
-Summary:	Allows safer access to model specific registers (MSRs)
-Url:		https://github.com/LLNL/msr-safe
-Group:		System
-Source0:  	https://github.com/LLNL/%{name}/archive/%{commit0}.tar.gz#/%{name}-%{commit0}.tar.gz
-Source1:	msr-safe.service
-Source2:	msr-safe.sysconfig
-Source3:	10-msr-safe.rules
-BuildRoot:	%{_tmppath}/%{name}-%{version}-build
+Name:       msr-safe
+Version:    0
+Release:    0.1.git%{shortrev}%{?dist}
+License:    GPLv3+
+Summary:    Allows safer access to model specific registers (MSRs)
+Url:        https://github.com/LLNL/msr-safe
+Group:      System Environment/Daemons
+Source0:    https://github.com/LLNL/%{name}/archive/%{rev}.tar.gz#/%{name}-%{rev}.tar.gz
+Source1:    msr-safe.service
+Source2:    msr-safe.sysconfig
+Source3:    10-msr-safe.rules
+BuildRoot:  %{_tmppath}/%{name}-%{version}-build
 BuildRequires:  %kernel_module_package_buildreqs
 
 %kernel_module_package default
@@ -20,14 +21,14 @@ BuildRequires:  %kernel_module_package_buildreqs
 Allows safer access to model specific registers (MSRs)
 
 %prep
-%autosetup -n %{name}-%{commit0}
+%autosetup -n %{name}-%{rev}
 
 %build
 for flavor in %flavors_to_build; do
-        rm -rf obj/$flavor
-	mkdir -p obj/$flavor
-        cp -r msr* Makefile obj/$flavor
-        make -C %{kernel_source $flavor} M=$PWD/obj/$flavor
+    rm -rf obj/$flavor
+    mkdir -p obj/$flavor
+    cp -r msr* Makefile obj/$flavor
+    make -C %{kernel_source $flavor} M=$PWD/obj/$flavor
 done
 
 %install
