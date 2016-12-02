@@ -301,18 +301,18 @@ static int __init msr_init(void)
 
 	err = msrbatch_init();
 	if (err != 0) {
-		pr_err("failed to initialize msrbatch\n");
+		pr_debug("failed to initialize msrbatch\n");
 		goto out;
 	}
 	err = msr_whitelist_init();
 	if (err != 0) {
-		pr_err("failed to initialize whitelist for msr\n");
+		pr_debug("failed to initialize whitelist for msr\n");
 		goto out_batch;
 	}
 	majordev = __register_chrdev(0, 0, num_possible_cpus(),
 					  "cpu/msr_safe", &msr_fops);
 	if (majordev < 0) {
-		pr_err("unable to get major %d for msr_safe\n", majordev);
+		pr_debug("unable to get major %d for msr_safe\n", majordev);
 		err = -EBUSY;
 		goto out_wlist;
 	}
