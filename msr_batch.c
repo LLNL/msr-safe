@@ -43,13 +43,13 @@ static int msrbatch_open(struct inode *inode, struct file *file)
 
 	cpu = iminor(file->f_path.dentry->d_inode);
 	if (cpu >= nr_cpu_ids || !cpu_online(cpu)) {
-		pr_err("cpu #%u does not exist\n", cpu);
+		pr_debug("cpu #%u does not exist\n", cpu);
 		return -ENXIO; /* No such CPU */
 	}
 
 	c = &cpu_data(cpu);
 	if (!cpu_has(c, X86_FEATURE_MSR)) {
-		pr_err("cpu #%u does not have MSR feature.\n", cpu);
+		pr_debug("cpu #%u does not have MSR feature.\n", cpu);
 		return -EIO;	/* MSR not supported */
 	}
 
@@ -80,7 +80,7 @@ static int msrbatch_apply_whitelist(struct msr_batch_array *oa,
 		op->err = 0;
 
 		if (op->cpu >= nr_cpu_ids || !cpu_online(op->cpu)) {
-			pr_err("No such CPU %d\n", op->cpu);
+			pr_debug("No such CPU %d\n", op->cpu);
 			op->err = err = -ENXIO;	/* No such CPU */
 			continue;
 		}
@@ -91,7 +91,7 @@ static int msrbatch_apply_whitelist(struct msr_batch_array *oa,
 		}
 
 		if (!msr_whitelist_maskexists(op->msr)) {
-			pr_err("No whitelist entry for MSR %x\n", op->msr);
+			pr_debug("No whitelist entry for MSR %x\n", op->msr);
 			op->err = err = -EACCES;
 		} else {
 			op->wmask = msr_whitelist_writemask(op->msr);
@@ -100,7 +100,7 @@ static int msrbatch_apply_whitelist(struct msr_batch_array *oa,
 			 */
 			if (op->wmask == 0 && !op->isrdmsr) {
 				if (!myinfo->rawio_allowed) {
-					pr_err("MSR %x is read-only\n",
+					pr_debug("MSR %x is read-only\n",
 								op->msr);
 					op->err = err = -EACCES;
 				}
@@ -119,24 +119,24 @@ static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
 	struct msrbatch_session_info *myinfo = f->private_data;
 
 	if (ioc != X86_IOC_MSR_BATCH) {
-		pr_err("Invalid ioctl op %u\n", ioc);
+		pr_debug("Invalid ioctl op %u\n", ioc);
 		return -ENOTTY;
 	}
 
 	if (!(f->f_mode & FMODE_READ)) {
-		pr_err("File not open for reading\n");
+		pr_debug("File not open for reading\n");
 		return -EBADF;
 	}
 
 	uoa = (struct msr_batch_array *)arg;
 
 	if (copy_from_user(&koa, uoa, sizeof(koa))) {
-		pr_err("Copy of batch array descriptor failed\n");
+		pr_debug("Copy of batch array descriptor failed\n");
 		return -EFAULT;
 	}
 
 	if (koa.numops <= 0) {
-		pr_err("Invalid # of ops %d\n", koa.numops);
+		pr_debug("Invalid # of ops %d\n", koa.numops);
 		return -EINVAL;
 	}
 
@@ -147,26 +147,26 @@ static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
 		return -ENOMEM;
 
 	if (copy_from_user(koa.ops, uops, koa.numops * sizeof(*koa.ops))) {
-		pr_err("Copy of batch array failed\n");
+		pr_debug("Copy of batch array failed\n");
 		err = -EFAULT;
 		goto bundle_alloc;
 	}
 
 	err = msrbatch_apply_whitelist(&koa, myinfo);
 	if (err) {
-		pr_err("Failed to apply whitelist %d\n", err);
+		pr_debug("Failed to apply whitelist %d\n", err);
 		goto copyout_and_return;
 	}
 
 	err = msr_safe_batch(&koa);
 	if (err != 0) {
-		pr_err("msr_safe_batch failed: %d\n", err);
+		pr_debug("msr_safe_batch failed: %d\n", err);
 		goto copyout_and_return;
 	}
 
 copyout_and_return:
 	if (copy_to_user(uops, koa.ops, koa.numops * sizeof(*uops))) {
-		pr_err("copy batch data back to user failed\n");
+		pr_debug("copy batch data back to user failed\n");
 		if (!err)
 			err = -EFAULT;
 	}
@@ -218,7 +218,7 @@ int msrbatch_init(void)
 
 	majordev = register_chrdev(0, "cpu/msr_batch", &fops);
 	if (majordev < 0) {
-		pr_err("msrbatch_init: unable to register chrdev\n");
+		pr_debug("msrbatch_init: unable to register chrdev\n");
 		msrbatch_cleanup();
 		return -EBUSY;
 	}

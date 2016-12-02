@@ -121,7 +121,7 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	}
 
 	if (count+1 > MAX_WLIST_BSIZE) {
-		pr_err("write_whitelist: buffer of %zu bytes too large\n",
+		pr_debug("write_whitelist: buffer of %zu bytes too large\n",
 		    count);
 		return -EINVAL;
 	}
@@ -158,7 +158,7 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	for (entry = whitelist, s = kbuf, res = 1; res > 0; entry++) {
 		res = parse_next_whitelist_entry(s, &s, entry);
 		if (res < 0) {
-			pr_alert("write_whitelist: Table corrupted\n");
+			pr_debug("write_whitelist: Table corrupted\n");
 			delete_whitelist();
 			err = res; /* This should not happen! */
 			goto out_releasemutex;
@@ -166,7 +166,7 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 
 		if (res) {
 			if (find_in_whitelist(entry->msr)) {
-				pr_err("write_whitelist: Duplicate: %llx\n",
+				pr_debug("write_whitelist: Duplicate: %llx\n",
 							 entry->msr);
 				err = -EINVAL;
 				delete_whitelist();
@@ -301,7 +301,7 @@ static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
 			s++;
 
 		if (*s == 0) {
-			pr_err("parse_next_whitelist_entry: Premature EOF");
+			pr_debug("parse_next_whitelist_entry: Premature EOF");
 			return -EINVAL;
 		}
 
@@ -358,7 +358,7 @@ int msr_whitelist_init(void)
 
 	majordev = register_chrdev(0, "cpu/msr_whitelist", &fops);
 	if (majordev < 0) {
-		pr_err("msr_whitelist_init: unable to register chrdev\n");
+		pr_debug("msr_whitelist_init: unable to register chrdev\n");
 		msr_whitelist_cleanup();
 		return -EBUSY;
 	}
