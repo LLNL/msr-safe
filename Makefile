@@ -27,9 +27,40 @@
 obj-m += msr-safe.o 
 msr-safe-objs := msr_entry.o msr_whitelist.o msr-smp.o msr_batch.o
 
-all:
+all: msrsave/msrsave
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules 
 
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+	rm -f msrsave/msrsave.o msrsave/msrsave msrsave/msrsave_test
+
+check: msrsave/msrsave_test
+	msrsave/msrsave_test
+
+msrsave/msrsave.o: msrsave/msrsave.c msrsave/msrsave.h
+
+msrsave/msrsave_main.o: msrsave/msrsave_main.c msrsave/msrsave.h
+
+msrsave/msrsave: msrsave/msrsave_main.o msrsave/msrsave.o
+
+msrsave/msrsave_test.o: msrsave/msrsave_test.c msrsave/msrsave.h
+
+msrsave/msrsave_test: msrsave/msrsave_test.o msrsave/msrsave.o
+
+INSTALL ?= install
+prefix ?= $(HOME)/build
+exec_prefix ?= $(prefix)
+sbindir ?= $(exec_prefix)/sbin
+datarootdir ?= $(prefix)/share
+mandir ?= $(datarootdir)/man
+man1dir ?= $(mandir)/man1
+
+install: msrsave/msrsave msrsave/msrsave.1
+	$(INSTALL) -d $(DESTDIR)/$(sbindir)
+	$(INSTALL) msrsave/msrsave $(DESTDIR)/$(sbindir)
+	$(INSTALL) -d $(DESTDIR)/$(man1dir)
+	$(INSTALL) -m 644 msrsave/msrsave.1 $(DESTDIR)/$(man1dir)
+
+.SUFFIXES: .c .o
+.PHONY: all clean install
 
