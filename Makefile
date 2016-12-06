@@ -32,4 +32,17 @@ all:
 
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+	rm -f msrsave.o msrsave
 
+INSTALL ?= install
+prefix ?= /usr
+exec_prefix ?= $(prefix)
+sbindir ?= $(exec_prefix)/sbin
+datarootdir ?= $(prefix)/share
+mandir ?= $(datarootdir)/man
+man1dir ?= $(mandir)/man1
+install: msrsave msrsave.1
+	$(INSTALL) -d $(DESTDIR)/$(sbindir)
+	$(INSTALL) msrsave $(DESTDIR)/$(sbindir)
+	$(INSTALL) -d $(DESTDIR)/$(man1dir)
+	$(INSTALL) -m 644 msrsave.1 $(DESTDIR)/$(man1dir)

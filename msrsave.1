@@ -1,0 +1,47 @@
+.\" generated with Ronn/v0.7.3
+.\" http://github.com/rtomayko/ronn/tree/0.7.3
+.
+.TH "MSRSAVE" "1" "December 2016" "" ""
+.
+.SH "NAME"
+\fBmsrsave\fR \- msr\-safe save restore application
+.
+.SH "SYNOPSIS"
+.
+.TP
+\fBSAVE MSR:\fR
+\fBmsrsave\fR outfile
+.
+.TP
+\fBRESTORE MSR:\fR
+\fBmsrsave\fR \fB\-r\fR infile
+.
+.TP
+\fBPRINT VERSION OR HELP:\fR
+\fBmsrsave \-\-version\fR | \fB\-\-help\fR
+.
+.SH "DESCRIPTION"
+The \fBmsrsave\fR application is used save to a file the state of all MSR values that the current MSR whitelist enables to be written or restore the MSR values from a saved state file\. The msrsave application also respects the standard \fB\-\-version\fR and \fB\-\-help\fR options for printing the msr\-safe package version or a brief message about usage\.
+.
+.SH "OPTIONS"
+.
+.TP
+\fB\-\-help\fR
+.
+.br
+Print brief summary of the command line usage information, then exit\.
+.
+.TP
+\fB\-\-version\fR
+.
+.br
+Print version of msr\-safe package to standard output, then exit\.
+.
+.TP
+\fB\-r\fR
+.
+.br
+Restore the MSR values that are recorded in an existing MSR save state file\.
+.
+.SH "COPYRIGHT"
+Copyright (C) 2016, Intel Corporation\. All rights reserved\.
