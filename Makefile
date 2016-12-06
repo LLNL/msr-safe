@@ -27,12 +27,20 @@
 obj-m += msr-safe.o 
 msr-safe-objs := msr_entry.o msr_whitelist.o msr-smp.o msr_batch.o
 
-all:
+all: msrsave
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules 
 
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
-	rm -f msrsave.o msrsave
+	rm -f msrsave.o msrsave test_msrsave
+
+check: msrsave_test.c msrsave.o msrsave.h
+	$(CC) $(CFLAGS) $(LDFLAGS) msrsave.o msrsave_test.c -o test_msrsave
+	./test_msrsave
+
+msrsave.o: msrsave.c msrsave.h
+
+msrsave: msrsave_main.c msrsave.o msrsave.h
 
 INSTALL ?= install
 prefix ?= /usr

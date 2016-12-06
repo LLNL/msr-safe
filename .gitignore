@@ -10,3 +10,4 @@ Module.symvers
 *.unsigned
 modules.order
 msrsave
+test_msrsave
