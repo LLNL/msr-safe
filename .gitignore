@@ -9,3 +9,5 @@ Module.symvers
 *.mod.c
 *.unsigned
 modules.order
+msrsave/msrsave
+msrsave/msrsave_test

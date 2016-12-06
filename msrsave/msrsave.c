@@ -1,0 +1,461 @@
+/*
+ * Copyright (c) 2016, Intel Corporation
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in
+ *       the documentation and/or other materials provided with the
+ *       distribution.
+ *
+ *     * Neither the name of Intel Corporation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY LOG OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include "msrsave.h"
+
+static int msr_parse_whitelist(const char *whitelist_path, size_t *num_msr_ptr, uint64_t **msr_offset_ptr, uint64_t **msr_mask_ptr)
+{
+    int err = 0;
+    int tmp_err = 0;
+    int i;
+    size_t num_scan = 0;
+    size_t num_msr = 0;
+    char *whitelist_buffer = NULL;
+    char *whitelist_ptr = NULL;
+    uint64_t *msr_offset = NULL;
+    uint64_t *msr_mask = NULL;
+    FILE *whitelist_fid = NULL;
+    struct stat whitelist_stat;
+    char err_msg[NAME_MAX];
+
+    *msr_offset_ptr = NULL;
+    *msr_mask_ptr = NULL;
+
+    /* Figure out how big the whitelist file is */
+    tmp_err = stat(whitelist_path, &whitelist_stat);
+    if (tmp_err != 0)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "stat() of %s failed! ", whitelist_path);
+        perror(err_msg);
+        goto exit;
+    }
+
+    if (whitelist_stat.st_size == 0)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Whitelist file (%s) size is zero!", whitelist_path);
+        perror(err_msg);
+        goto exit;
+    }
+
+    /* Allocate buffer for file contents */
+    whitelist_buffer = (char*)malloc(whitelist_stat.st_size);
+    if (!whitelist_buffer)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Could not allocate array of size %zu!", whitelist_stat.st_size);
+        perror(err_msg);
+        goto exit;
+    }
+
+    /* Open file */
+    whitelist_fid = fopen(whitelist_path, "r");
+    if (!whitelist_fid)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Could not open whitelist file \"%s\"!", whitelist_path);
+        perror(err_msg);
+        goto exit;
+    }
+
+    /* Read contents */
+    size_t num_read = fread(whitelist_buffer, 1, whitelist_stat.st_size, whitelist_fid);
+    if (num_read != whitelist_stat.st_size)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Contents read from whitelist file is too small: %zu < %zu!", num_read, whitelist_stat.st_size);
+        perror(err_msg);
+        goto exit;
+    }
+
+    /* Count the number of new lines in the file */
+    whitelist_ptr = whitelist_buffer;
+    for (num_msr = 0; (whitelist_ptr = strchr(whitelist_ptr, '\n')); ++num_msr)
+    {
+        ++whitelist_ptr;
+    }
+    *num_msr_ptr = num_msr;
+
+    /* Allocate buffers for parsed whitelist */
+    msr_offset = *msr_offset_ptr = (uint64_t *)malloc(sizeof(uint64_t) * num_msr);
+    if (!msr_offset)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Unable to allocate msr offset data of size: %zu!", sizeof(uint64_t) * num_msr);
+        perror(err_msg);
+        goto exit;
+    }
+
+    msr_mask = *msr_mask_ptr = (uint64_t *)malloc(sizeof(uint64_t) * num_msr);
+    if (!msr_mask)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Unable to allocate msr mask data of size: %zu!", sizeof(uint64_t) * num_msr);
+        perror(err_msg);
+        goto exit;
+    }
+
+    /* Parse the whitelist */
+    const char *whitelist_format = "MSR: %llx Write Mask: %llx\n";
+    whitelist_ptr = whitelist_buffer;
+    for (i = 0; i < num_msr; ++i)
+    {
+        num_scan = sscanf(whitelist_ptr, whitelist_format, msr_offset + i, msr_mask + i);
+        if (num_scan != 2)
+        {
+            err = -1;
+            fprintf(stderr, "Error: Failed to parse whitelist file named \"%s\"\n", whitelist_path);
+            goto exit;
+        }
+        whitelist_ptr = strchr(whitelist_ptr, '\n');
+        whitelist_ptr++; /* Move the pointer to the next line */
+        if (!whitelist_ptr)
+        {
+            err = -1;
+            fprintf(stderr, "Error: Failed to parse whitelist file named \"%s\"\n", whitelist_path);
+            goto exit;
+        }
+    }
+
+    tmp_err = fclose(whitelist_fid);
+    if (tmp_err)
+    {
+        whitelist_fid = NULL;
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Unable to close whitelist file called \"%s\"", whitelist_path);
+        perror(err_msg);
+        goto exit;
+    }
+    whitelist_fid = NULL;
+
+exit:
+    if (whitelist_buffer)
+    {
+        free(whitelist_buffer);
+    }
+    if (whitelist_fid)
+    {
+        fclose(whitelist_fid);
+    }
+    return err;
+}
+
+int msr_save(const char *save_path, const char *whitelist_path, const char *msr_path_format, int num_cpu)
+{
+    int err = 0;
+    int tmp_err = 0;
+    int i, j;
+    int msr_fd;
+    char err_msg[NAME_MAX];
+    size_t num_msr = 0;
+    uint64_t *msr_offset = NULL;
+    uint64_t *msr_mask = NULL;
+    uint64_t *save_buffer = NULL;
+    FILE *save_fid = NULL;
+
+    err = msr_parse_whitelist(whitelist_path, &num_msr, &msr_offset, &msr_mask);
+    if (err)
+    {
+        goto exit;
+    }
+
+    /* Allocate save buffer, a 2-D array over msr offset and then CPU
+       (offset major ordering) */
+    save_buffer = (uint64_t *)malloc(num_msr * num_cpu * sizeof(uint64_t));
+    if (!save_buffer)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Unable to allocate msr save state buffer of size: %zu!", num_msr * num_cpu * sizeof(uint64_t));
+        perror(err_msg);
+        goto exit;
+    }
+
+    /* Open all MSR files.
+     * Read ALL existing data
+     * Pass through the whitelist mask. */
+    for (i = 0; i < num_cpu; ++i)
+    {
+        char msr_file_name[NAME_MAX];
+        snprintf(msr_file_name, NAME_MAX, msr_path_format, i);
+        msr_fd = open(msr_file_name, O_RDWR);
+        if (msr_fd == -1)
+        {
+            err = errno ? errno : -1;
+            snprintf(err_msg, NAME_MAX, "Could not open MSR file \"%s\"!", msr_file_name);
+            perror(err_msg);
+            goto exit;
+        }
+        for (j = 0; j < num_msr; ++j)
+        {
+            ssize_t read_count = pread(msr_fd, save_buffer + i * num_msr + j,
+                                       sizeof(uint64_t), msr_offset[j]);
+            if (read_count != sizeof(uint64_t))
+            {
+                err = errno ? errno : -1;
+                snprintf(err_msg, NAME_MAX, "Failed to read msr value from MSR file \"%s\"!", msr_file_name);
+                perror(err_msg);
+                goto exit;
+            }
+            save_buffer[i * num_msr + j] &= msr_mask[j];
+        }
+        tmp_err = close(msr_fd);
+        msr_fd = -1;
+        if (tmp_err)
+        {
+            err = errno ? errno : -1;
+            snprintf(err_msg, NAME_MAX, "Could not close MSR file \"%s\"!", msr_file_name);
+            perror(err_msg);
+            goto exit;
+        }
+    }
+
+    /* Open output file. */
+    save_fid = fopen(save_path, "w");
+    if (!save_fid)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Could not open output file \"%s\"!", save_path);
+        perror(err_msg);
+        goto exit;
+    }
+
+    size_t num_write = fwrite(save_buffer, sizeof(uint64_t), num_msr * num_cpu, save_fid);
+    if (num_write != num_msr * num_cpu)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Could not write all values to output file \"%s\"!", save_path);
+        perror(err_msg);
+        goto exit;
+    }
+
+    tmp_err = fclose(save_fid);
+    save_fid = NULL;
+    if (tmp_err)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Could not close MSR file \"%s\"!", save_path);
+        perror(err_msg);
+        goto exit;
+    }
+
+
+    /* Clean up memory and files */
+exit:
+    if (save_buffer)
+    {
+        free(save_buffer);
+    }
+    if (msr_offset)
+    {
+        free(msr_offset);
+    }
+    if (msr_mask)
+    {
+        free(msr_mask);
+    }
+    if (save_fid)
+    {
+        fclose(save_fid);
+    }
+    if (msr_fd != -1)
+    {
+        close(msr_fd);
+    }
+    return err;
+}
+
+int msr_restore(const char *restore_path, const char *whitelist_path, const char *msr_path_format, int num_cpu)
+{
+    int err = 0;
+    int tmp_err = 0;
+    int i, j;
+    int msr_fd;
+    size_t num_msr = 0;
+    uint64_t curr_val = 0;
+    uint64_t *msr_offset = NULL;
+    uint64_t *msr_mask = NULL;
+    uint64_t *restore_buffer = NULL;
+    FILE *restore_fid = NULL;
+    struct stat restore_stat;
+    struct stat whitelist_stat;
+    char err_msg[NAME_MAX];
+
+    err = msr_parse_whitelist(whitelist_path, &num_msr, &msr_offset, &msr_mask);
+    if (err)
+    {
+        goto exit;
+    }
+
+    /* Check that the timestamp of the restore file is after the timetamp
+       for the whitelist file */
+    tmp_err = stat(restore_path, &restore_stat);
+    if (tmp_err != 0)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "stat() of %s failed! ", restore_path);
+        perror(err_msg);
+        goto exit;
+    }
+
+    tmp_err = stat(whitelist_path, &whitelist_stat);
+    if (tmp_err != 0)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "stat() of %s failed! ", whitelist_path);
+        perror(err_msg);
+        goto exit;
+    }
+
+    if (restore_stat.st_mtime < whitelist_stat.st_mtime)
+    {
+        err = -1;
+        fprintf(stderr, "Error: whitelist was modified after restore file was written!");
+        goto exit;
+    }
+
+    /* Allocate restore buffer, a 2-D array over msr offset and then CPU
+       (offset major ordering) */
+    restore_buffer = (uint64_t *)malloc(num_msr * num_cpu * sizeof(uint64_t));
+    if (!restore_buffer)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Unable to allocate msr restore state buffer of size: %zu!", num_msr * num_cpu * sizeof(uint64_t));
+        perror(err_msg);
+        goto exit;
+    }
+
+    restore_fid = fopen(restore_path, "r");
+    if (!restore_fid)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Could not open restore file \"%s\"!", restore_path);
+        perror(err_msg);
+        goto exit;
+    }
+
+    size_t num_read = fread(restore_buffer, sizeof(uint64_t), num_msr * num_cpu, restore_fid);
+    if (num_read != num_msr * num_cpu || fgetc(restore_fid) != EOF)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Could not write all values to output file \"%s\"!", restore_path);
+        perror(err_msg);
+        goto exit;
+    }
+
+    tmp_err = fclose(restore_fid);
+    restore_fid = NULL;
+    if (tmp_err)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Could not close MSR file \"%s\"!", restore_path);
+        perror(err_msg);
+        goto exit;
+    }
+
+    /* Open all MSR files.
+     * Read ALL existing data
+     * Pass through the whitelist mask
+     * Or in restore values
+     * Write back to MSR files. */
+    for (i = 0; i < num_cpu; ++i)
+    {
+        char msr_file_name[NAME_MAX];
+        snprintf(msr_file_name, NAME_MAX, msr_path_format, i);
+        msr_fd = open(msr_file_name, O_RDWR);
+        if (msr_fd == -1)
+        {
+            err = errno ? errno : -1;
+            snprintf(err_msg, NAME_MAX, "Could not open MSR file \"%s\"!", msr_file_name);
+            perror(err_msg);
+            goto exit;
+        }
+        for (j = 0; j < num_msr; ++j)
+        {
+            ssize_t count = pread(msr_fd, &curr_val, sizeof(uint64_t), msr_offset[j]);
+            if (count != sizeof(uint64_t))
+            {
+                err = errno ? errno : -1;
+                snprintf(err_msg, NAME_MAX, "Failed to read msr value from MSR file \"%s\"!", msr_file_name);
+                perror(err_msg);
+                goto exit;
+            }
+            curr_val &= ~(msr_mask[j]);
+            curr_val |= restore_buffer[i * num_msr + j];
+            count = pwrite(msr_fd, &curr_val, sizeof(uint64_t), msr_offset[j]);
+        }
+        tmp_err = close(msr_fd);
+        msr_fd = -1;
+        if (tmp_err)
+        {
+            err = errno ? errno : -1;
+            snprintf(err_msg, NAME_MAX, "Could not close MSR file \"%s\"!", msr_file_name);
+            perror(err_msg);
+            goto exit;
+        }
+    }
+
+    /* Clean up memory and files */
+exit:
+    if (restore_buffer)
+    {
+        free(restore_buffer);
+    }
+    if (restore_fid)
+    {
+        fclose(restore_fid);
+    }
+    if (msr_offset)
+    {
+        free(msr_offset);
+    }
+    if (msr_mask)
+    {
+        free(msr_mask);
+    }
+    if (msr_fd != -1)
+    {
+        close(msr_fd);
+    }
+    return err;
+}
