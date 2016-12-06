@@ -30,8 +30,10 @@ for flavor in %flavors_to_build; do
     cp -r msr* Makefile obj/$flavor
     make -C %{kernel_source $flavor} M=$PWD/obj/$flavor
 done
+make msrsave
 
 %install
+make install DESTDIR=%{buildroot} prefix=%{_prefix} sbindir=%{_sbindir} mandir=%{_mandir}
 install -d %{buildroot}/%{_datadir}/msr-safe/whitelists
 install -m 0644 whitelists/* %{buildroot}/%{_datadir}/msr-safe/whitelists/
 install -d %{buildroot}%{_unitdir}
@@ -80,8 +82,14 @@ fi
 %{_udevrulesdir}/10-msr-safe.rules
 %config %{_sysconfdir}/sysconfig/msr-safe
 %doc README
+%{_sbindir}/msrsave
+%dir %{_mandir}/man1
+%doc %{_mandir}/man1/msrsave.1.gz
+
 
 %changelog
+* Mon Dec 05 2016 Christopher M. Cantalupo <christopher.m.cantalupo@intel.com>
+- Add msrsave application build and install.
 * Wed Apr 20 2016 Ben Allen <bsallen@alcf.anl.gov> 7667118-1
 - Initial release (v7667118)
 
