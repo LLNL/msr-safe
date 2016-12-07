@@ -34,13 +34,14 @@ clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
 	rm -f msrsave.o msrsave test_msrsave
 
-check: msrsave_test.c msrsave.o msrsave.h
-	$(CC) $(CFLAGS) $(LDFLAGS) msrsave.o msrsave_test.c -o test_msrsave
-	./test_msrsave
+check: msrsave_test
+	./msrsave_test
 
 msrsave.o: msrsave.c msrsave.h
 
 msrsave: msrsave_main.c msrsave.o msrsave.h
+
+msrsave_test: msrsave_test.c msrsave.o msrsave.h
 
 INSTALL ?= install
 prefix ?= /usr

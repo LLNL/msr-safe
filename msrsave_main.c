@@ -122,7 +122,7 @@ int main(int argc, char **argv)
 
     if (!err) {
         const char *file_name = argv[optind];
-        const char *msr_path = "/dev/cpu/%d/msr";
+        const char *msr_path = "/dev/cpu/%d/msr_safe";
         const char *msr_whitelist_path = "/dev/cpu/msr_whitelist";
         int num_cpu = sysconf(_SC_NPROCESSORS_ONLN);
         if (do_restore) {

@@ -37,6 +37,7 @@
 #include <stdint.h>
 #include <limits.h>
 #include <assert.h>
+#include "msrsave.h"
 
 void msrsave_test_mock_msr(void *buffer, size_t buffer_size, const char *path_format, int num_cpu);
 void msrsave_test_check_msr(uint64_t *buffer, size_t num_check, const char *path_format, int num_cpu);
@@ -80,46 +81,46 @@ int main(int argc, char **argv)
 {
     int err = 0;
     const uint64_t whitelist_off[] = {0x0000000000000000ULL,
+                                      0x0000000000000008ULL,
+                                      0x0000000000000010ULL,
+                                      0x0000000000000018ULL,
+                                      0x0000000000000020ULL,
+                                      0x0000000000000028ULL,
+                                      0x0000000000000030ULL,
+                                      0x0000000000000038ULL,
                                       0x0000000000000040ULL,
+                                      0x0000000000000048ULL,
+                                      0x0000000000000050ULL,
+                                      0x0000000000000058ULL,
+                                      0x0000000000000060ULL,
+                                      0x0000000000000068ULL,
+                                      0x0000000000000070ULL,
+                                      0x0000000000000078ULL,
                                       0x0000000000000080ULL,
-                                      0x00000000000000c0ULL,
-                                      0x0000000000000100ULL,
-                                      0x0000000000000140ULL,
-                                      0x0000000000000180ULL,
-                                      0x00000000000001c0ULL,
-                                      0x0000000000000200ULL,
-                                      0x0000000000000240ULL,
-                                      0x0000000000000280ULL,
-                                      0x00000000000002c0ULL,
-                                      0x0000000000000300ULL,
-                                      0x0000000000000340ULL,
-                                      0x0000000000000380ULL,
-                                      0x00000000000003c0ULL,
-                                      0x0000000000000400ULL,
-                                      0x0000000000000440ULL,
-                                      0x0000000000000480ULL,
-                                      0x00000000000004c0ULL};
+                                      0x0000000000000088ULL,
+                                      0x0000000000000090ULL,
+                                      0x0000000000000098ULL};
 
-    const uint64_t whitelist_mask[] = {0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL,
-                                       0x0fffffffffffffffULL};
+    const uint64_t whitelist_mask[] = {0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL};
 
     enum {NUM_MSR = sizeof(whitelist_off) / sizeof(uint64_t)};
     assert(NUM_MSR == sizeof(whitelist_mask) / sizeof(uint64_t));
@@ -151,7 +152,8 @@ int main(int argc, char **argv)
     msrsave_test_mock_msr(msr_val, sizeof(msr_val), test_msr_path, num_cpu);
 
     /* Save the current state to a file */
-    msr_save(test_save_path, test_whitelist_path, test_msr_path, num_cpu);
+    err = msr_save(test_save_path, test_whitelist_path, test_msr_path, num_cpu);
+    assert(err == 0);
 
     /* Overwrite the mock msr files with new data */
     hval = 0x1EADBEEF;
@@ -163,7 +165,8 @@ int main(int argc, char **argv)
     msrsave_test_mock_msr(msr_val, sizeof(msr_val), test_msr_path, num_cpu);
 
     /* Restore to the original values */
-    msr_restore(test_save_path, test_whitelist_path, test_msr_path, num_cpu);
+    err = msr_restore(test_save_path, test_whitelist_path, test_msr_path, num_cpu);
+    assert(err == 0);
 
     /* Check that the values that are writable have been restored. */
     /* Check that the values that are not writable have been unaltered. */
@@ -172,7 +175,7 @@ int main(int argc, char **argv)
         lval = NUM_MSR - i;
         msr_val[i] = lval | (hval << 32);
     }
-    msrsave_test_check_msr(msr_val, sizeof(msr_val), test_msr_path, num_cpu);
+    msrsave_test_check_msr(msr_val, sizeof(msr_val) / sizeof(uint64_t), test_msr_path, num_cpu);
 
     char this_path[NAME_MAX] = {};
     for (i = 0; i < num_cpu; ++i) {
