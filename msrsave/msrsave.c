@@ -45,28 +45,93 @@
 
 static int msr_parse_whitelist(const char *whitelist_path, size_t *num_msr_ptr, uint64_t **msr_offset_ptr, uint64_t **msr_mask_ptr)
 {
+    enum {BUFFER_SIZE = 8192};
     int err = 0;
     int tmp_err = 0;
     int i;
+    int tmp_fd = -1;
+    int whitelist_fd = -1;
     size_t num_scan = 0;
     size_t num_msr = 0;
+    ssize_t num_read = 0;
+    ssize_t num_write = 0;
     char *whitelist_buffer = NULL;
     char *whitelist_ptr = NULL;
     uint64_t *msr_offset = NULL;
     uint64_t *msr_mask = NULL;
-    FILE *whitelist_fid = NULL;
     struct stat whitelist_stat;
+    char tmp_path[NAME_MAX] = "/tmp/msrsave_whitelist_XXXXXX";
     char err_msg[NAME_MAX];
+    char copy_buffer[BUFFER_SIZE];
+
+    /* Copy whitelist into temporary file */
+    tmp_fd = mkstemp(tmp_path);
+    if (tmp_fd == -1)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Creation of temporary file named\"%s\" failed! ", tmp_path);
+        perror(err_msg);
+        goto exit;
+    }
+
+    whitelist_fd = open(whitelist_path, O_RDONLY);
+    if (whitelist_fd == -1)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Open of whitelist file named\"%s\" failed! ", whitelist_path);
+        perror(err_msg);
+        goto exit;
+    }
+
+    while ((num_read = read(whitelist_fd, copy_buffer, sizeof(copy_buffer))))
+    {
+        if (num_read == -1)
+        {
+            err = errno ? errno : -1;
+            snprintf(err_msg, NAME_MAX, "Read of whitelist file \"%s\" failed! ", whitelist_path);
+            perror(err_msg);
+            goto exit;
+        }
+
+        num_write = write(tmp_fd, copy_buffer, num_read);
+        if (num_write != num_read)
+        {
+            err = errno ? errno : -1;
+            snprintf(err_msg, NAME_MAX, "Write to temporary file \"%s\" failed! ", tmp_path);
+            perror(err_msg);
+            goto exit;
+        }
+    }
+
+    tmp_err = close(tmp_fd);
+    tmp_fd = -1;
+    if (tmp_err == -1)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Close of temporary file named\"%s\" failed! ", tmp_path);
+        perror(err_msg);
+        goto exit;
+    }
+
+    tmp_err = close(whitelist_fd);
+    whitelist_fd = -1;
+    if (tmp_err == -1)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Close of whitelist file named\"%s\" failed! ", whitelist_path);
+        perror(err_msg);
+        goto exit;
+    }
 
     *msr_offset_ptr = NULL;
     *msr_mask_ptr = NULL;
 
     /* Figure out how big the whitelist file is */
-    tmp_err = stat(whitelist_path, &whitelist_stat);
+    tmp_err = stat(tmp_path, &whitelist_stat);
     if (tmp_err != 0)
     {
         err = errno ? errno : -1;
-        snprintf(err_msg, NAME_MAX, "stat() of %s failed! ", whitelist_path);
+        snprintf(err_msg, NAME_MAX, "stat() of %s failed! ", tmp_path);
         perror(err_msg);
         goto exit;
     }
@@ -74,7 +139,7 @@ static int msr_parse_whitelist(const char *whitelist_path, size_t *num_msr_ptr, 
     if (whitelist_stat.st_size == 0)
     {
         err = errno ? errno : -1;
-        snprintf(err_msg, NAME_MAX, "Whitelist file (%s) size is zero!", whitelist_path);
+        snprintf(err_msg, NAME_MAX, "Whitelist file (%s) size is zero!", tmp_path);
         perror(err_msg);
         goto exit;
     }
@@ -90,21 +155,32 @@ static int msr_parse_whitelist(const char *whitelist_path, size_t *num_msr_ptr, 
     }
 
     /* Open file */
-    whitelist_fid = fopen(whitelist_path, "r");
-    if (!whitelist_fid)
+    tmp_fd = open(tmp_path, O_RDONLY);
+    if (tmp_fd == -1)
     {
         err = errno ? errno : -1;
-        snprintf(err_msg, NAME_MAX, "Could not open whitelist file \"%s\"!", whitelist_path);
+        snprintf(err_msg, NAME_MAX, "Could not open whitelist temporary file \"%s\"!", tmp_path);
         perror(err_msg);
         goto exit;
     }
 
     /* Read contents */
-    size_t num_read = fread(whitelist_buffer, 1, whitelist_stat.st_size, whitelist_fid);
+    num_read = read(tmp_fd, whitelist_buffer, whitelist_stat.st_size);
     if (num_read != whitelist_stat.st_size)
     {
         err = errno ? errno : -1;
         snprintf(err_msg, NAME_MAX, "Contents read from whitelist file is too small: %zu < %zu!", num_read, whitelist_stat.st_size);
+        perror(err_msg);
+        goto exit;
+    }
+
+    /* close file */
+    tmp_err = close(tmp_fd);
+    tmp_fd = -1;
+    if (tmp_err)
+    {
+        err = errno ? errno : -1;
+        snprintf(err_msg, NAME_MAX, "Unable to close temporary whitelist file called \"%s\"", tmp_path);
         perror(err_msg);
         goto exit;
     }
@@ -158,25 +234,19 @@ static int msr_parse_whitelist(const char *whitelist_path, size_t *num_msr_ptr, 
         }
     }
 
-    tmp_err = fclose(whitelist_fid);
-    if (tmp_err)
-    {
-        whitelist_fid = NULL;
-        err = errno ? errno : -1;
-        snprintf(err_msg, NAME_MAX, "Unable to close whitelist file called \"%s\"", whitelist_path);
-        perror(err_msg);
-        goto exit;
-    }
-    whitelist_fid = NULL;
-
 exit:
+    unlink(tmp_path);
+    if (tmp_fd != -1)
+    {
+        close(tmp_fd);
+    }
+    if (whitelist_fd != -1)
+    {
+        close(whitelist_fd);
+    }
     if (whitelist_buffer)
     {
         free(whitelist_buffer);
-    }
-    if (whitelist_fid)
-    {
-        fclose(whitelist_fid);
     }
     return err;
 }
