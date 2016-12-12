@@ -28,12 +28,12 @@ for flavor in %flavors_to_build; do
     rm -rf obj/$flavor
     mkdir -p obj/$flavor
     cp -r msr* Makefile obj/$flavor
-    make -C %{kernel_source $flavor} M=$PWD/obj/$flavor
+    %{__make} -C %{kernel_source $flavor} M=$PWD/obj/$flavor
 done
-make msrsave
+%{__make} CPPFLAGS="-DVERSION=\\\"%{version}-%{release}\\\"" msrsave/msrsave
 
 %install
-make install DESTDIR=%{buildroot} prefix=%{_prefix} sbindir=%{_sbindir} mandir=%{_mandir}
+%{__make} install DESTDIR=%{buildroot} prefix=%{_prefix} sbindir=%{_sbindir} mandir=%{_mandir}
 install -d %{buildroot}/%{_datadir}/msr-safe/whitelists
 install -m 0644 whitelists/* %{buildroot}/%{_datadir}/msr-safe/whitelists/
 install -d %{buildroot}%{_unitdir}

@@ -39,9 +39,13 @@ check: msrsave/msrsave_test
 
 msrsave/msrsave.o: msrsave/msrsave.c msrsave/msrsave.h
 
-msrsave/msrsave: msrsave/msrsave_main.c msrsave/msrsave.o msrsave/msrsave.h
+msrsave/msrsave_main.o: msrsave/msrsave_main.c msrsave/msrsave.h
 
-msrsave/msrsave_test: msrsave/msrsave_test.c msrsave/msrsave.o msrsave/msrsave.h
+msrsave/msrsave: msrsave/msrsave_main.o msrsave/msrsave.o
+
+msrsave/msrsave_test.o: msrsave/msrsave_test.c msrsave/msrsave.h
+
+msrsave/msrsave_test: msrsave/msrsave_test.o msrsave/msrsave.o
 
 INSTALL ?= install
 prefix ?= $(HOME)/build
