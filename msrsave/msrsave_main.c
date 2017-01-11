@@ -120,7 +120,7 @@ int main(int argc, char **argv)
 
     if (!err && optind == argc)
     {
-        fprintf(stderr, "Error: No file name specified.\n\n", argv[0]);
+        fprintf(stderr, "Error: No file name specified.\n\n");
         fprintf(stderr, usage, argv[0]);
         err = EINVAL;
     }
