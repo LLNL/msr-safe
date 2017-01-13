@@ -1,31 +1,33 @@
 /*
-#  Copyright (c) 2011, 2012, 2013, 2014, 2015 by Lawrence Livermore National Security, LLC. LLNL-CODE-645430
-#  Produced at the Lawrence Livermore National Laboratory.
-#  Written by Marty McFadden, Kathleen Shoga and Barry Rountree (mcfadden1|shoga1|rountree@llnl.gov).
-#  All rights reserved.
-#
-#  This file is part of msr-safe.
-#
-#  msr-safe is free software: you can redistribute it and/or
-#  modify it under the terms of the GNU Lesser General Public
-#  License as published by the Free Software Foundation, either
-#  version 3 of the License, or (at your option) any
-#  later version.
-#
-#  msr-safe is distributed in the hope that it will be useful, but
-#  WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-#  Lesser General Public License for more details.
-#
-#  You should have received a copy of the GNU Lesser General Public
-#  License along
-#  with msr-safe. If not, see <http://www.gnu.org/licenses/>.
-#
-#  This material is based upon work supported by the U.S. Department
-#  of Energy's Lawrence Livermore National Laboratory. Office of
-#  Science, under Award number DE-AC52-07NA27344.
-*/
-/*
+ * Copyright (c) 2011, 2012, 2013, 2014, 2015 by
+ * Lawrence Livermore National Security, LLC. LLNL-CODE-645430
+ * Produced at the Lawrence Livermore National Laboratory.
+ * Written by Marty McFadden, Kathleen Shoga and Barry Rountree
+ * (mcfadden1|shoga1|rountree@llnl.gov).
+ * All rights reserved.
+ *
+ * This file is part of msr-safe.
+ *
+ * msr-safe is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation, either
+ * version 3 of the License, or (at your option) any
+ * later version.
+ *
+ * msr-safe is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along
+ * with msr-safe. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * This material is based upon work supported by the U.S. Department
+ * of Energy's Lawrence Livermore National Laboratory. Office of
+ * Science, under Award number DE-AC52-07NA27344.
+ *
+ *
  * MSR Whitelist implentation
  */
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -188,7 +190,7 @@ static ssize_t read_whitelist(struct file *file, char __user *buf,
 {
 	loff_t idx = *ppos;
 	u32 __user *tmp = (u32 __user *) buf;
-	char kbuf[160];
+	char kbuf[200];
 	int len;
 	struct whitelist_entry e;
 
@@ -203,8 +205,14 @@ static ssize_t read_whitelist(struct file *file, char __user *buf,
 	e = whitelist[idx];
 	mutex_unlock(&whitelist_mutex);
 
-	len = sprintf(kbuf,
-		"MSR: %08llx Write Mask: %016llx\n", e.msr, e.wmask);
+	if (idx == 0)
+		len = sprintf(kbuf,
+			"# MSR\t\tWrite Mask\t\t# Comment\n"
+			"0x%08llx\t0x%016llx\n", e.msr, e.wmask);
+	else
+		len = sprintf(kbuf,
+			"0x%08llx\t0x%016llx\n", e.msr, e.wmask);
+
 
 	if (len > count)
 		return -EFAULT;
