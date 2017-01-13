@@ -38,7 +38,7 @@
 #include <linux/smp.h>
 #include <linux/cpumask.h>
 #include <asm/msr.h>
-#include "msr.h"
+#include "msr_safe.h"
 
 static void __msr_safe_batch(void *info)
 {
