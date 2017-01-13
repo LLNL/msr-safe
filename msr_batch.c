@@ -23,7 +23,7 @@
 #include <asm/msr.h>
 #include "msr_whitelist.h"
 #include "msr_batch.h"
-#include "msr.h"
+#include "msr_safe.h"
 
 static int majordev;
 static struct class *cdev_class;
@@ -109,6 +109,8 @@ static int msrbatch_apply_whitelist(struct msr_batch_array *oa,
 	}
 	return err;
 }
+
+extern int msr_safe_batch(struct msr_batch_array *oa);
 
 static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
 {
