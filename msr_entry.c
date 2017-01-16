@@ -54,12 +54,23 @@ struct msr_session_info
     int rawio_allowed;
 };
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0)
+  static inline void inode_lock(struct inode *inode)
+{
+    mutex_lock(&inode->i_mutex);
+}
+static inline void inode_unlock(struct inode *inode)
+{
+    mutex_lock(&inode->i_mutex);
+}
+#endif
+
 static loff_t msr_seek(struct file *file, loff_t offset, int orig)
 {
     loff_t ret;
     struct inode *inode = file->f_mapping->host;
 
-    mutex_lock(&inode->i_mutex);
+    inode_lock(inode);
     switch (orig)
     {
         case SEEK_SET:
@@ -73,7 +84,7 @@ static loff_t msr_seek(struct file *file, loff_t offset, int orig)
         default:
             ret = -EINVAL;
     }
-    mutex_unlock(&inode->i_mutex);
+    inode_unlock(inode);
     return ret;
 }
 
