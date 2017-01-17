@@ -54,7 +54,7 @@ struct msr_session_info
     int rawio_allowed;
 };
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,5,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0)
   static inline void inode_lock(struct inode *inode)
 {
     mutex_lock(&inode->i_mutex);
