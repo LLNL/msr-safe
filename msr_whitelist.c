@@ -50,6 +50,14 @@ struct whitelist_entry {
 	struct hlist_node hlist;
 };
 
+struct whitelist_data {
+	u32 entries;	/* WL entries successfully parsed */
+	int ecode;	/* 0 if things look good */
+	char *partial_line;
+	int partial_len;	/* Length of partial line */
+	struct whitelist_entry *whitelist;
+};
+
 static void delete_whitelist(void);
 static int create_whitelist(int nentries);
 static struct whitelist_entry *find_in_whitelist(u64 msr);
@@ -113,6 +121,7 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	struct whitelist_entry *entry;
 	char *kbuf;
 
+	pr_debug("%s: %p, %zu, %llu\n", __FUNCTION__, buf, count, *ppos);
 	if (count <= 2) {
 		mutex_lock(&whitelist_mutex);
 		delete_whitelist();
@@ -122,21 +131,21 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	}
 
 	if (count+1 > MAX_WLIST_BSIZE) {
-		pr_debug("write_whitelist: buffer of %zu bytes too large\n",
-		    count);
+		pr_debug("%s: buffer of %zu bytes too large\n",
+		    __FUNCTION__, count);
 		return -EINVAL;
 	}
 
 	kbuf = kzalloc(count+1, GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(kbuf)) {
-		pr_debug("write_whitelist: memory alloc(%zu) failed\n",
-			count+1);
+		pr_debug("%s: memory alloc(%zu) failed\n",
+			__FUNCTION__, count+1);
 		return -ENOMEM;
 	}
 
 	if (copy_from_user(kbuf, tmp, count)) {
-		pr_debug("write_whitelist: copy_from_user(%zu) failed\n",
-			count);
+		pr_debug("%s: copy_from_user(%zu) failed\n",
+			__FUNCTION__, count);
 		err = -EFAULT;
 		goto out_freebuffer;
 	}
@@ -145,7 +154,7 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	for (num_entries = 0, s = kbuf, res = 1; res > 0; ) {
 		res = parse_next_whitelist_entry(s, &s, 0);
 		if (res < 0) {
-			pr_debug("write_whitelist: parse error\n");
+			pr_debug("%s: parse error\n", __FUNCTION__);
 			err = res;
 			goto out_freebuffer;
 		}
@@ -155,7 +164,7 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	}
 
 	if (num_entries == 0) {
-		pr_debug("write_whitelist: No valid entries found in input\n");
+		pr_debug("%s: No valid entries found in input\n", __FUNCTION__);
 		err = -EINVAL;
 		goto out_freebuffer;
 	}
@@ -164,8 +173,8 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	mutex_lock(&whitelist_mutex);
 	res = create_whitelist(num_entries);
 	if (res < 0) {
-		pr_debug("write_whitelist: create_whitelist(%d) failed\n",
-			num_entries);
+		pr_debug("%s: create_whitelist(%d) failed\n",
+			__FUNCTION__, num_entries);
 		err = res;
 		goto out_releasemutex;
 	}
@@ -173,7 +182,7 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	for (entry = whitelist, s = kbuf, res = 1; res > 0; entry++) {
 		res = parse_next_whitelist_entry(s, &s, entry);
 		if (res < 0) {
-			pr_debug("write_whitelist: Table corrupted\n");
+			pr_debug("%s: Table corrupted\n", __FUNCTION__);
 			delete_whitelist();
 			err = res; /* This should not happen! */
 			goto out_releasemutex;
@@ -181,8 +190,8 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 
 		if (res) {
 			if (find_in_whitelist(entry->msr)) {
-				pr_debug("write_whitelist: Duplicate: %llx\n",
-							 entry->msr);
+				pr_debug("%s: Duplicate: %llx\n",
+						 __FUNCTION__, entry->msr);
 				err = -EINVAL;
 				delete_whitelist();
 				goto out_releasemutex;
@@ -319,7 +328,7 @@ static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf,
 			s++;
 
 		if (*s == 0) {
-			pr_debug("parse_next_whitelist_entry: Premature EOF");
+			pr_debug("%s: Premature EOF\n", __FUNCTION__);
 			return -EINVAL;
 		}
 
@@ -376,7 +385,7 @@ int msr_whitelist_init(void)
 
 	majordev = register_chrdev(0, "cpu/msr_whitelist", &fops);
 	if (majordev < 0) {
-		pr_debug("msr_whitelist_init: unable to register chrdev\n");
+		pr_debug("%s: unable to register chrdev\n", __FUNCTION__);
 		msr_whitelist_cleanup();
 		return -EBUSY;
 	}

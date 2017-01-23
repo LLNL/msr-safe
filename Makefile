@@ -1,6 +1,7 @@
-#  Copyright (c) 2011, 2012, 2013, 2014, 2015 by Lawrence Livermore National Security, LLC. LLNL-CODE-645430 
-#  Produced at the Lawrence Livermore National Laboratory.
-#  Written by Marty McFadden, Kathleen Shoga and Barry Rountree (mcfadden1|shoga1|rountree@llnl.gov).
+#  Copyright (c) 2011, 2012, 2013, 2014, 2015 by Lawrence Livermore National
+#  Security, LLC. LLNL-CODE-645430 Produced at the Lawrence Livermore National
+#  Laboratory.  Written by Marty McFadden, Kathleen Shoga and Barry Rountree
+#  (mcfadden1|shoga1|rountree@llnl.gov).
 #  All rights reserved.
 # 
 #  This file is part of msr-safe.
@@ -23,6 +24,15 @@
 #  This material is based upon work supported by the U.S. Department
 #  of Energy's Lawrence Livermore National Laboratory. Office of 
 #  Science, under Award number DE-AC52-07NA27344.
+
+#
+# Uncomment following line(s) to enable debug output from different
+# portions of kernel module.
+#
+CFLAGS_msr_whitelist.o := -DDEBUG
+#CFLAGS_msr_entry.o := -DDEBUG
+#CFLAGS_msr_batch.o := -DDEBUG
+#CFLAGS_msr-smp.o := -DDEBUG
 
 obj-m += msr-safe.o 
 msr-safe-objs := msr_entry.o msr_whitelist.o msr-smp.o msr_batch.o
