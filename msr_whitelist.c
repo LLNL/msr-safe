@@ -47,7 +47,6 @@
 struct whitelist_entry {
 	u64 wmask;	/* Bits that may be written */
 	u64 msr;	/* Address of msr (used as hash key) */
-	u64 *msrdata;	/* ptr to original msr contents of writable bits */
 	struct hlist_node hlist;
 };
 
@@ -129,10 +128,15 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	}
 
 	kbuf = kzalloc(count+1, GFP_KERNEL);
-	if (!kbuf)
+	if (ZERO_OR_NULL_PTR(kbuf)) {
+		pr_debug("write_whitelist: memory alloc(%zu) failed\n",
+			count+1);
 		return -ENOMEM;
+	}
 
 	if (copy_from_user(kbuf, tmp, count)) {
+		pr_debug("write_whitelist: copy_from_user(%zu) failed\n",
+			count);
 		err = -EFAULT;
 		goto out_freebuffer;
 	}
@@ -141,6 +145,7 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	for (num_entries = 0, s = kbuf, res = 1; res > 0; ) {
 		res = parse_next_whitelist_entry(s, &s, 0);
 		if (res < 0) {
+			pr_debug("write_whitelist: parse error\n");
 			err = res;
 			goto out_freebuffer;
 		}
@@ -149,10 +154,18 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 			num_entries++;
 	}
 
+	if (num_entries == 0) {
+		pr_debug("write_whitelist: No valid entries found in input\n");
+		err = -EINVAL;
+		goto out_freebuffer;
+	}
+
 	/* Pass 2: */
 	mutex_lock(&whitelist_mutex);
 	res = create_whitelist(num_entries);
 	if (res < 0) {
+		pr_debug("write_whitelist: create_whitelist(%d) failed\n",
+			num_entries);
 		err = res;
 		goto out_releasemutex;
 	}
@@ -233,11 +246,8 @@ static const struct file_operations fops = {
 
 static void delete_whitelist(void)
 {
-	if (whitelist == 0)
+	if (ZERO_OR_NULL_PTR(whitelist))
 		return;
-
-	if (whitelist->msrdata != 0)
-		kfree(whitelist->msrdata);
 
 	kfree(whitelist);
 	whitelist = 0;
@@ -251,7 +261,7 @@ static int create_whitelist(int nentries)
 	whitelist_numentries = nentries;
 	whitelist = kcalloc(nentries, sizeof(*whitelist), GFP_KERNEL);
 
-	if (!whitelist)
+	if (ZERO_OR_NULL_PTR(whitelist))
 		return -ENOMEM;
 	return 0;
 }
