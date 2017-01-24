@@ -131,20 +131,20 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	}
 
 	if (count+1 > MAX_WLIST_BSIZE) {
-		pr_debug("%s: buffer of %zu bytes too large\n",
+		pr_err("%s: buffer of %zu bytes too large\n",
 		    __FUNCTION__, count);
 		return -EINVAL;
 	}
 
 	kbuf = kzalloc(count+1, GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(kbuf)) {
-		pr_debug("%s: memory alloc(%zu) failed\n",
+		pr_err("%s: memory alloc(%zu) failed\n",
 			__FUNCTION__, count+1);
 		return -ENOMEM;
 	}
 
 	if (copy_from_user(kbuf, tmp, count)) {
-		pr_debug("%s: copy_from_user(%zu) failed\n",
+		pr_err("%s: copy_from_user(%zu) failed\n",
 			__FUNCTION__, count);
 		err = -EFAULT;
 		goto out_freebuffer;
@@ -154,7 +154,7 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	for (num_entries = 0, s = kbuf, res = 1; res > 0; ) {
 		res = parse_next_whitelist_entry(s, &s, 0);
 		if (res < 0) {
-			pr_debug("%s: parse error\n", __FUNCTION__);
+			pr_err("%s: parse error\n", __FUNCTION__);
 			err = res;
 			goto out_freebuffer;
 		}
@@ -164,7 +164,8 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	}
 
 	if (num_entries == 0) {
-		pr_debug("%s: No valid entries found in input\n", __FUNCTION__);
+		pr_err("%s: No valid entries found in %zu bytes of input\n",
+			__FUNCTION__, count);
 		err = -EINVAL;
 		goto out_freebuffer;
 	}
@@ -173,7 +174,7 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	mutex_lock(&whitelist_mutex);
 	res = create_whitelist(num_entries);
 	if (res < 0) {
-		pr_debug("%s: create_whitelist(%d) failed\n",
+		pr_err("%s: create_whitelist(%d) failed\n",
 			__FUNCTION__, num_entries);
 		err = res;
 		goto out_releasemutex;
@@ -182,7 +183,7 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 	for (entry = whitelist, s = kbuf, res = 1; res > 0; entry++) {
 		res = parse_next_whitelist_entry(s, &s, entry);
 		if (res < 0) {
-			pr_debug("%s: Table corrupted\n", __FUNCTION__);
+			pr_err("%s: Table corrupted\n", __FUNCTION__);
 			delete_whitelist();
 			err = res; /* This should not happen! */
 			goto out_releasemutex;
@@ -190,7 +191,7 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf,
 
 		if (res) {
 			if (find_in_whitelist(entry->msr)) {
-				pr_debug("%s: Duplicate: %llx\n",
+				pr_err("%s: Duplicate: %llx\n",
 						 __FUNCTION__, entry->msr);
 				err = -EINVAL;
 				delete_whitelist();
