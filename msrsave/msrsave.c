@@ -381,8 +381,11 @@ int msr_restore(const char *restore_path, const char *whitelist_path, const char
     int tmp_err = 0;
     int i, j;
     int msr_fd;
+    int do_print_header = 1;
     size_t num_msr = 0;
-    uint64_t curr_val = 0;
+    uint64_t read_val = 0;
+    uint64_t masked_val = 0;
+    uint64_t write_val = 0;
     uint64_t *msr_offset = NULL;
     uint64_t *msr_mask = NULL;
     uint64_t *restore_buffer = NULL;
@@ -448,7 +451,7 @@ int msr_restore(const char *restore_path, const char *whitelist_path, const char
     if (num_read != num_msr * num_cpu || fgetc(restore_fid) != EOF)
     {
         err = errno ? errno : -1;
-        snprintf(err_msg, NAME_MAX, "Could not write all values to output file \"%s\"!", restore_path);
+        snprintf(err_msg, NAME_MAX, "Could not read all values from input file \"%s\"!", restore_path);
         perror(err_msg);
         goto exit;
     }
@@ -482,7 +485,7 @@ int msr_restore(const char *restore_path, const char *whitelist_path, const char
         }
         for (j = 0; j < num_msr; ++j)
         {
-            ssize_t count = pread(msr_fd, &curr_val, sizeof(uint64_t), msr_offset[j]);
+            ssize_t count = pread(msr_fd, &read_val, sizeof(uint64_t), msr_offset[j]);
             if (count != sizeof(uint64_t))
             {
                 err = errno ? errno : -1;
@@ -490,9 +493,22 @@ int msr_restore(const char *restore_path, const char *whitelist_path, const char
                 perror(err_msg);
                 goto exit;
             }
-            curr_val &= ~(msr_mask[j]);
-            curr_val |= restore_buffer[i * num_msr + j];
-            count = pwrite(msr_fd, &curr_val, sizeof(uint64_t), msr_offset[j]);
+            masked_val = (read_val & msr_mask[j]);
+            if (masked_val != restore_buffer[i * num_msr + j]) {
+                write_val = ((read_val & ~(msr_mask[j])) | restore_buffer[i * num_msr + j]);
+                count = pwrite(msr_fd, &write_val, sizeof(uint64_t), msr_offset[j]);
+                if (count != sizeof(uint64_t)) {
+                    err = errno ? errno : -1;
+                    snprintf(err_msg, NAME_MAX, "Failed to write msr value at offset 0x%016xz to MSR file \"%s\"!", msr_offset[j], msr_file_name);
+                    perror(err_msg);
+                    goto exit;
+                }
+                if (do_print_header) {
+                    printf("offset, read, restored\n");
+                    do_print_header = 0;
+                }
+                printf("0x%016zx, 0x%016zx, 0x%016zx\n", msr_offset[j], read_val, write_val);
+            }
         }
         tmp_err = close(msr_fd);
         msr_fd = -1;
