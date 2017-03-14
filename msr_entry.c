@@ -58,7 +58,11 @@ static loff_t msr_seek(struct file *file, loff_t offset, int orig)
 	loff_t ret;
 	struct inode *inode = file->f_mapping->host;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
+	inode_lock(inode);
+#else
 	mutex_lock(&inode->i_mutex);
+#endif
 	switch (orig) {
 	case SEEK_SET:
 		file->f_pos = offset;
@@ -71,7 +75,11 @@ static loff_t msr_seek(struct file *file, loff_t offset, int orig)
 	default:
 		ret = -EINVAL;
 	}
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0)
+	inode_unlock(inode);
+#else
 	mutex_unlock(&inode->i_mutex);
+#endif
 	return ret;
 }
 
