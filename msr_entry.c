@@ -42,12 +42,15 @@
 #include <linux/uaccess.h>
 #include <linux/gfp.h>
 
-#include <asm/processor.h>
+#include <asm/cpufeature.h>
 #include <asm/msr.h>
 #include "msr_whitelist.h"
 #include "msr_batch.h"
 
 static struct class *msr_class;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
+static enum cpuhp_state cpuhp_msr_state;
+#endif
 static int majordev;
 struct msr_session_info {
 	int rawio_allowed;
@@ -256,7 +259,11 @@ static const struct file_operations msr_fops = {
 	.release = msr_close
 };
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
 static int msr_device_create(int cpu)
+#else
+static int msr_device_create(unsigned int cpu)
+#endif
 {
 	struct device *dev;
 
@@ -265,11 +272,20 @@ static int msr_device_create(int cpu)
 	return IS_ERR(dev) ? PTR_ERR(dev) : 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
 static void msr_device_destroy(int cpu)
 {
 	device_destroy(msr_class, MKDEV(majordev, cpu));
 }
+#else
+static int msr_device_destroy(unsigned int cpu)
+{
+	device_destroy(msr_class, MKDEV(majordev, cpu));
+	return 0;
+}
+#endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
 static int msr_class_cpu_callback(struct notifier_block *nfb,
 				  unsigned long action, void *hcpu)
 {
@@ -292,6 +308,7 @@ static int msr_class_cpu_callback(struct notifier_block *nfb,
 static struct notifier_block __refdata msr_class_cpu_notifier = {
 	.notifier_call = msr_class_cpu_callback,
 };
+#endif /* LINUX_VERSION_CODE */
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
 static char *msr_devnode(struct device *dev, mode_t *mode)
@@ -304,8 +321,10 @@ static char *msr_devnode(struct device *dev, umode_t *mode)
 
 static int __init msr_init(void)
 {
-	int i = 0;
-	int err = 0;
+	int err;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
+	int i;
+#endif
 
 	err = msrbatch_init();
 	if (err != 0) {
@@ -331,20 +350,29 @@ static int __init msr_init(void)
 	}
 	msr_class->devnode = msr_devnode;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
+	i = 0;
 	for_each_online_cpu(i) {
 		err = msr_device_create(i);
 		if (err != 0)
 			goto out_class;
 	}
 	register_hotcpu_notifier(&msr_class_cpu_notifier);
-
-	err = 0;
-	goto out;
+#else
+	err = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "x86/msr:online",
+				msr_device_create, msr_device_destroy);
+	if (err < 0)
+		goto out_class;
+	cpuhp_msr_state = err;
+#endif
+	return 0;
 
 out_class:
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
 	i = 0;
 	for_each_online_cpu(i)
 		msr_device_destroy(i);
+#endif
 	class_destroy(msr_class);
 out_chrdev:
 	__unregister_chrdev(majordev, 0, num_possible_cpus(), "cpu/msr_safe");
@@ -355,21 +383,29 @@ out_batch:
 out:
 	return err;
 }
+module_init(msr_init);
 
 static void __exit msr_exit(void)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
 	int cpu = 0;
 
 	for_each_online_cpu(cpu)
 		msr_device_destroy(cpu);
+#else
+	cpuhp_remove_state(cpuhp_msr_state);
+#endif
 	class_destroy(msr_class);
 	__unregister_chrdev(majordev, 0, num_possible_cpus(), "cpu/msr_safe");
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
 	unregister_hotcpu_notifier(&msr_class_cpu_notifier);
+#endif
+
 	msr_whitelist_cleanup();
 	msrbatch_cleanup();
 }
 
-module_init(msr_init);
 module_exit(msr_exit)
 
 MODULE_AUTHOR("H. Peter Anvin <hpa@zytor.com>");
