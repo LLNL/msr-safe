@@ -25,25 +25,32 @@
 
 The msr-safe.ko module is comprised of the following source files:
 
-Makefile
-msr_entry.c		Original MSR driver with added calls to batch and
-			whitelist implementations.
-msr_batch.[ch]		MSR batching implementation
-msr_whitelist.[ch]	MSR Whitelist implementation
-whitelists		Sample text whitelist that may be input to msr_safe
+    Makefile
+    msr_entry.c		    Original MSR driver with added calls to batch and
+                        whitelist implementations.
+    msr_batch.[ch]		MSR batching implementation
+    msr_whitelist.[ch]	MSR Whitelist implementation
+    whitelists		    Sample text whitelist that may be input to msr_safe
 
-Configuration notes after install:
+Configuration notes after install
+=================================
+Setup permissions and groups for `/dev/cpu/#/msr_safe` as you like since
+whitelist will protect you from harm.
 
-Set up permissions and groups for /dev/cpu/#/msr_safe as you like since white
-list will protect you from harm.
-
-Sample white lists for each architecture are provided in whitelists directory.
+Sample whitelists for each architecture are provided in `whitelists/` directory.
 
 To configure whitelist (as root):
+
 	cat whitelist/wl_file > /dev/cpu/msr_whitelist
 
+Where `wl_file` can be determined as follows:
+
+    printf 'wl_%.2x%x\n' $(lscpu | grep "CPU family:" | awk -F: '{print $2}') $(lscpu | grep "Model:" | awk -F: '{print $2}')
+
 To enumerate current whitelist (as root):
+
 	cat < /dev/cpu/msr_whitelist
 
 To remove whitelist (as root):
+
 	echo > /dev/cpu/msr_whitelist
