@@ -3,7 +3,7 @@
 
 Name:       msr-safe
 Version:    0
-Release:    0.1.git%{shortrev}%{?dist}
+Release:    0.4.git%{shortrev}%{?dist}
 License:    GPLv3+
 Summary:    Allows safer access to model specific registers (MSRs)
 Url:        https://github.com/LLNL/msr-safe
@@ -12,6 +12,7 @@ Source0:    https://github.com/LLNL/%{name}/archive/%{rev}.tar.gz#/%{name}-%{rev
 Source1:    msr-safe.service
 Source2:    msr-safe.sysconfig
 Source3:    10-msr-safe.rules
+Source4:    msr-safe.sh
 BuildRoot:  %{_tmppath}/%{name}-%{version}-build
 BuildRequires:  %kernel_module_package_buildreqs
 
@@ -42,6 +43,8 @@ install -d %{buildroot}/%{_sysconfdir}/sysconfig
 install -m 0644 %{SOURCE2} %{buildroot}/%{_sysconfdir}/sysconfig/msr-safe
 install -d %{buildroot}/%{_udevrulesdir}
 install -m 0644 %{SOURCE3} %{buildroot}/%{_udevrulesdir}/10-msr-safe.rules
+install -d %{buildroot}%{_sbindir}
+install -m 0755 %{SOURCE4} %{buildroot}%{_sbindir}/msr-safe
 
 export INSTALL_MOD_PATH=$RPM_BUILD_ROOT
 export INSTALL_MOD_DIR=extra/%{name}
@@ -83,11 +86,16 @@ fi
 %config %{_sysconfdir}/sysconfig/msr-safe
 %doc README
 %{_sbindir}/msrsave
+%{_sbindir}/msr-safe
 %dir %{_mandir}/man1
 %doc %{_mandir}/man1/msrsave.1.gz
 
 
 %changelog
+* Tue Aug 23 2017 Ben Allen <bsallen@alcf.anl.gov> 9240638-4
+- Rev package version to 0.4
+* Tue Jan 17 2017 Ben Allen <bsallen@alcf.anl.gov> 7bfb843-2
+- Rev package version to 0.2
 * Mon Dec 05 2016 Christopher M. Cantalupo <christopher.m.cantalupo@intel.com>
 - Add msrsave application build and install.
 * Wed Apr 20 2016 Ben Allen <bsallen@alcf.anl.gov> 7667118-1
