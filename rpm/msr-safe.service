@@ -9,14 +9,11 @@ Description=Sets default MSR whitelist
 After=nss-user-lookup.target nslcd.service
 
 [Service]
-EnvironmentFile=/etc/sysconfig/msr-safe
 Type=oneshot
 RemainAfterExit=yes
 User=root
-ExecStartPre=/sbin/modprobe msr-safe
-ExecStart=/usr/bin/sh -c "cat ${WHITELIST} > /dev/cpu/msr_whitelist"
-ExecStop=/usr/bin/sh -c "echo > /dev/cpu/msr_whitelist"
-ExecStopPost=/sbin/rmmod msr-safe
+ExecStart=/usr/sbin/msr-safe start
+ExecStop=/usr/sbin/msr-safe stop
 
 [Install]
 WantedBy=multi-user.target
