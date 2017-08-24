@@ -5,9 +5,15 @@ set -o pipefail
 
 . /etc/sysconfig/msr-safe
 
+wl_cpu() {
+  printf 'wl_%.2x%x\n' \
+  $( tr -d "\t " < /proc/cpuinfo | grep -m1 'cpufamily:' | cut -f2 -d:) \
+  $( tr -d "\t " < /proc/cpuinfo | grep -m1 'model:' | cut -f2 -d:)
+}
+
 start() {
   if [ -z "${WL_CPU:-}" ]; then
-    WL_CPU=$(printf 'wl_%.2x%x\n' $(lscpu | grep "CPU family:" | awk -F: '{print $2}') $(lscpu | grep "Model:" | awk -F: '{print $2}'))
+    WL_CPU=$(wl_cpu)
   fi
 
   if [ -z "${WHITELIST:-}" ]; then
