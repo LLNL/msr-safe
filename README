@@ -1,27 +1,5 @@
-#  Copyright (c) 2011, 2012, 2013, 2014, 2015 by Lawrence Livermore National
-#  Security, LLC. LLNL-CODE-645430
-#  Produced at the Lawrence Livermore National Laboratory.
-#  Written by Marty McFadden, Kathleen Shoga and Barry Rountree
-#  (mcfadden1|shoga1|rountree@llnl.gov).  All rights reserved.
-#
-#  This file is part of msr-safe.
-#
-#  msr-safe is free software: you can redistribute it and/or modify it under
-#  the terms of the GNU Lesser General Public License as published by the Free
-#  Software Foundation, either version 3 of the License, or (at your option)
-#  any later version.
-#
-#  msr-safe is distributed in the hope that it will be useful, but WITHOUT ANY
-#  WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-#  FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for
-#  more details.
-#
-#  You should have received a copy of the GNU Lesser General Public License
-#  along with msr-safe. If not, see <http://www.gnu.org/licenses/>.
-#
-#  This material is based upon work supported by the U.S. Department of
-#  Energy's Lawrence Livermore National Laboratory. Office of Science, under
-#  Award number DE-AC52-07NA27344.
+MSR-SAFE
+========
 
 The msr-safe.ko module is comprised of the following source files:
 
@@ -32,14 +10,30 @@ The msr-safe.ko module is comprised of the following source files:
     msr_whitelist.[ch]	MSR Whitelist implementation
     whitelists		    Sample text whitelist that may be input to msr_safe
 
-Configuration notes after install
-=================================
-Setup permissions and groups for `/dev/cpu/#/msr_safe` as you like since
+Kernel Build & Load
+-------------------
+Building the msr-safe.ko module can be done with the commands below. A
+successful load of the msr-safe kernel module will have `msr_batch` and
+`msr_whitelist` in `/dev/cpu`, and will have an `msr_safe` present under each
+CPU directory in `/dev/cpu/*`.
+
+	git clone https://github.com/LLNL/msr-safe
+    cd msr-safe
+    make
+    insmod msr-safe.ko
+
+Configuration Notes After Install
+---------------------------------
+Setup permissions and group ownership for `/dev/cpu/msr_batch`,
+`/dev/cpu/msr_whitelist`, and `/dev/cpu/*/msr_safe` as you like since the
 whitelist will protect you from harm.
 
-Sample whitelists for each architecture are provided in `whitelists/` directory.
+Sample whitelists for specific architectures are provided in `whitelists/`
+directory. These are meant to be a starting point, and should be used with
+caution. Each site may add to, remove from, or modify the write masks in the
+whitelist depending on specific needs.
 
-To configure whitelist (as root):
+To configure whitelist:
 
 	cat whitelist/wl_file > /dev/cpu/msr_whitelist
 
@@ -47,10 +41,27 @@ Where `wl_file` can be determined as follows:
 
     printf 'wl_%.2x%x\n' $(lscpu | grep "CPU family:" | awk -F: '{print $2}') $(lscpu | grep "Model:" | awk -F: '{print $2}')
 
-To enumerate current whitelist (as root):
+To confirm successful whitelist configured:
+
+	cat /dev/cpu/msr_whitelist
+
+To enumerate the current whitelist (i.e., implies whitelist was loaded
+successfully):
 
 	cat < /dev/cpu/msr_whitelist
 
 To remove whitelist (as root):
 
 	echo > /dev/cpu/msr_whitelist
+
+msrsave
+-------
+The msrsave utility provides a mechanism for saving and restoring MSR values
+based on entries in the whitelist. To restore MSR values, the register must
+have an appropriate writemask.
+
+Release
+-------
+
+msr-safe is released under the GPLv3 license. For more details, please see the
+[LICENSE](https://github.com/LLNL/msr-safe/blob/master/LICENSE) file.
