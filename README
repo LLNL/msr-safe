@@ -4,26 +4,28 @@ MSR-SAFE
 The msr-safe.ko module is comprised of the following source files:
 
     Makefile
-    msr_entry.c		    Original MSR driver with added calls to batch and
+    msr_entry.c         Original MSR driver with added calls to batch and
                         whitelist implementations.
-    msr_batch.[ch]		MSR batching implementation
-    msr_whitelist.[ch]	MSR Whitelist implementation
-    whitelists		    Sample text whitelist that may be input to msr_safe
+    msr_batch.[ch]      MSR batching implementation
+    msr_whitelist.[ch]  MSR Whitelist implementation
+    whitelists          Sample text whitelist that may be input to msr_safe
 
 Kernel Build & Load
 -------------------
+
 Building the msr-safe.ko module can be done with the commands below. A
 successful load of the msr-safe kernel module will have `msr_batch` and
 `msr_whitelist` in `/dev/cpu`, and will have an `msr_safe` present under each
 CPU directory in `/dev/cpu/*`.
 
-	git clone https://github.com/LLNL/msr-safe
+    git clone https://github.com/LLNL/msr-safe
     cd msr-safe
     make
     insmod msr-safe.ko
 
 Configuration Notes After Install
 ---------------------------------
+
 Setup permissions and group ownership for `/dev/cpu/msr_batch`,
 `/dev/cpu/msr_whitelist`, and `/dev/cpu/*/msr_safe` as you like since the
 whitelist will protect you from harm.
@@ -35,7 +37,7 @@ whitelist depending on specific needs.
 
 To configure whitelist:
 
-	cat whitelist/wl_file > /dev/cpu/msr_whitelist
+    cat whitelist/wl_file > /dev/cpu/msr_whitelist
 
 Where `wl_file` can be determined as follows:
 
@@ -43,19 +45,20 @@ Where `wl_file` can be determined as follows:
 
 To confirm successful whitelist configured:
 
-	cat /dev/cpu/msr_whitelist
+    cat /dev/cpu/msr_whitelist
 
 To enumerate the current whitelist (i.e., implies whitelist was loaded
 successfully):
 
-	cat < /dev/cpu/msr_whitelist
+    cat < /dev/cpu/msr_whitelist
 
 To remove whitelist (as root):
 
-	echo > /dev/cpu/msr_whitelist
+    echo > /dev/cpu/msr_whitelist
 
 msrsave
 -------
+
 The msrsave utility provides a mechanism for saving and restoring MSR values
 based on entries in the whitelist. To restore MSR values, the register must
 have an appropriate writemask.

@@ -15,6 +15,7 @@ Source3:    10-msr-safe.rules
 Source4:    msr-safe.sh
 BuildRoot:  %{_tmppath}/%{name}-%{version}-build
 BuildRequires:  %kernel_module_package_buildreqs
+BuildRequires:  systemd
 
 %kernel_module_package default
 
