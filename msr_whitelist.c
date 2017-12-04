@@ -198,7 +198,7 @@ static ssize_t write_whitelist(struct file *file, const char __user *buf, size_t
         {
             if (find_in_whitelist(entry->msr))
             {
-                pr_err("%s: Duplicate: %llx\n", __FUNCTION__, entry->msr);
+                pr_err("%s: Duplicate: %llX\n", __FUNCTION__, entry->msr);
                 err = -EINVAL;
                 delete_whitelist();
                 goto out_releasemutex;
@@ -236,11 +236,11 @@ static ssize_t read_whitelist(struct file *file, char __user *buf, size_t count,
 
     if (idx == 0)
     {
-        len = sprintf(kbuf, "# MSR\t\tWrite Mask\t\t# Comment\n" "0x%08llx\t0x%016llx\n", e.msr, e.wmask);
+        len = sprintf(kbuf, "# MSR # Write Mask # Comment\n" "0x%08llX 0x%016llX\n", e.msr, e.wmask);
     }
     else
     {
-        len = sprintf(kbuf, "0x%08llx\t0x%016llx\n", e.msr, e.wmask);
+        len = sprintf(kbuf, "0x%08llX 0x%016llX\n", e.msr, e.wmask);
     }
 
 

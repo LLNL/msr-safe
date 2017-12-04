@@ -47,53 +47,49 @@
 
 int main(int argc, char **argv)
 {
-    const char *usage =
-"NAME\n"
-"       msrsave - msr-safe save and restore application\n"
-"\n"
-"SYNOPSIS\n"
-"       SAVE MSR:\n"
-"              msrsave outfile\n"
-"\n"
-"       RESTORE MSR:\n"
-"              msrsave -r infile\n"
-"\n"
-"       PRINT VERSION OR HELP:\n"
-"              msrsave --version | --help\n"
-"\n"
-"DESCRIPTION\n"
-"       The  msrsave  application  is  used  to save to a file the  state of all write\n"
-"       accessible MSR values defined in the current MSR whitelist or restore the MSR\n"
-"       values from a saved state file. The msrsave application  also respects the\n"
-"       standard --version  and  --help  options  for  printing  the msr-safe pack-\n"
-"       age version or a brief message about usage.\n"
-"\n"
-"OPTIONS\n"
-"       --help\n"
-"              Print brief summary of the command line usage information, then exit.\n"
-"\n"
-"       --version\n"
-"              Print version of msr-safe package to standard output, then exit.\n"
-"\n"
-"       -r\n"
-"              Restore the MSR values that are recorded in an existing MSR saved state\n"
-"              file.\n"
-"\n"
-"COPYRIGHT\n"
-"       Copyright (C) 2016, Intel Corporation. All rights reserved.\n"
-"\n"
-"\n";
+    const char *usage = "NAME\n"
+                        "       msrsave - msr-safe save and restore application\n"
+                        "\n"
+                        "SYNOPSIS\n"
+                        "       SAVE MSR:\n"
+                        "              msrsave outfile\n"
+                        "\n"
+                        "       RESTORE MSR:\n"
+                        "              msrsave -r infile\n"
+                        "\n"
+                        "       PRINT VERSION OR HELP:\n"
+                        "              msrsave --version | --help\n"
+                        "\n"
+                        "DESCRIPTION\n"
+                        "       The  msrsave  application  is  used  to save to a file the  state of all write\n"
+                        "       accessible MSR values defined in the current MSR whitelist or restore the MSR\n"
+                        "       values from a saved state file. The msrsave application  also respects the\n"
+                        "       standard --version  and  --help  options  for  printing  the msr-safe pack-\n"
+                        "       age version or a brief message about usage.\n"
+                        "\n"
+                        "OPTIONS\n"
+                        "       --help\n"
+                        "              Print brief summary of the command line usage information, then exit.\n"
+                        "\n"
+                        "       --version\n"
+                        "              Print version of msr-safe package to standard output, then exit.\n"
+                        "\n"
+                        "       -r\n"
+                        "              Restore the MSR values that are recorded in an existing MSR saved state\n"
+                        "              file.\n"
+                        "\n"
+                        "COPYRIGHT\n"
+                        "       Copyright (C) 2016, Intel Corporation. All rights reserved.\n"
+                        "\n"
+                        "\n";
 
-    if (argc > 1 &&
-        strncmp(argv[1], "--version", strlen("--version") + 1) == 0)
+    if (argc > 1 && strncmp(argv[1], "--version", strlen("--version") + 1) == 0)
     {
         printf("%s\n", VERSION);
         printf("\nCopyright (C) 2016, Intel Corporation. All rights reserved.\n\n");
         return 0;
     }
-    if (argc > 1 && (
-        strncmp(argv[1], "--help", strlen("--help") + 1) == 0 ||
-        strncmp(argv[1], "-h", strlen("-h") + 1) == 0))
+    if (argc > 1 && (strncmp(argv[1], "--help", strlen("--help") + 1) == 0 || strncmp(argv[1], "-h", strlen("-h") + 1) == 0))
     {
         printf(usage, argv[0]);
         return 0;
@@ -143,4 +139,3 @@ int main(int argc, char **argv)
 
     return err;
 }
-
