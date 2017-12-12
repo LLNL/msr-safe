@@ -7,7 +7,7 @@
  * Written by  Barry Rountree, rountree@llnl.gov
  *             Scott Walker,   walker91@llnl.gov
  *             Marty McFadden, mcfadden8@llnl.gov
- *			   Kathleen Shoga, shoga1@llnl.gov
+ *             Kathleen Shoga, shoga1@llnl.gov
  *
  * All rights reserved.
  *
