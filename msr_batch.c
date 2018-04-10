@@ -64,16 +64,10 @@ static char cdev_created;
 static char cdev_registered;
 static char cdev_class_created;
 
-struct msrbatch_session_info
-{
-    int rawio_allowed;
-};
-
 static int msrbatch_open(struct inode *inode, struct file *file)
 {
     unsigned int cpu;
     struct cpuinfo_x86 *c;
-    struct msrbatch_session_info *myinfo;
 
     cpu = iminor(file->f_path.dentry->d_inode);
     if (cpu >= nr_cpu_ids || !cpu_online(cpu))
@@ -89,29 +83,19 @@ static int msrbatch_open(struct inode *inode, struct file *file)
         return -EIO; // MSR not supported
     }
 
-    myinfo = kmalloc(sizeof(*myinfo), GFP_KERNEL);
-    if (!myinfo)
-    {
-        return -ENOMEM;
-    }
-
-    myinfo->rawio_allowed = capable(CAP_SYS_RAWIO);
-    file->private_data = myinfo;
-
     return 0;
 }
 
 static int msrbatch_close(struct inode *inode, struct file *file)
 {
-    kfree(file->private_data);
-    file->private_data = 0;
     return 0;
 }
 
-static int msrbatch_apply_whitelist(struct msr_batch_array *oa, struct msrbatch_session_info *myinfo)
+static int msrbatch_apply_whitelist(struct msr_batch_array *oa)
 {
     struct msr_batch_op *op;
     int err = 0;
+    bool has_sys_rawio_cap = capable(CAP_SYS_RAWIO);
 
     for (op = oa->ops; op < oa->ops + oa->numops; ++op)
     {
@@ -124,7 +108,7 @@ static int msrbatch_apply_whitelist(struct msr_batch_array *oa, struct msrbatch_
             continue;
         }
 
-        if (myinfo->rawio_allowed)
+        if (has_sys_rawio_cap)
         {
             op->wmask = 0xffffffffffffffff;
             continue;
@@ -141,7 +125,7 @@ static int msrbatch_apply_whitelist(struct msr_batch_array *oa, struct msrbatch_
             /* Check for read-only case */
             if (op->wmask == 0 && !op->isrdmsr)
             {
-                if (!myinfo->rawio_allowed)
+                if (!has_sys_rawio_cap)
                 {
                     pr_debug("MSR %x is read-only\n", op->msr);
                     op->err = err = -EACCES;
@@ -160,7 +144,6 @@ static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
     struct msr_batch_array __user *uoa;
     struct msr_batch_op __user *uops;
     struct msr_batch_array koa;
-    struct msrbatch_session_info *myinfo = f->private_data;
 
     if (ioc != X86_IOC_MSR_BATCH)
     {
@@ -203,7 +186,7 @@ static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
         goto bundle_alloc;
     }
 
-    err = msrbatch_apply_whitelist(&koa, myinfo);
+    err = msrbatch_apply_whitelist(&koa);
     if (err)
     {
         pr_debug("Failed to apply whitelist %d\n", err);

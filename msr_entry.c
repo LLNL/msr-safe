@@ -51,10 +51,6 @@ static struct class *msr_class;
 static enum cpuhp_state cpuhp_msr_state;
 #endif
 static int majordev;
-struct msr_session_info
-{
-    int rawio_allowed;
-};
 
 static loff_t msr_seek(struct file *file, loff_t offset, int orig)
 {
@@ -95,14 +91,13 @@ static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_
     int cpu = iminor(file->f_path.dentry->d_inode);
     int err = 0;
     ssize_t bytes = 0;
-    struct msr_session_info *myinfo = file->private_data;
 
     if (count % 8)
     {
         return -EINVAL; /* Invalid chunk size */
     }
 
-    if (!myinfo->rawio_allowed && !msr_whitelist_maskexists(reg))
+    if (!capable(CAP_SYS_RAWIO) && !msr_whitelist_maskexists(reg))
     {
         return -EACCES;
     }
@@ -136,16 +131,15 @@ static ssize_t msr_write(struct file *file, const char __user *buf, size_t count
     int cpu = iminor(file->f_path.dentry->d_inode);
     int err = 0;
     ssize_t bytes = 0;
-    struct msr_session_info *myinfo = file->private_data;
 
     if (count % 8)
     {
         return -EINVAL; // Invalid chunk size
     }
 
-    mask = myinfo->rawio_allowed ? 0xffffffffffffffff : msr_whitelist_writemask(reg);
+    mask = capable(CAP_SYS_RAWIO) ? 0xffffffffffffffff : msr_whitelist_writemask(reg);
 
-    if (!myinfo->rawio_allowed && mask == 0)
+    if (!capable(CAP_SYS_RAWIO) && mask == 0)
     {
         return -EACCES;
     }
@@ -189,9 +183,8 @@ static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
     u32 regs[8];
     int cpu = iminor(file->f_path.dentry->d_inode);
     int err;
-    struct msr_session_info *myinfo = file->private_data;
 
-    if (!myinfo->rawio_allowed)
+    if (!capable(CAP_SYS_RAWIO))
     {
         return -EACCES;
     }
@@ -252,7 +245,6 @@ static int msr_open(struct inode *inode, struct file *file)
 {
     unsigned int cpu = iminor(file->f_path.dentry->d_inode);
     struct cpuinfo_x86 *c;
-    struct msr_session_info *myinfo;
 
     if (cpu >= nr_cpu_ids || !cpu_online(cpu))
     {
@@ -265,22 +257,11 @@ static int msr_open(struct inode *inode, struct file *file)
         return -EIO; // MSR not supported
     }
 
-    myinfo = kmalloc(sizeof(*myinfo), GFP_KERNEL);
-    if (!myinfo)
-    {
-        return -ENOMEM;
-    }
-
-    myinfo->rawio_allowed = capable(CAP_SYS_RAWIO);
-    file->private_data = myinfo;
-
     return 0;
 }
 
 static int msr_close(struct inode *inode, struct file *file)
 {
-    kfree(file->private_data);
-    file->private_data = 0;
     return 0;
 }
 
