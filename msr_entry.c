@@ -189,6 +189,12 @@ static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
     u32 regs[8];
     int cpu = iminor(file->f_path.dentry->d_inode);
     int err;
+    struct msr_session_info *myinfo = file->private_data;
+
+    if (!myinfo->rawio_allowed)
+    {
+        return -EACCES;
+    }
 
     switch (ioc)
     {
