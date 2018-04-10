@@ -125,11 +125,8 @@ static int msrbatch_apply_whitelist(struct msr_batch_array *oa)
             /* Check for read-only case */
             if (op->wmask == 0 && !op->isrdmsr)
             {
-                if (!has_sys_rawio_cap)
-                {
-                    pr_debug("MSR %x is read-only\n", op->msr);
-                    op->err = err = -EACCES;
-                }
+                pr_debug("MSR %x is read-only\n", op->msr);
+                op->err = err = -EACCES;
             }
         }
     }
