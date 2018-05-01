@@ -121,11 +121,9 @@ static int msrbatch_apply_whitelist(struct msr_batch_array *oa)
         }
         else
         {
-            op->wmask = msr_whitelist_writemask(op->msr);
-            /* Check for read-only case */
-            if (op->wmask == 0 && !op->isrdmsr)
-            {
-                pr_debug("MSR %x is read-only\n", op->msr);
+            /* Check that provided write mask is subset of whitelist mask */
+            if (!op->isrdmsr && (op->wmask & ~msr_whitelist_writemask(op->msr))) {
+                pr_debug("MSR %x write mask conflicts with whitelist\n", op->msr);
                 op->err = err = -EACCES;
             }
         }

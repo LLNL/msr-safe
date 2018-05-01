@@ -50,7 +50,7 @@ struct msr_batch_op
     __s32 err;     // Out: set if error occurred with this operation
     __u32 msr;     // In: MSR Address to perform operation
     __u64 msrdata; // In/Out: Input/Result to/from operation
-    __u64 wmask;   // Out: Write mask applied to wrmsr
+    __u64 wmask;   // In: Write mask applied to wrmsr
 };
 
 struct msr_batch_array
