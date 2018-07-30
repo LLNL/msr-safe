@@ -300,7 +300,7 @@ static struct whitelist_entry *find_in_whitelist(u64 msr)
     struct hlist_node *node;
     if (whitelist)
     {
-        hash_or_each_possible(whitelist_hash, entry, node, hlist, msr)
+        hash_for_each_possible(whitelist_hash, entry, node, hlist, msr)
         if (entry && entry->msr == msr)
         {
             return entry;
