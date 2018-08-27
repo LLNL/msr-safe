@@ -43,6 +43,21 @@
 
 #include "msrsave.h"
 
+/* Random 64 bit integer to mark bad reads for MSRs with ~0 write mask */
+enum {G_COOKIE_BAD_READ = 0xFB6A58813AEA28CF};
+
+static int is_good_value(uint64_t write_val, uint64_t mask)
+{
+    int result;
+    if (~mask) {
+        result = (write_val == (mask & write_val));
+    }
+    else {
+        result = (write_val == G_COOKIE_BAD_READ);
+    }
+    return result;
+}
+
 static int msr_parse_whitelist(const char *whitelist_path, size_t *num_msr_ptr, uint64_t **msr_offset_ptr, uint64_t **msr_mask_ptr)
 {
     enum {BUFFER_SIZE = 8192};
@@ -78,7 +93,7 @@ static int msr_parse_whitelist(const char *whitelist_path, size_t *num_msr_ptr, 
     if (whitelist_fd == -1)
     {
         err = errno ? errno : -1;
-        snprintf(err_msg, NAME_MAX, "Open of whitelist file named\"%s\" failed! ", whitelist_path);
+        snprintf(err_msg, NAME_MAX, "Open of whitelist file named \"%s\" failed! ", whitelist_path);
         perror(err_msg);
         goto exit;
     }
@@ -331,12 +346,25 @@ int msr_save(const char *save_path, const char *whitelist_path, const char *msr_
                                        sizeof(uint64_t), msr_offset[j]);
             if (read_count != sizeof(uint64_t))
             {
-                err = errno ? errno : -1;
-                snprintf(err_msg, NAME_MAX, "Failed to read msr value 0x%zX from MSR file \"%s\"!", msr_offset[j], msr_file_name);
+                snprintf(err_msg, NAME_MAX, "Warning: Failed to read msr value 0x%zX from MSR file \"%s\"!", msr_offset[j], msr_file_name);
                 perror(err_msg);
-                goto exit;
+                errno = 0;
+                if (~(msr_mask[j])) {
+                    save_buffer[i * num_msr + j] = ~(msr_mask[j]);
+                }
+                else {
+                    save_buffer[i * num_msr + j] = G_COOKIE_BAD_READ;
+                }
             }
-            save_buffer[i * num_msr + j] &= msr_mask[j];
+            else {
+                save_buffer[i * num_msr + j] &= msr_mask[j];
+                if (~(msr_mask[j]) == 0ULL &&
+                    save_buffer[i * num_msr + j] == G_COOKIE_BAD_READ) {
+                    fprintf(stderr, "Error: Extremely unlikely event, read value from MSR that matches our random 64 bit integer used to mark bad reads.");
+                    err = -1;
+                    goto exit;
+                }
+            }
         }
         tmp_err = close(msr_fd);
         msr_fd = -1;
@@ -519,32 +547,38 @@ int msr_restore(const char *restore_path, const char *whitelist_path, const char
         }
         for (j = 0; j < num_msr; ++j)
         {
-            ssize_t count = pread(msr_fd, &read_val, sizeof(uint64_t), msr_offset[j]);
-            if (count != sizeof(uint64_t))
-            {
-                err = errno ? errno : -1;
-                snprintf(err_msg, NAME_MAX, "Failed to read msr value from MSR file \"%s\"!", msr_file_name);
-                perror(err_msg);
-                goto exit;
-            }
-            masked_val = (read_val & msr_mask[j]);
-            if (masked_val != restore_buffer[i * num_msr + j])
-            {
-                write_val = ((read_val & ~(msr_mask[j])) | restore_buffer[i * num_msr + j]);
-                count = pwrite(msr_fd, &write_val, sizeof(uint64_t), msr_offset[j]);
+            write_val = restore_buffer[i + num_msr + j];
+
+            if (is_good_value(write_val, msr_mask[j])) {
+                /* Value was read properly when save file was created */
+                ssize_t count = pread(msr_fd, &read_val, sizeof(uint64_t), msr_offset[j]);
+                masked_val = (read_val & msr_mask[j]);
                 if (count != sizeof(uint64_t))
                 {
-                    err = errno ? errno : -1;
-                    snprintf(err_msg, NAME_MAX, "Failed to write msr value at offset 0x%016zX to MSR file \"%s\"!", msr_offset[j], msr_file_name);
+                    snprintf(err_msg, NAME_MAX, "Warning: Failed to read msr value from MSR file \"%s\"!", msr_file_name);
                     perror(err_msg);
-                    goto exit;
+                    errno = 0;
                 }
-                if (do_print_header)
+                else if (write_val != masked_val)
                 {
-                    printf("offset, read, restored\n");
-                    do_print_header = 0;
+                    /* Value has changed, and needs to be restored */
+                    write_val |= (read_val & ~(msr_mask[j]));
+                    count = pwrite(msr_fd, &write_val, sizeof(uint64_t), msr_offset[j]);
+                    if (count != sizeof(uint64_t))
+                    {
+                        snprintf(err_msg, NAME_MAX, "Warning: Failed to write msr value at offset 0x%016zX to MSR file \"%s\"!", msr_offset[j], msr_file_name);
+                        perror(err_msg);
+                        errno = 0;
+                    }
+                    else {
+                        if (do_print_header)
+                        {
+                            printf("offset, read, restored\n");
+                            do_print_header = 0;
+                        }
+                        printf("0x%016zX, 0x%016zX, 0x%016zX\n", msr_offset[j], read_val, write_val);
+                    }
                 }
-                printf("0x%016zX, 0x%016zX, 0x%016zX\n", msr_offset[j], read_val, write_val);
             }
         }
         tmp_err = close(msr_fd);
