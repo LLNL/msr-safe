@@ -30,9 +30,9 @@
 # Uncomment following line(s) to enable debug output from different
 # portions of kernel module.
 #
-#CFLAGS_msr_whitelist.o := -DDEBUG
-#CFLAGS_msr_entry.o := -DDEBUG
-#CFLAGS_msr_batch.o := -DDEBUG
+CFLAGS_msr_whitelist.o := -DDEBUG
+CFLAGS_msr_entry.o := -DDEBUG
+CFLAGS_msr_batch.o := -DDEBUG
 #CFLAGS_msr-smp.o := -DDEBUG
 
 obj-m += msr-safe.o
