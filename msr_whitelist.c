@@ -268,8 +268,10 @@ static const struct file_operations fops =
 
 static void delete_whitelist(void)
 {
+    pr_debug("%s: \n", __func__);
     if (ZERO_OR_NULL_PTR(whitelist))
     {
+        pr_debug("%s: Returning Early, Whitelist already empty\n", __func__);
         return;
     }
 
@@ -396,6 +398,7 @@ static char *msr_whitelist_nodename(struct device *dev, umode_t *mode)
 
 void msr_whitelist_cleanup(void)
 {
+    pr_debug("%s: \n", __func__);
     delete_whitelist();
 
     if (cdev_created)
@@ -415,6 +418,7 @@ void msr_whitelist_cleanup(void)
         cdev_registered = 0;
         unregister_chrdev(majordev, "cpu/msr_whitelist");
     }
+    pr_debug("%s: Return\n", __func__);
 }
 
 int msr_whitelist_init(void)
@@ -422,10 +426,11 @@ int msr_whitelist_init(void)
     int err;
     struct device *dev;
 
+    pr_debug("%s: \n", __func__);
     majordev = register_chrdev(0, "cpu/msr_whitelist", &fops);
     if (majordev < 0)
     {
-        pr_debug("%s: unable to register chrdev\n", __FUNCTION__);
+        pr_debug("ERROR: %s: register_chrdev\n", __func__);
         msr_whitelist_cleanup();
         return -EBUSY;
     }
@@ -434,6 +439,7 @@ int msr_whitelist_init(void)
     cdev_class = class_create(THIS_MODULE, "msr_whitelist");
     if (IS_ERR(cdev_class))
     {
+        pr_debug("ERROR: %s: class_create\n", __func__);
         err = PTR_ERR(cdev_class);
         msr_whitelist_cleanup();
         return err;
@@ -445,10 +451,12 @@ int msr_whitelist_init(void)
     dev = device_create(cdev_class, NULL, MKDEV(majordev, 0), NULL, "msr_whitelist");
     if (IS_ERR(dev))
     {
+        pr_debug("ERROR: %s: device_create\n", __func__);
         err = PTR_ERR(dev);
         msr_whitelist_cleanup();
         return err;
     }
     cdev_created = 1;
+    pr_debug("%s: Returning SUCCESS\n", __func__);
     return 0;
 }

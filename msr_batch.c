@@ -223,6 +223,7 @@ static const struct file_operations fops =
 
 void msrbatch_cleanup(void)
 {
+    pr_debug("%s: \n", __func__);
     if (cdev_created)
     {
         cdev_created = 0;
@@ -240,6 +241,7 @@ void msrbatch_cleanup(void)
         cdev_registered = 0;
         unregister_chrdev(majordev, "cpu/msr_batch");
     }
+    pr_debug("%s: Returning\n", __func__);
 }
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
@@ -256,10 +258,11 @@ int msrbatch_init(void)
     int err;
     struct device *dev;
 
+    pr_debug("%s: \n", __func__);
     majordev = register_chrdev(0, "cpu/msr_batch", &fops);
     if (majordev < 0)
     {
-        pr_debug("msrbatch_init: unable to register chrdev\n");
+        pr_debug("ERROR: %s: register_chrdev failed\n", __func__);
         msrbatch_cleanup();
         return -EBUSY;
     }
@@ -268,6 +271,7 @@ int msrbatch_init(void)
     cdev_class = class_create(THIS_MODULE, "msr_batch");
     if (IS_ERR(cdev_class))
     {
+        pr_debug("ERROR: %s: class_create failed\n", __func__);
         err = PTR_ERR(cdev_class);
         msrbatch_cleanup();
         return err;
@@ -279,10 +283,12 @@ int msrbatch_init(void)
     dev = device_create(cdev_class, NULL, MKDEV(majordev, 0), NULL, "msr_batch");
     if (IS_ERR(dev))
     {
+        pr_debug("ERROR: %s: device_create failed\n", __func__);
         err = PTR_ERR(dev);
         msrbatch_cleanup();
         return err;
     }
     cdev_created = 1;
+    pr_debug("%s: Returning SUCCESS\n", __func__);
     return 0;
 }

@@ -285,9 +285,14 @@ static int msr_device_create(unsigned int cpu)
 #endif
 {
     struct device *dev;
+    int err = 0;
 
     dev = device_create(msr_class, NULL, MKDEV(majordev, cpu), NULL, "msr_safe%d", cpu);
-    return IS_ERR(dev) ? PTR_ERR(dev) : 0;
+    if (IS_ERR(dev)) {
+        err = PTR_ERR(dev);
+        pr_debug("ERROR: %s: device_create failed for msr_safe cpu=%d, returning %d\n", __func__, cpu, err);
+    }
+    return err;
 }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
@@ -345,28 +350,30 @@ static int __init msr_init(void)
     int i;
 #endif
 
+    pr_debug("%s:\n", __func__);
     err = msrbatch_init();
     if (err != 0)
     {
-        pr_debug("failed to initialize msrbatch\n");
+        pr_debug("ERROR: %s: msrbatch_init failed.\n", __func__);
         goto out;
     }
     err = msr_whitelist_init();
     if (err != 0)
     {
-        pr_debug("failed to initialize whitelist for msr\n");
+        pr_debug("ERROR: %s: msr_whitelist_init failed\n", __func__);
         goto out_batch;
     }
     majordev = __register_chrdev(0, 0, num_possible_cpus(), "cpu/msr_safe", &msr_fops);
     if (majordev < 0)
     {
-        pr_debug("unable to get major %d for msr_safe\n", majordev);
+        pr_debug("ERROR: %s: __register_chrdev failed\n", __func__);
         err = -EBUSY;
         goto out_wlist;
     }
     msr_class = class_create(THIS_MODULE, "msr_safe");
     if (IS_ERR(msr_class))
     {
+        pr_debug("ERROR: %s: class_create failed\n", __func__);
         err = PTR_ERR(msr_class);
         goto out_chrdev;
     }
@@ -374,28 +381,32 @@ static int __init msr_init(void)
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
     i = 0;
-    for_each_online_cpu(i)
-    err = msr_device_create(i);
-    if (err != 0)
-    {
-        goto out_class;
+    for_each_online_cpu(i) {
+        err = msr_device_create(i);
+        if (err != 0)
+        {
+            pr_debug("ERROR: %s: msr_device_create(%d) failed\n", __func__, i);
+            goto out_class;
+        }
     }
     register_hotcpu_notifier(&msr_class_cpu_notifier);
 #else
     err = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "x86/msr:online", msr_device_create, msr_device_destroy);
-    if (err < 0)
-    {
+    if (err < 0) {
+        pr_debug("ERROR: %s: cpuhp_setup_state failed\n", __func__);
         goto out_class;
     }
     cpuhp_msr_state = err;
 #endif
+    pr_debug("%s: Returning SUCCESS\n", __func__);
     return 0;
 
 out_class:
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
     i = 0;
-    for_each_online_cpu(i)
-    msr_device_destroy(i);
+    for_each_online_cpu(i) {
+        msr_device_destroy(i);
+    }
 #endif
     class_destroy(msr_class);
 out_chrdev:
@@ -405,6 +416,7 @@ out_wlist:
 out_batch:
     msrbatch_cleanup();
 out:
+    pr_debug("ERROR: %s: returning %d\n", __func__, err);
     return err;
 }
 module_init(msr_init);
@@ -414,9 +426,12 @@ static void __exit msr_exit(void)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
     int cpu = 0;
 
-    for_each_online_cpu(cpu)
-    msr_device_destroy(cpu);
+    pr_debug("%s: \n", __func__);
+    for_each_online_cpu(cpu) {
+        msr_device_destroy(cpu);
+    }
 #else
+    pr_debug("%s: Entry\n", __func__);
     cpuhp_remove_state(cpuhp_msr_state);
 #endif
     class_destroy(msr_class);
@@ -428,6 +443,7 @@ static void __exit msr_exit(void)
 
     msr_whitelist_cleanup();
     msrbatch_cleanup();
+    pr_debug("%s: Return\n", __func__);
 }
 
 module_exit(msr_exit)
