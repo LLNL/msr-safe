@@ -43,7 +43,7 @@ all: msrsave/msrsave
 
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
-	rm -f msrsave/msrsave.o msrsave/msrsave msrsave/msrsave_test
+	rm -f msrsave/msrsave.o msrsave/msrsave msrsave/msrsave_test msrsave/spank_msrsafe.o msrsave/libspank_msrsafe.so
 
 check: msrsave/msrsave_test
 	msrsave/msrsave_test
@@ -58,10 +58,21 @@ msrsave/msrsave_test.o: msrsave/msrsave_test.c msrsave/msrsave.h
 
 msrsave/msrsave_test: msrsave/msrsave_test.o msrsave/msrsave.o
 
+SLURM_CFLAGS ?= -I/usr/include -fPIC -shared
+SLURM_LDFLAGS ?= -L/usr/lib64 -lslurm -shared
+spank: msrsave/libspank_msrsafe.so
+
+msrsave/spank_msrsafe.o: msrsave/spank_msrsafe.c
+	$(CC) $(CFLAGS) $(SLURM_CFLAGS) -c $^ -o $@
+
+msrsave/libspank_msrsafe.so: msrsave/spank_msrsafe.o
+	$(CC) $(LDFLAGS) $(SLURM_LDFLAGS) $^ -o $@
+
 INSTALL ?= install
 prefix ?= $(HOME)/build
 exec_prefix ?= $(prefix)
 sbindir ?= $(exec_prefix)/sbin
+libdir ?= $(exec_preffix)/lib
 datarootdir ?= $(prefix)/share
 mandir ?= $(datarootdir)/man
 man1dir ?= $(mandir)/man1
@@ -72,6 +83,9 @@ install: msrsave/msrsave msrsave/msrsave.1
 	$(INSTALL) -d $(DESTDIR)/$(man1dir)
 	$(INSTALL) -m 644 msrsave/msrsave.1 $(DESTDIR)/$(man1dir)
 
-.SUFFIXES: .c .o
-.PHONY: all clean install
+install-spank: spank
+	$(INSTALL) -d $(DESTDIR)/$(libdir)/slurm
+	$(INSTALL) msrsave/libspank_msrsafe.so $(DESTDIR)/$(libdir)/slurm/libspank_msrsafe.so
 
+.SUFFIXES: .c .o
+.PHONY: all clean install spank install-spank

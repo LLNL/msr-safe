@@ -63,6 +63,16 @@ The msrsave utility provides a mechanism for saving and restoring MSR values
 based on entries in the whitelist. To restore MSR values, the register must
 have an appropriate writemask.
 
+Modification of MSR's that are marked as safe in the whitelist may
+impact subsequent users on a shared HPC system.  It is important the
+resource manager on such a system use the msrsave utility to save and
+restore MSR values between allocating compute nodes to users.  An
+example of this has been implemented for the SLURM resource manager as
+a SPANK plugin.  This plugin can be built with the "make spank" target
+and installed with the "make install-spank" taget.  This uses the
+SLURM SPANK infrastructure to make a popen(3) call to the msrsave
+command line utility in the job epilogue and prologue.
+
 Release
 -------
 
