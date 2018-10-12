@@ -6,7 +6,7 @@
 
 [Unit]
 Description=Sets default MSR whitelist
-After=nss-user-lookup.target nslcd.service
+After=nss-user-lookup.target nslcd.service network.target
 
 [Service]
 Type=oneshot
