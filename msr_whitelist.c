@@ -65,7 +65,6 @@ static struct whitelist_entry *find_in_whitelist(u64 msr);
 static void add_to_whitelist(struct whitelist_entry *entry);
 static int parse_next_whitelist_entry(char *inbuf, char **nextinbuf, struct whitelist_entry *entry);
 static ssize_t read_whitelist(struct file *file, char __user *buf, size_t count, loff_t *ppos);
-static int majordev;
 static struct class *cdev_class;
 static char cdev_created;
 static char cdev_registered;
@@ -394,7 +393,7 @@ static char *msr_whitelist_nodename(struct device *dev, umode_t *mode)
     return kasprintf(GFP_KERNEL, "cpu/msr_whitelist");
 }
 
-void msr_whitelist_cleanup(void)
+void msr_whitelist_cleanup(int majordev)
 {
     delete_whitelist();
 
@@ -417,17 +416,22 @@ void msr_whitelist_cleanup(void)
     }
 }
 
-int msr_whitelist_init(void)
+int msr_whitelist_init(int *majordev)
 {
-    int err;
+    int err = 0;
     struct device *dev;
 
-    majordev = register_chrdev(0, "cpu/msr_whitelist", &fops);
-    if (majordev < 0)
+    err = register_chrdev(*majordev, "cpu/msr_whitelist", &fops);
+    if (err < 0)
     {
         pr_debug("%s: unable to register chrdev\n", __FUNCTION__);
-        msr_whitelist_cleanup();
-        return -EBUSY;
+        msr_whitelist_cleanup(*majordev);
+        err = -EBUSY;
+        return err;
+    }
+    if (err > 0)
+    {
+        *majordev = err;
     }
     cdev_registered = 1;
 
@@ -435,18 +439,18 @@ int msr_whitelist_init(void)
     if (IS_ERR(cdev_class))
     {
         err = PTR_ERR(cdev_class);
-        msr_whitelist_cleanup();
+        msr_whitelist_cleanup(*majordev);
         return err;
     }
     cdev_class_created = 1;
 
     cdev_class->devnode = msr_whitelist_nodename;
 
-    dev = device_create(cdev_class, NULL, MKDEV(majordev, 0), NULL, "msr_whitelist");
+    dev = device_create(cdev_class, NULL, MKDEV(*majordev, 0), NULL, "msr_whitelist");
     if (IS_ERR(dev))
     {
         err = PTR_ERR(dev);
-        msr_whitelist_cleanup();
+        msr_whitelist_cleanup(*majordev);
         return err;
     }
     cdev_created = 1;

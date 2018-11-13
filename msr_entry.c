@@ -50,7 +50,16 @@ static struct class *msr_class;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
 static enum cpuhp_state cpuhp_msr_state;
 #endif
-static int majordev;
+static int mdev_msr_safe;
+static int mdev_msr_whitelist;
+static int mdev_msr_batch;
+
+module_param(mdev_msr_safe, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(mdev_msr_safe, "Major number for msr_safe (int).");
+module_param(mdev_msr_whitelist, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(mdev_msr_whitelist, "Major number for msr_whitelist (int).");
+module_param(mdev_msr_batch, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(mdev_msr_batch, "Major number for msr_batch (int).");
 
 static loff_t msr_seek(struct file *file, loff_t offset, int orig)
 {
@@ -182,7 +191,7 @@ static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
     u32 __user *uregs = (u32 __user *)arg;
     u32 regs[8];
     int cpu = iminor(file->f_path.dentry->d_inode);
-    int err;
+    int err = 0;
 
     if (!capable(CAP_SYS_RAWIO))
     {
@@ -286,19 +295,19 @@ static int msr_device_create(unsigned int cpu)
 {
     struct device *dev;
 
-    dev = device_create(msr_class, NULL, MKDEV(majordev, cpu), NULL, "msr_safe%d", cpu);
+    dev = device_create(msr_class, NULL, MKDEV(mdev_msr_safe, cpu), NULL, "msr_safe%d", cpu);
     return IS_ERR(dev) ? PTR_ERR(dev) : 0;
 }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
 static void msr_device_destroy(int cpu)
 {
-    device_destroy(msr_class, MKDEV(majordev, cpu));
+    device_destroy(msr_class, MKDEV(mdev_msr_safe, cpu));
 }
 #else
 static int msr_device_destroy(unsigned int cpu)
 {
-    device_destroy(msr_class, MKDEV(majordev, cpu));
+    device_destroy(msr_class, MKDEV(mdev_msr_safe, cpu));
     return 0;
 }
 #endif
@@ -340,30 +349,48 @@ static char *msr_devnode(struct device *dev, umode_t *mode)
 
 static int __init msr_init(void)
 {
-    int err;
+    int err = 0;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
     int i;
 #endif
 
-    err = msrbatch_init();
+    err = msrbatch_init(&mdev_msr_batch);
     if (err != 0)
     {
-        pr_debug("failed to initialize msrbatch\n");
+        pr_debug("failed to initialize msr_batch\n");
         goto out;
     }
-    err = msr_whitelist_init();
+
+    err = msr_whitelist_init(&mdev_msr_whitelist);
     if (err != 0)
     {
-        pr_debug("failed to initialize whitelist for msr\n");
+        pr_debug("failed to initialize msr_whitelist\n");
         goto out_batch;
     }
-    majordev = __register_chrdev(0, 0, num_possible_cpus(), "cpu/msr_safe", &msr_fops);
-    if (majordev < 0)
+
+    /*
+     * register_chrdev will return:
+     *    If major == 0, dynamically allocate a major and return its number
+     *    If major > 0,  attempt to reserve a device with the given major
+     *      number and return zero on success
+     *    Return a negative errno on failure
+     */
+    err = __register_chrdev(mdev_msr_safe, 0, num_possible_cpus(), "cpu/msr_safe", &msr_fops);
+    if (err < 0)
     {
-        pr_debug("unable to get major %d for msr_safe\n", majordev);
+        pr_debug("unable to get major %d for msr_safe\n", mdev_msr_safe);
         err = -EBUSY;
         goto out_wlist;
     }
+    if (err > 0)
+    {
+        mdev_msr_safe = err;
+    }
+
+    pr_debug("msr_safe major dev: %i\n", mdev_msr_safe);
+    pr_debug("msr_batch major dev: %i\n", mdev_msr_batch);
+    pr_debug("msr_whitelist major dev: %i\n", mdev_msr_whitelist);
+
     msr_class = class_create(THIS_MODULE, "msr_safe");
     if (IS_ERR(msr_class))
     {
@@ -399,11 +426,11 @@ out_class:
 #endif
     class_destroy(msr_class);
 out_chrdev:
-    __unregister_chrdev(majordev, 0, num_possible_cpus(), "cpu/msr_safe");
+    __unregister_chrdev(mdev_msr_safe, 0, num_possible_cpus(), "cpu/msr_safe");
 out_wlist:
-    msr_whitelist_cleanup();
+    msr_whitelist_cleanup(mdev_msr_whitelist);
 out_batch:
-    msrbatch_cleanup();
+    msrbatch_cleanup(mdev_msr_batch);
 out:
     return err;
 }
@@ -420,14 +447,14 @@ static void __exit msr_exit(void)
     cpuhp_remove_state(cpuhp_msr_state);
 #endif
     class_destroy(msr_class);
-    __unregister_chrdev(majordev, 0, num_possible_cpus(), "cpu/msr_safe");
+    __unregister_chrdev(mdev_msr_safe, 0, num_possible_cpus(), "cpu/msr_safe");
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
     unregister_hotcpu_notifier(&msr_class_cpu_notifier);
 #endif
 
-    msr_whitelist_cleanup();
-    msrbatch_cleanup();
+    msr_whitelist_cleanup(mdev_msr_whitelist);
+    msrbatch_cleanup(mdev_msr_batch);
 }
 
 module_exit(msr_exit)

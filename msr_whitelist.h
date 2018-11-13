@@ -43,9 +43,9 @@
 
 #include <linux/types.h>
 
-int msr_whitelist_init(void);
+int msr_whitelist_init(int *majordev);
 
-int msr_whitelist_cleanup(void);
+int msr_whitelist_cleanup(int majordev);
 
 int msr_whitelist_exists(void);
 

@@ -7,21 +7,34 @@ The msr-safe.ko module is comprised of the following source files:
     msr_entry.c         Original MSR driver with added calls to batch and
                         whitelist implementations.
     msr_batch.[ch]      MSR batching implementation
-    msr_whitelist.[ch]  MSR Whitelist implementation
+    msr_whitelist.[ch]  MSR whitelist implementation
     whitelists          Sample text whitelist that may be input to msr_safe
 
 Kernel Build & Load
 -------------------
 
-Building the msr-safe.ko module can be done with the commands below. A
-successful load of the msr-safe kernel module will have `msr_batch` and
-`msr_whitelist` in `/dev/cpu`, and will have an `msr_safe` present under each
-CPU directory in `/dev/cpu/*`.
+Building and loading the msr-safe.ko module can be done with the commands
+below. When no command line arguments are specified, the kernel will
+dynamically assign major numbers to each device. A successful load of the
+msr-safe kernel module will have `msr_batch` and `msr_whitelist` in `/dev/cpu`,
+and will have an `msr_safe` present under each CPU directory in `/dev/cpu/*`.
 
-    git clone https://github.com/LLNL/msr-safe
-    cd msr-safe
-    make
-    insmod msr-safe.ko
+    $ git clone https://github.com/LLNL/msr-safe
+    $ cd msr-safe
+    $ make
+    $ insmod msr-safe.ko
+
+Kernel Load with Command Line Arguments
+---------------------------------------
+
+Alternatively, this module can be loaded with command line arguments. The
+arguments specify the major device number you want to associate with a
+particular device. When loading the kernel, you can specify 1 or all 3 of the
+msr devices.
+
+    $ insmod msr-safe.ko mdev_msr_safe=<#> \
+                         mdev_msr_whitelist=<#> \
+                         mdev_msr_batch=<#>
 
 Configuration Notes After Install
 ---------------------------------
@@ -63,14 +76,13 @@ The msrsave utility provides a mechanism for saving and restoring MSR values
 based on entries in the whitelist. To restore MSR values, the register must
 have an appropriate writemask.
 
-Modification of MSR's that are marked as safe in the whitelist may
-impact subsequent users on a shared HPC system.  It is important the
-resource manager on such a system use the msrsave utility to save and
-restore MSR values between allocating compute nodes to users.  An
-example of this has been implemented for the SLURM resource manager as
-a SPANK plugin.  This plugin can be built with the "make spank" target
-and installed with the "make install-spank" taget.  This uses the
-SLURM SPANK infrastructure to make a popen(3) call to the msrsave
+Modification of MSRs that are marked as safe in the whitelist may impact
+subsequent users on a shared HPC system. It is important the resource manager
+on such a system use the msrsave utility to save and restore MSR values between
+allocating compute nodes to users. An example of this has been implemented for
+the SLURM resource manager as a SPANK plugin. This plugin can be built with the
+"make spank" target and installed with the "make install-spank" target. This
+uses the SLURM SPANK infrastructure to make a popen(3) call to the msrsave
 command line utility in the job epilogue and prologue.
 
 Release

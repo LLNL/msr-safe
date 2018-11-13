@@ -32,8 +32,8 @@
 #ifndef MSR_BATCH_HEADER_INCLUDE
 #define MSR_BATCH_HEADER_INCLUDE
 
-extern void msrbatch_cleanup(void);
+void msrbatch_cleanup(int majordev);
 
-extern int msrbatch_init(void);
+int msrbatch_init(int *majordev);
 
 #endif

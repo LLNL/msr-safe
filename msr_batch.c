@@ -58,7 +58,6 @@
 #include "msr_safe.h"
 #include "msr_whitelist.h"
 
-static int majordev;
 static struct class *cdev_class;
 static char cdev_created;
 static char cdev_registered;
@@ -221,7 +220,7 @@ static const struct file_operations fops =
     .release = msrbatch_close
 };
 
-void msrbatch_cleanup(void)
+void msrbatch_cleanup(int majordev)
 {
     if (cdev_created)
     {
@@ -251,17 +250,21 @@ static char *msrbatch_nodename(struct device *dev, umode_t *mode)
     return kasprintf(GFP_KERNEL, "cpu/msr_batch");
 }
 
-int msrbatch_init(void)
+int msrbatch_init(int *majordev)
 {
-    int err;
+    int err = 0;
     struct device *dev;
 
-    majordev = register_chrdev(0, "cpu/msr_batch", &fops);
-    if (majordev < 0)
+    err = register_chrdev(*majordev, "cpu/msr_batch", &fops);
+    if (err < 0)
     {
-        pr_debug("msrbatch_init: unable to register chrdev\n");
-        msrbatch_cleanup();
+        pr_debug("%s: unable to register chrdev\n", __FUNCTION__);
+        msrbatch_cleanup(*majordev);
         return -EBUSY;
+    }
+    if (err > 0)
+    {
+        *majordev = err;
     }
     cdev_registered = 1;
 
@@ -269,18 +272,18 @@ int msrbatch_init(void)
     if (IS_ERR(cdev_class))
     {
         err = PTR_ERR(cdev_class);
-        msrbatch_cleanup();
+        msrbatch_cleanup(*majordev);
         return err;
     }
     cdev_class_created = 1;
 
     cdev_class->devnode = msrbatch_nodename;
 
-    dev = device_create(cdev_class, NULL, MKDEV(majordev, 0), NULL, "msr_batch");
+    dev = device_create(cdev_class, NULL, MKDEV(*majordev, 0), NULL, "msr_batch");
     if (IS_ERR(dev))
     {
         err = PTR_ERR(dev);
-        msrbatch_cleanup();
+        msrbatch_cleanup(*majordev);
         return err;
     }
     cdev_created = 1;
