@@ -60,7 +60,7 @@ void msrsave_test_mock_msr(void *buffer, size_t buffer_size, const char *path_fo
 
 void msrsave_test_check_msr(uint64_t *check_val, size_t num_check, const char *path_format, int num_cpu)
 {
-    /* Create mock msr files for each CPU */
+    /* Check that values in the file match expected */
     int i, j;
     char this_path[NAME_MAX] = {};
     uint64_t *read_val = malloc(num_check * sizeof(uint64_t));
@@ -79,7 +79,6 @@ void msrsave_test_check_msr(uint64_t *check_val, size_t num_check, const char *p
     }
     free(read_val);
 }
-
 
 int main(int argc, char **argv)
 {
@@ -103,9 +102,12 @@ int main(int argc, char **argv)
                                       0x0000000000000080ULL,
                                       0x0000000000000088ULL,
                                       0x0000000000000090ULL,
-                                      0x0000000000000098ULL};
+                                      0x0000000000000098ULL,
+                                      0x1000000000000100ULL  /* negative offset should be skipped */
+    };
 
     const uint64_t whitelist_mask[] = {0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
                                        0x8000000000000000ULL,
                                        0x8000000000000000ULL,
                                        0x8000000000000000ULL,
@@ -162,6 +164,8 @@ int main(int argc, char **argv)
     assert(err == 0);
 
     /* Overwrite the mock msr files with new data */
+    /* This modifies both bit 63 and bit 62 from the original value
+       however only bit 63 is covered by the write mask and will be restored. */
     hval = 0x1EADBEEF;
     for (i = 0; i < NUM_MSR; ++i)
     {
@@ -178,11 +182,12 @@ int main(int argc, char **argv)
     /* Check that the values that are writable have been restored. */
     /* Check that the values that are not writable have been unaltered. */
     hval = 0x9EADBEEF;
-    for (i = 0; i < NUM_MSR; ++i)
+    for (i = 0; i < NUM_MSR - 1; ++i)
     {
         lval = NUM_MSR - i;
         msr_val[i] = lval | (hval << 32);
     }
+
     msrsave_test_check_msr(msr_val, sizeof(msr_val) / sizeof(uint64_t), test_msr_path, num_cpu);
 
     char this_path[NAME_MAX] = {};
