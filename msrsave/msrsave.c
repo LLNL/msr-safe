@@ -553,8 +553,7 @@ int msr_restore(const char *restore_path, const char *whitelist_path, const char
         }
         for (j = 0; j < num_msr; ++j)
         {
-            write_val = restore_buffer[i + num_msr + j];
-
+            write_val = restore_buffer[i * num_msr + j];
             if (is_good_value(write_val, msr_mask[j]))
             {
                 /* Value was read properly when save file was created */
