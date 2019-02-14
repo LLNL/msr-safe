@@ -34,7 +34,7 @@
  * The msr-safe Linux kernel module enables user access to read and
  * write capabilities for a restricted set of whitelisted Model
  * Specific Registers (MSRs) on x86 platforms.  The purpose of this
- * slurm plugin is to ensure that MSRs modified within a user’s slurm
+ * slurm plugin is to ensure that MSRs modified within a user's slurm
  * job allocation are reset to their original state before the compute
  * node is returned to the pool available to other users of the
  * system.  The msr-safe kernel module is targeting HPC systems that
@@ -49,129 +49,185 @@
 #include <stdio.h>
 #include <signal.h>
 #include <errno.h>
+#include <limits.h>
+#include <unistd.h>
+#include <string.h>
 
 #include "slurm/spank.h"
+
+#include "msrsave.h"
 
 #define SLURM_SPANK_MSRSAFE_BUFFER_SIZE 1024
 
 SPANK_PLUGIN(msr-safe, 1);
 
+int slurm_spank_init(spank_t spank_ctx, int argc, char **argv);
+int slurm_spank_slurmd_init(spank_t spank_ctx, int argc, char **argv);
 int slurm_spank_job_prolog(spank_t spank_ctx, int argc, char **argv);
 int slurm_spank_job_epilog(spank_t spank_ctx, int argc, char **argv);
 
-static int slurm_spank_msrsafe_system(const char *cmd);
-static void slurm_spank_msrsafe_popen_complete(int signum);
-static int slurm_spank_msrsafe_popen(const char *cmd, FILE **fid);
+static int slurm_spank_msrsafe_read_log(FILE *log_fid);
 
-static volatile unsigned g_is_popen_complete = 0;
-static struct sigaction g_popen_complete_signal_action;
-
-static void slurm_spank_msrsafe_popen_complete(int signum)
-{
-    if (signum == SIGCHLD) {
-        g_is_popen_complete = 1;
-    }
-}
-
-static int slurm_spank_msrsafe_popen(const char *cmd, FILE **fid)
-{
-    int err = 0;
-    *fid = NULL;
-
-    struct sigaction save_action;
-    g_popen_complete_signal_action.sa_handler = slurm_spank_msrsafe_popen_complete;
-    sigemptyset(&g_popen_complete_signal_action.sa_mask);
-    g_popen_complete_signal_action.sa_flags = 0;
-    err = sigaction(SIGCHLD, &g_popen_complete_signal_action, &save_action);
-    if (!err) {
-        *fid = popen(cmd, "r");
-        while (*fid && !g_is_popen_complete) {
-
-        }
-        g_is_popen_complete = 0;
-        sigaction(SIGCHLD, &save_action, NULL);
-    }
-    if (!err && *fid == NULL) {
-        err = errno ? errno : -1;
-    }
-    return err;
-}
-
-#ifndef SLURM_SPANK_MSRSAVE_TEST
-/* Do not compile slurm_spank_msrsafe_system if testing since requires
-   linking to slurm library for slurm_error() API and the function is
-   not executed by the test program. */
-
-static int slurm_spank_msrsafe_system(const char *cmd)
-{
-    const size_t buffer_size = SLURM_SPANK_MSRSAFE_BUFFER_SIZE - 1;
-    char buffer[SLURM_SPANK_MSRSAFE_BUFFER_SIZE];
-    FILE *fid = NULL;
-    int err = slurm_spank_msrsafe_popen(cmd, &fid);
-    if (!err) {
-        size_t num_read = 0;
-        do {
-            num_read = fread(buffer, sizeof(*buffer), buffer_size, fid);
-            buffer[num_read] = '\0';
-            if (num_read) {
-                slurm_info("%s", buffer);
-            }
-        } while (num_read == buffer_size);
-        err = pclose(fid);
-    }
-    return err;
-}
-
-#else /* BEGIN TEST PROGRAM */
-/* If test is defined then print the scripts to standard output rather
-   than executing them. */
+#ifdef SLURM_SPANK_MSRSAVE_TEST
+/* If test is defined then print to standard output rather
+   than slurm log. */
 
 #include <stdio.h>
-#define slurm_spank_msrsafe_system printf
+#define slurm_info printf
 
 int main(int argc, char **argv)
 {
     spank_t spank_ctx;
-    const char *test_cmd = "ls --version";
     printf("SAVE SCRIPT:\n");
     slurm_spank_job_prolog(spank_ctx, 0, NULL);
     printf("\n\nRESTORE SCRIPT:\n");
     slurm_spank_job_epilog(spank_ctx, 0, NULL);
     printf("\n\n");
-    FILE *fid;
-    char buffer[4096] = {0};
-    int err = slurm_spank_msrsafe_popen(test_cmd, &fid);
-    printf("CALLING \"%s\":\n", test_cmd);
-    fread(buffer, sizeof(char), 4096, fid);
-    printf("%s", buffer);
     return 0;
 }
+/* END TEST PROGRAM */
 
-#endif /* END TEST PROGRAM */
+#endif
+
+static int slurm_spank_msrsafe_read_log(FILE *log_fid)
+{
+    char buffer[SLURM_SPANK_MSRSAFE_BUFFER_SIZE];
+    size_t buffer_pos = 0;
+    int err = 0;
+    int character = 0;
+
+    if (log_fid == NULL) {
+        err = 1;
+    }
+    else {
+        do {
+            character = fgetc(log_fid);
+            if (character == '\n' ||
+                character == EOF ||
+                buffer_pos == SLURM_SPANK_MSRSAFE_BUFFER_SIZE - 1) {
+                buffer[buffer_pos] = '\0';
+                slurm_info("%s", buffer);
+                buffer_pos = 0;
+            }
+            else {
+                buffer[buffer_pos] = character;
+                ++buffer_pos;
+            }
+        } while (character != EOF);
+    }
+    return err;
+}
 
 #ifndef SLURM_SPANK_MSRSAVE_FILE_PREFIX
 #define SLURM_SPANK_MSRSAVE_FILE_PREFIX "/var/run/slurm-msrsave"
 #endif
 
+int slurm_spank_init(spank_t spank_ctx, int argc, char **argv)
+{
+    slurm_info("Loaded msrsave restore plugin.");
+    return 0;
+}
+
+int slurm_spank_slurmd_init(spank_t spank_ctx, int argc, char **argv)
+{
+    slurm_info("Loaded msrsave restore plugin.");
+}
+
 int slurm_spank_job_prolog(spank_t spank_ctx, int argc, char **argv)
 {
-    const char *save_script = "if [ -e /dev/cpu/msr_whitelist ]; then "
-                              "tmp_file=$(mktemp " SLURM_SPANK_MSRSAVE_FILE_PREFIX "-$(hostname -s).XXXXXXXXXX) && "
-                              "/usr/sbin/msrsave $tmp_file 2>&1; "
-                              "fi";
-    return slurm_spank_msrsafe_system(save_script);
+    slurm_info("Running msr-safe plugin to save register values.");
+
+    int err = 0;
+    FILE *out_log = NULL;
+    char out_log_name[NAME_MAX * 2];
+    char msrsave_file[NAME_MAX * 2];
+    const char *whitelist_path = "/dev/cpu/msr_whitelist";
+    const char *msr_path = "/dev/cpu/%d/msr_safe";
+    int num_cpu = sysconf(_SC_NPROCESSORS_ONLN);
+    char hostname[NAME_MAX];
+    hostname[NAME_MAX - 1] = '\0';
+    err = gethostname(hostname, NAME_MAX - 1);
+    if (err) {
+        slurm_info("gethostname failed.");
+    }
+    if (!err) {
+        snprintf(out_log_name, NAME_MAX * 2, "/tmp/slurm-msrsave-outlog-%s.XXXXXXXXXX", hostname);
+	err = mkstemp(out_log_name);
+	if (err) {
+	    slurm_info("failed to create msrsave output log");
+	}
+    }
+    if (!err) {
+        out_log = fopen(out_log_name, "w+");
+	if (out_log == NULL) {
+	    slurm_info("failed to open %s for writing", out_log_name);
+	}
+    }
+    if (!err) {
+        snprintf(msrsave_file, NAME_MAX * 2, "%s-%s", SLURM_SPANK_MSRSAVE_FILE_PREFIX, hostname);
+        err = msr_save(msrsave_file, whitelist_path, msr_path, num_cpu, out_log, out_log);
+        if (err) {
+            slurm_info("msr_save failed:");
+	}
+        rewind(out_log);
+        slurm_spank_msrsafe_read_log(out_log);
+    }
+    if (!err) {
+        slurm_info("Completed msr-safe plugin to save register values.");
+    }
+    if (out_log) {
+        fclose(out_log);
+        unlink(out_log_name);
+    }
+    return err;
 }
 
 int slurm_spank_job_epilog(spank_t spank_ctx, int argc, char **argv)
 {
-    const char *restore_script = "if [ -e /dev/cpu/msr_whitelist ]; then "
-                                 "tmp_files=$(ls -t " SLURM_SPANK_MSRSAVE_FILE_PREFIX "-$(hostname -s).*) && "
-                                 "tmp_file=$(echo $tmp_files | head -n1) && "
-                                 "/usr/sbin/msrsave -r $tmp_file 2>&1 && "
-                                 "rm $tmp_file 2>&1; "
-                                 "fi";
-
-    return slurm_spank_msrsafe_system(restore_script);
+    slurm_info("Running msr-safe plugin to restore register values.");
+    int err = 0;
+    FILE *out_log = NULL;
+    char out_log_name[NAME_MAX * 2];
+    char msrsave_file[NAME_MAX * 2];
+    const char *whitelist_path = "/dev/cpu/msr_whitelist";
+    const char *msr_path = "/dev/cpu/%d/msr_safe";
+    int num_cpu = sysconf(_SC_NPROCESSORS_ONLN);
+    char hostname[NAME_MAX];
+    hostname[NAME_MAX - 1] = '\0';
+    err = gethostname(hostname, NAME_MAX - 1);
+    if (err) {
+        slurm_info("gethostname failed.");
+    }
+    if (!err) {
+        snprintf(out_log_name, NAME_MAX * 2, "/tmp/slurm-msrsave-outlog-%s.XXXXXXXXXX", hostname);
+	err = mkstemp(out_log_name);
+	if (err) {
+	    slurm_info("failed to create msrsave output log");
+	}
+    }
+    if (!err) {
+        out_log = fopen(out_log_name, "w+");
+	if (out_log == NULL) {
+	    slurm_info("failed to open %s for writing", out_log_name);
+	}
+    }
+    if (!err) {
+        snprintf(msrsave_file, NAME_MAX * 2, "%s-%s", SLURM_SPANK_MSRSAVE_FILE_PREFIX, hostname);
+        err = msr_restore(msrsave_file, whitelist_path, msr_path, num_cpu, out_log, out_log);
+        if (err) {
+            slurm_info("msr_restore failed:");
+	}
+        rewind(out_log);
+        slurm_spank_msrsafe_read_log(out_log);
+    }
+    if (!err) {
+        slurm_info("Completed msr-safe plugin to restore register values.");
+    }
+    if (out_log) {
+        fclose(out_log);
+        unlink(out_log_name);
+    }
+    return err;
 }
 
 #undef SLURM_SPANK_MSRSAVE_FILE_PREFIX

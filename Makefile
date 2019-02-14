@@ -49,6 +49,7 @@ check: msrsave/msrsave_test
 	msrsave/msrsave_test
 
 msrsave/msrsave.o: msrsave/msrsave.c msrsave/msrsave.h
+	$(CC) $(CFLAGS) -fPIC -shared -c msrsave/msrsave.c -o $@
 
 msrsave/msrsave_main.o: msrsave/msrsave_main.c msrsave/msrsave.h
 
@@ -65,7 +66,7 @@ spank: msrsave/libspank_msrsafe.so
 msrsave/spank_msrsafe.o: msrsave/spank_msrsafe.c
 	$(CC) $(CFLAGS) $(SLURM_CFLAGS) -c $^ -o $@
 
-msrsave/libspank_msrsafe.so: msrsave/spank_msrsafe.o
+msrsave/libspank_msrsafe.so: msrsave/spank_msrsafe.o msrsave/msrsave.o
 	$(CC) $(LDFLAGS) $(SLURM_LDFLAGS) $^ -o $@
 
 INSTALL ?= install
