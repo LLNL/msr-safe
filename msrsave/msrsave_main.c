@@ -129,11 +129,11 @@ int main(int argc, char **argv)
         int num_cpu = sysconf(_SC_NPROCESSORS_ONLN);
         if (do_restore)
         {
-            err = msr_restore(file_name, msr_whitelist_path, msr_path, num_cpu);
+            err = msr_restore(file_name, msr_whitelist_path, msr_path, num_cpu, stdout, stderr);
         }
         else
         {
-            err = msr_save(file_name, msr_whitelist_path, msr_path, num_cpu);
+            err = msr_save(file_name, msr_whitelist_path, msr_path, num_cpu, stdout, stderr);
         }
     }
 
