@@ -43,7 +43,7 @@ all: msrsave/msrsave
 
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
-	rm -f msrsave/msrsave.o msrsave/msrsave msrsave/msrsave_test msrsave/spank_msrsafe.o msrsave/libspank_msrsafe.so
+	rm -f msrsave/msrsave.o msrsave/msrsave msrsave/msrsave_test msrsave/spank_msrsafe.o msrsave/libspank_msrsafe.so geopm/spank_geopm.o geopm/libspank_geopm.so
 
 check: msrsave/msrsave_test
 	msrsave/msrsave_test
@@ -61,13 +61,24 @@ msrsave/msrsave_test: msrsave/msrsave_test.o msrsave/msrsave.o
 
 SLURM_CFLAGS ?= -I/usr/include -fPIC -shared
 SLURM_LDFLAGS ?= -L/usr/lib64 -lslurm -shared
-spank: msrsave/libspank_msrsafe.so
+GEOPM_INC ?= /usr/include
+GEOPM_LIB ?= /usr/lib64
+GEOPM_CFLAGS ?= -I$(GEOPM_INC)
+GEOPM_LDFLAGS ?= -L$(GEOPM_LIB) -lgeopmpolicy
+
+spank: msrsave/libspank_msrsafe.so geopm/libspank_geopm.so
 
 msrsave/spank_msrsafe.o: msrsave/spank_msrsafe.c
 	$(CC) $(CFLAGS) $(SLURM_CFLAGS) -c $^ -o $@
 
 msrsave/libspank_msrsafe.so: msrsave/spank_msrsafe.o msrsave/msrsave.o
 	$(CC) $(LDFLAGS) $(SLURM_LDFLAGS) $^ -o $@
+
+geopm/spank_geopm.o: geopm/spank_geopm.c
+	$(CC) $(CFLAGS) $(SLURM_CFLAGS) $(GEOPM_CFLAGS) -c $^ -o $@
+
+geopm/libspank_geopm.so: geopm/spank_geopm.o
+	$(CC) $(LDFLAGS) $(SLURM_LDFLAGS) $(GEOPM_LDFLAGS) $^ -o $@
 
 INSTALL ?= install
 prefix ?= $(HOME)/build
@@ -87,6 +98,7 @@ install: msrsave/msrsave msrsave/msrsave.1
 install-spank: spank
 	$(INSTALL) -d $(DESTDIR)/$(libdir)/slurm
 	$(INSTALL) msrsave/libspank_msrsafe.so $(DESTDIR)/$(libdir)/slurm/libspank_msrsafe.so
+	$(INSTALL) geopm/libspank_geopm.so $(DESTDIR)/$(libdir)/slurm/libspank_geopm.so
 
 .SUFFIXES: .c .o
 .PHONY: all clean install spank install-spank
