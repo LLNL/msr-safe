@@ -1,6 +1,8 @@
 MSR-SAFE
 ========
 
+[![Build Status](https://travis-ci.com/LLNL/msr-safe.svg?branch=master)](https://travis-ci.com/LLNL/msr-safe)
+
 The msr-safe.ko module is comprised of the following source files:
 
     Makefile
