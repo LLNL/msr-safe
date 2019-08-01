@@ -125,7 +125,7 @@ int main(int argc, char **argv)
                                        0x8000000000000000ULL,
                                        0x8000000000000000ULL,
                                        0x8000000000000000ULL,
-                                       0x8000000000000000ULL,
+                                       0xFFFFFFFFFFFFFFFFULL,
                                        0x8000000000000000ULL};
 
     enum {NUM_MSR = sizeof(whitelist_off) / sizeof(uint64_t)};
@@ -159,8 +159,10 @@ int main(int argc, char **argv)
 
     msrsave_test_mock_msr(msr_val, sizeof(msr_val), test_msr_path, num_cpu);
 
+    const char *log_file_name = "msrsave_test.log";
+    FILE *log_file = fopen(log_file_name, "w");
     /* Save the current state to a file */
-    err = msr_save(test_save_path, test_whitelist_path, test_msr_path, num_cpu);
+    err = msr_save(test_save_path, test_whitelist_path, test_msr_path, num_cpu, log_file, log_file);
     assert(err == 0);
 
     /* Overwrite the mock msr files with new data */
@@ -176,7 +178,7 @@ int main(int argc, char **argv)
     msrsave_test_mock_msr(msr_val, sizeof(msr_val), test_msr_path, num_cpu);
 
     /* Restore to the original values */
-    err = msr_restore(test_save_path, test_whitelist_path, test_msr_path, num_cpu);
+    err = msr_restore(test_save_path, test_whitelist_path, test_msr_path, num_cpu, log_file, log_file);
     assert(err == 0);
 
     /* Check that the values that are writable have been restored. */
@@ -184,8 +186,13 @@ int main(int argc, char **argv)
     hval = 0x9EADBEEF;
     for (i = 0; i < NUM_MSR - 1; ++i)
     {
-        lval = NUM_MSR - i;
-        msr_val[i] = lval | (hval << 32);
+        if (whitelist_mask[i] & 0xFFFFFFFF) {
+            msr_val[i] = 0xDEADBEEF00000000 | i;
+        }
+        else {
+            lval = NUM_MSR - i;
+            msr_val[i] = lval | (hval << 32);
+        }
     }
 
     msrsave_test_check_msr(msr_val, sizeof(msr_val) / sizeof(uint64_t), test_msr_path, num_cpu);
@@ -198,5 +205,9 @@ int main(int argc, char **argv)
     }
     unlink(test_whitelist_path);
     unlink(test_save_path);
+    fclose(log_file);
+    if (!err) {
+        unlink(log_file_name);
+    }
     return err;
 }

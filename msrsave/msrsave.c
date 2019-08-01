@@ -48,6 +48,7 @@ enum {G_COOKIE_BAD_READ = 0xFB6A58813AEA28CF};
 
 static int is_good_value(uint64_t write_val, uint64_t mask)
 {
+    /* Check if value in save file represents a bad read. */
     int result = 1;
     if (~mask)
     {
@@ -55,7 +56,7 @@ static int is_good_value(uint64_t write_val, uint64_t mask)
     }
     else
     {
-        result = (write_val == G_COOKIE_BAD_READ);
+        result = (write_val != G_COOKIE_BAD_READ);
     }
     return result;
 }
