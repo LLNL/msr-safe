@@ -48,7 +48,8 @@ whitelist will protect you from harm.
 Sample whitelists for specific architectures are provided in `whitelists/`
 directory. These are meant to be a starting point, and should be used with
 caution. Each site may add to, remove from, or modify the write masks in the
-whitelist depending on specific needs.
+whitelist depending on specific needs. See the Troubleshooting section below
+for more information.
 
 To configure whitelist:
 
@@ -86,6 +87,25 @@ the SLURM resource manager as a SPANK plugin. This plugin can be built with the
 "make spank" target and installed with the "make install-spank" target. This
 uses the SLURM SPANK infrastructure to make a popen(3) call to the msrsave
 command line utility in the job epilogue and prologue.
+
+Troubleshooting
+---------------
+
+If you encounter errors attempting to read a particular MSR, it may be for
+several reasons:
+
+If you encounter a "Permission denied" error, likely the MSR was not exposed
+in the current whitelist.
+
+It is possible that the MSR you are attempting to read is not supported by
+your CPU. You will likely see this if attempting to use the msrsave utility.
+In that case, you should see an error message like the following:
+
+    Warning: Failed to read msr value ...
+
+These messages are benign and should not interfere with msrsave's ability to
+save and restore MSR values that are currently supported. If it is desired to
+remove the warning messages, remove the corresponding entry from the whitelist.
 
 Release
 -------
