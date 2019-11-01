@@ -7,8 +7,8 @@ set -o pipefail
 
 wl_cpu() {
   printf 'wl_%.2x%x\n' \
-  $( tr -d "\t " < /proc/cpuinfo | grep -m1 'cpufamily:' | cut -f2 -d:) \
-  $( tr -d "\t " < /proc/cpuinfo | grep -m1 'model:' | cut -f2 -d:)
+  $(grep -m1 'cpu family' /proc/cpuinfo | cut -f2 -d: | tr -d ' ') \
+  $(grep -m1 'model' /proc/cpuinfo | cut -f2 -d: | tr -d ' ')
 }
 
 start() {
