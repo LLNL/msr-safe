@@ -30,10 +30,7 @@
  */
 
 /*
- * (proposed) extensions to arch/x86/lib/msr_smp.c
- *
- * This file is the implementation proposed to arch/x86/lib/msr_smp.c
- * that will allow for batching rdmsr/wrmsr requests.
+ * This file enables batching rdmsr/wrmsr requests.
  */
 
 #include <asm/msr.h>
@@ -46,14 +43,14 @@
 
 static void __msr_safe_batch(void *info)
 {
-    struct msr_batch_array *oa = info;
+    struct msr_batch_array *arr = info;
     struct msr_batch_op *op;
     int this_cpu = smp_processor_id();
     u32 *dp;
     u64 oldmsr;
     u64 newmsr;
 
-    for (op = oa->ops; op < oa->ops + oa->numops; ++op)
+    for (op = arr->ops; op < arr->ops + arr->numops; ++op)
     {
         if (op->cpu != this_cpu)
         {
@@ -83,20 +80,20 @@ static void __msr_safe_batch(void *info)
     }
 }
 
-int msr_safe_batch(struct msr_batch_array *oa)
+int msr_safe_batch(struct msr_batch_array *arr)
 {
     struct cpumask cpus_to_run_on;
     struct msr_batch_op *op;
 
     cpumask_clear(&cpus_to_run_on);
-    for (op = oa->ops; op < oa->ops + oa->numops; ++op)
+    for (op = arr->ops; op < arr->ops + arr->numops; ++op)
     {
         cpumask_set_cpu(op->cpu, &cpus_to_run_on);
     }
 
-    on_each_cpu_mask(&cpus_to_run_on, __msr_safe_batch, oa, 1);
+    on_each_cpu_mask(&cpus_to_run_on, __msr_safe_batch, arr, 1);
 
-    for (op = oa->ops; op < oa->ops + oa->numops; ++op)
+    for (op = arr->ops; op < arr->ops + arr->numops; ++op)
     {
         if (op->err)
         {

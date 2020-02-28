@@ -63,7 +63,9 @@ static char cdev_created;
 static char cdev_registered;
 static char cdev_class_created;
 
-static int msrbatch_open(struct inode *inode, struct file *file)
+extern int msr_safe_batch(struct msr_batch_array *oa);
+
+static int msr_batch_open(struct inode *inode, struct file *file)
 {
     unsigned int cpu;
     struct cpuinfo_x86 *c;
@@ -132,9 +134,7 @@ static int msrbatch_apply_allowlist(struct msr_batch_array *oa)
     return err;
 }
 
-extern int msr_safe_batch(struct msr_batch_array *oa);
-
-static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
+static long msr_batch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
 {
     int err = 0;
     struct msr_batch_array __user *uoa;
@@ -211,16 +211,21 @@ bundle_alloc:
     return err;
 }
 
+static int msr_batch_close(struct inode *inode, struct file *file)
+{
+    return 0;
+}
+
 static const struct file_operations fops =
 {
     .owner = THIS_MODULE,
-    .open = msrbatch_open,
-    .unlocked_ioctl = msrbatch_ioctl,
-    .compat_ioctl = msrbatch_ioctl,
-    .release = msrbatch_close
+    .open = msr_batch_open,
+    .unlocked_ioctl = msr_batch_ioctl,
+    .compat_ioctl = msr_batch_ioctl,
+    .release = msr_batch_close
 };
 
-void msrbatch_cleanup(int majordev)
+void msr_batch_cleanup(int majordev)
 {
     if (cdev_created)
     {
@@ -242,15 +247,15 @@ void msrbatch_cleanup(int majordev)
 }
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
-static char *msrbatch_nodename(struct device *dev, mode_t *mode)
+static char *msr_batch_nodename(struct device *dev, mode_t *mode)
 #else
-static char *msrbatch_nodename(struct device *dev, umode_t *mode)
+static char *msr_batch_nodename(struct device *dev, umode_t *mode)
 #endif
 {
     return kasprintf(GFP_KERNEL, "cpu/msr_batch");
 }
 
-int msrbatch_init(int *majordev)
+int msr_batch_init(int *majordev)
 {
     int err = 0;
     struct device *dev;
@@ -259,7 +264,7 @@ int msrbatch_init(int *majordev)
     if (err < 0)
     {
         pr_debug("%s: unable to register chrdev\n", __FUNCTION__);
-        msrbatch_cleanup(*majordev);
+        msr_batch_cleanup(*majordev);
         return -EBUSY;
     }
     if (err > 0)
@@ -272,18 +277,18 @@ int msrbatch_init(int *majordev)
     if (IS_ERR(cdev_class))
     {
         err = PTR_ERR(cdev_class);
-        msrbatch_cleanup(*majordev);
+        msr_batch_cleanup(*majordev);
         return err;
     }
     cdev_class_created = 1;
 
-    cdev_class->devnode = msrbatch_nodename;
+    cdev_class->devnode = msr_batch_nodename;
 
     dev = device_create(cdev_class, NULL, MKDEV(*majordev, 0), NULL, "msr_batch");
     if (IS_ERR(dev))
     {
         err = PTR_ERR(dev);
-        msrbatch_cleanup(*majordev);
+        msr_batch_cleanup(*majordev);
         return err;
     }
     cdev_created = 1;

@@ -61,7 +61,7 @@ MODULE_PARM_DESC(mdev_msr_allowlist, "Major number for msr_allowlist (int).");
 module_param(mdev_msr_batch, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(mdev_msr_batch, "Major number for msr_batch (int).");
 
-static loff_t msr_seek(struct file *file, loff_t offset, int orig)
+static loff_t msr_seek(struct file *file, loff_t offset, int mode)
 {
     loff_t ret;
     struct inode *inode = file->f_mapping->host;
@@ -71,7 +71,7 @@ static loff_t msr_seek(struct file *file, loff_t offset, int orig)
 #else
     mutex_lock(&inode->i_mutex);
 #endif
-    switch (orig)
+    switch (mode)
     {
         case SEEK_SET:
             file->f_pos = offset;
@@ -92,14 +92,13 @@ static loff_t msr_seek(struct file *file, loff_t offset, int orig)
     return ret;
 }
 
-static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
 {
-    u32 __user *tmp = (u32 __user *) buf;
     u32 data[2];
-    u32 reg = *ppos;
+    u32 reg = *offset;
     int cpu = iminor(file->f_path.dentry->d_inode);
+    ssize_t nbytes = 0;
     int err = 0;
-    ssize_t bytes = 0;
 
     if (count % 8)
     {
@@ -111,35 +110,34 @@ static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_
         return -EACCES;
     }
 
-    for (; count; count -= 8)
+    if (count != 8)
     {
-        err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
-        if (err)
-        {
-            break;
-        }
-        if (copy_to_user(tmp, &data, 8))
-        {
-            err = -EFAULT;
-            break;
-        }
-        tmp += 2;
-        bytes += 8;
+        return -EINVAL;
     }
 
-    return bytes ? bytes : err;
+    err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
+    if (err)
+    {
+        return err;
+    }
+    if (copy_to_user((u32 __user *) buf, &data, 8))
+    {
+        return -EFAULT;
+    }
+    nbytes += 8;
+
+    return nbytes ? nbytes : err;
 }
 
-static ssize_t msr_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
+static ssize_t msr_write(struct file *file, const char __user *buf, size_t count, loff_t *offset)
 {
-    const u32 __user *tmp = (const u32 __user *)buf;
     u32 curdata[2];
     u32 data[2];
-    u32 reg = *ppos;
-    u64 mask;
+    u32 reg = *offset;
+    u64 wmask;
     int cpu = iminor(file->f_path.dentry->d_inode);
+    ssize_t nbytes = 0;
     int err = 0;
-    ssize_t bytes = 0;
 
     if (count % 8)
     {
@@ -148,45 +146,67 @@ static ssize_t msr_write(struct file *file, const char __user *buf, size_t count
 
     mask = capable(CAP_SYS_RAWIO) ? 0xffffffffffffffff : msr_allowlist_writemask(reg);
 
-    if (!capable(CAP_SYS_RAWIO) && mask == 0)
+    if (!capable(CAP_SYS_RAWIO) && wmask == 0)
     {
         return -EACCES;
     }
 
-    for (; count; count -= 8)
+    if (count != 8)
     {
-        if (copy_from_user(&data, tmp, 8))
-        {
-            err = -EFAULT;
-            break;
-        }
-
-        if (mask != 0xffffffffffffffff)
-        {
-            err = rdmsr_safe_on_cpu(cpu, reg, &curdata[0], &curdata[1]);
-            if (err)
-            {
-                break;
-            }
-
-            *(u64 *)&curdata[0] &= ~mask;
-            *(u64 *)&data[0] &= mask;
-            *(u64 *)&data[0] |= *(u64 *)&curdata[0];
-        }
-
-        err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
-        if (err)
-        {
-            break;
-        }
-        tmp += 2;
-        bytes += 8;
+        return -EINVAL;
     }
 
-    return bytes ? bytes : err;
+    if (copy_from_user(&data, (const u32 __user *)buf, 8))
+    {
+        return -EFAULT;
+    }
+
+    if (wmask != 0xffffffffffffffff)
+    {
+        err = rdmsr_safe_on_cpu(cpu, reg, &curdata[0], &curdata[1]);
+        if (err)
+        {
+            return err;
+        }
+
+        *(u64 *)&curdata[0] &= ~wmask;
+
+        *(u64 *)&data[0] &= wmask;
+
+        *(u64 *)&data[0] |= *(u64 *)&curdata[0];
+    }
+
+    err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
+    if (err)
+    {
+        return err;
+    }
+
+    nbytes += 8;
+
+    return nbytes ? nbytes : err;
 }
 
-static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
+static int msr_open(struct inode *inode, struct file *file)
+{
+    unsigned int cpu = iminor(file->f_path.dentry->d_inode);
+    struct cpuinfo_x86 *feat;
+
+    if (cpu >= nr_cpu_ids || !cpu_online(cpu))
+    {
+        return -ENXIO;  // No such CPU
+    }
+
+    feat = &cpu_data(cpu);
+    if (!cpu_has(feat, X86_FEATURE_MSR))
+    {
+        return -EIO; // MSR not supported
+    }
+
+    return 0;
+}
+
+static long msr_ioctl(struct file *file, unsigned int op, unsigned long arg)
 {
     u32 __user *uregs = (u32 __user *)arg;
     u32 regs[8];
@@ -198,7 +218,7 @@ static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
         return -EACCES;
     }
 
-    switch (ioc)
+    switch (op)
     {
         case X86_IOC_RDMSR_REGS:
             if (!(file->f_mode & FMODE_READ))
@@ -250,25 +270,6 @@ static long msr_ioctl(struct file *file, unsigned int ioc, unsigned long arg)
     return err;
 }
 
-static int msr_open(struct inode *inode, struct file *file)
-{
-    unsigned int cpu = iminor(file->f_path.dentry->d_inode);
-    struct cpuinfo_x86 *c;
-
-    if (cpu >= nr_cpu_ids || !cpu_online(cpu))
-    {
-        return -ENXIO;  // No such CPU
-    }
-
-    c = &cpu_data(cpu);
-    if (!cpu_has(c, X86_FEATURE_MSR))
-    {
-        return -EIO; // MSR not supported
-    }
-
-    return 0;
-}
-
 static int msr_close(struct inode *inode, struct file *file)
 {
     return 0;
@@ -313,20 +314,19 @@ static int msr_device_destroy(unsigned int cpu)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
-static int msr_class_cpu_callback(struct notifier_block *nfb, unsigned long action, void *hcpu)
+static int msr_class_cpu_callback(struct notifier_block *nb, unsigned long op, void *cpu)
 {
-    unsigned int cpu = (unsigned long)hcpu;
     int err = 0;
 
-    switch (action)
+    switch (op)
     {
         case CPU_UP_PREPARE:
-            err = msr_device_create(cpu);
+            err = msr_device_create((unsigned long)cpu);
             break;
         case CPU_UP_CANCELED:
         case CPU_UP_CANCELED_FROZEN:
         case CPU_DEAD:
-            msr_device_destroy(cpu);
+            msr_device_destroy((unsigned long)cpu);
             break;
     }
     return notifier_from_errno(err);
@@ -351,10 +351,10 @@ static int __init msr_init(void)
 {
     int err = 0;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
-    int i;
+    int cpu;
 #endif
 
-    err = msrbatch_init(&mdev_msr_batch);
+    err = msr_batch_init(&mdev_msr_batch);
     if (err != 0)
     {
         pr_debug("failed to initialize msr_batch\n");
@@ -400,9 +400,9 @@ static int __init msr_init(void)
     msr_class->devnode = msr_devnode;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
-    i = 0;
-    for_each_online_cpu(i)
-    err = msr_device_create(i);
+    cpu = 0;
+    for_each_online_cpu(cpu)
+    err = msr_device_create(cpu);
     if (err != 0)
     {
         goto out_class;
@@ -420,9 +420,9 @@ static int __init msr_init(void)
 
 out_class:
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
-    i = 0;
-    for_each_online_cpu(i)
-    msr_device_destroy(i);
+    cpu = 0;
+    for_each_online_cpu(cpu)
+    msr_device_destroy(cpu);
 #endif
     class_destroy(msr_class);
 out_chrdev:
@@ -430,7 +430,7 @@ out_chrdev:
 out_wlist:
     msr_allowlist_cleanup(mdev_msr_allowlist);
 out_batch:
-    msrbatch_cleanup(mdev_msr_batch);
+    msr_batch_cleanup(mdev_msr_batch);
 out:
     return err;
 }
@@ -459,6 +459,8 @@ static void __exit msr_exit(void)
 
 module_exit(msr_exit)
 
+/* This seems to be a requirement for loadable kernels, but not sure what to
+ * put here. */
 MODULE_AUTHOR("H. Peter Anvin <hpa@zytor.com>");
 MODULE_DESCRIPTION("x86 generic MSR driver (+LLNL Approved List)");
 MODULE_VERSION("1.4");
