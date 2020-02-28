@@ -41,6 +41,8 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 
+#include "msr_whitelist.h"
+
 #define MAX_WLIST_BSIZE ((128 * 1024) + 1) // "+1" for null character
 
 struct whitelist_entry
@@ -74,28 +76,6 @@ static DEFINE_HASHTABLE(whitelist_hash, 6);
 static DEFINE_MUTEX(whitelist_mutex);
 static struct whitelist_entry *whitelist;
 static int whitelist_numentries;
-
-int msr_whitelist_maskexists(loff_t reg)
-{
-    struct whitelist_entry *entry;
-
-    mutex_lock(&whitelist_mutex);
-    entry = find_in_whitelist((u64)reg);
-    mutex_unlock(&whitelist_mutex);
-
-    return entry != NULL;
-}
-
-u64 msr_whitelist_writemask(loff_t reg)
-{
-    struct whitelist_entry *entry;
-
-    mutex_lock(&whitelist_mutex);
-    entry = find_in_whitelist((u64)reg);
-    mutex_unlock(&whitelist_mutex);
-
-    return entry ? entry->wmask : 0;
-}
 
 static int open_whitelist(struct inode *inode, struct file *file)
 {
@@ -393,29 +373,6 @@ static char *msr_whitelist_nodename(struct device *dev, umode_t *mode)
     return kasprintf(GFP_KERNEL, "cpu/msr_whitelist");
 }
 
-void msr_whitelist_cleanup(int majordev)
-{
-    delete_whitelist();
-
-    if (cdev_created)
-    {
-        cdev_created = 0;
-        device_destroy(cdev_class, MKDEV(majordev, 0));
-    }
-
-    if (cdev_class_created)
-    {
-        cdev_class_created = 0;
-        class_destroy(cdev_class);
-    }
-
-    if (cdev_registered)
-    {
-        cdev_registered = 0;
-        unregister_chrdev(majordev, "cpu/msr_whitelist");
-    }
-}
-
 int msr_whitelist_init(int *majordev)
 {
     int err = 0;
@@ -455,4 +412,49 @@ int msr_whitelist_init(int *majordev)
     }
     cdev_created = 1;
     return 0;
+}
+
+void msr_whitelist_cleanup(int majordev)
+{
+    delete_whitelist();
+
+    if (cdev_created)
+    {
+        cdev_created = 0;
+        device_destroy(cdev_class, MKDEV(majordev, 0));
+    }
+
+    if (cdev_class_created)
+    {
+        cdev_class_created = 0;
+        class_destroy(cdev_class);
+    }
+
+    if (cdev_registered)
+    {
+        cdev_registered = 0;
+        unregister_chrdev(majordev, "cpu/msr_whitelist");
+    }
+}
+
+int msr_whitelist_maskexists(loff_t reg)
+{
+    struct whitelist_entry *entry;
+
+    mutex_lock(&whitelist_mutex);
+    entry = find_in_whitelist((u64)reg);
+    mutex_unlock(&whitelist_mutex);
+
+    return entry != NULL;
+}
+
+u64 msr_whitelist_writemask(loff_t reg)
+{
+    struct whitelist_entry *entry;
+
+    mutex_lock(&whitelist_mutex);
+    entry = find_in_whitelist((u64)reg);
+    mutex_unlock(&whitelist_mutex);
+
+    return entry ? entry->wmask : 0;
 }

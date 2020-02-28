@@ -45,13 +45,9 @@
 
 int msr_whitelist_init(int *majordev);
 
-int msr_whitelist_cleanup(int majordev);
-
-int msr_whitelist_exists(void);
+void msr_whitelist_cleanup(int majordev);
 
 int msr_whitelist_maskexists(loff_t reg);
-
-u64 msr_whitelist_readmask(loff_t reg);
 
 u64 msr_whitelist_writemask(loff_t reg);
 
