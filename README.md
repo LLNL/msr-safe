@@ -107,6 +107,22 @@ These messages are benign and should not interfere with msrsave's ability to
 save and restore MSR values that are currently supported. If it is desired to
 remove the warning messages, remove the corresponding entry from the whitelist.
 
+A note on `CAP_SYS_RAWIO`
+-------------------------
+
+msr-safe relies on the Linux filesystem permissions to restrict access to the
+whitelist, the batch device and the individual msr devices.  The stock kernel
+msr module does not have whitelisting, of course, but does add another layer of
+protection:  users/binaries accessing /dev/cpu/X/msr must have the 
+`CAP_SYS_RAWIO` capability.  For a general explanation of the Linux capability 
+model see `man -s7 capabilities.  For discussion of why this was added see 
+the Linux Weekly News article [The Trouble with CAP_SYS_RAWIO](https://lwn.net/Articles/542327/).
+
+If you are transitioning from using the stock Linux msr kernel module and 
+relying on `CAP_SYS_RAWIO`, please be aware that msr_safe does not perform 
+capability checks.  Any user with sufficient file permissions can access 
+the device drivers.
+
 Release
 -------
 
