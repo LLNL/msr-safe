@@ -9,4 +9,6 @@ Tapasya Patki
 Barry Rountree
 Marty McFadden
 
-Special thanks to Kendrick Shaw at Case Western Reserve University for his initial suggestion to explore MSRs.
+Special thanks to H. Peter Anvin at Intel Corporation for being the first
+author of the MSR kernel, and to Kendrick Shaw at Case Western Reserve
+University for his initial suggestion to explore MSRs.

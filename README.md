@@ -137,5 +137,12 @@ device drivers.
 Release
 -------
 
-msr-safe is released under the GPLv3 license. For more details, please see the
-[LICENSE](https://github.com/LLNL/msr-safe/blob/main/LICENSE) file.
+msr-safe is released under the LGPL v2.1 license. For more details, please see the
+[LICENSE](https://github.com/LLNL/msr-safe/blob/master/LICENSE) and
+[NOTICE](https://github.com/LLNL/msr-safe/blob/master/NOTICE) files.
+
+SPDX-License-Identifier: LGPL-2.1-only
+
+`LLNL-CODE-807679`
+
+License and LLNL release number have been corrected to match internal records.

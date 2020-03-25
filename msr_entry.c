@@ -459,9 +459,7 @@ static void __exit msr_exit(void)
 
 module_exit(msr_exit)
 
-/* This seems to be a requirement for loadable kernels, but not sure what to
- * put here. */
-MODULE_AUTHOR("H. Peter Anvin <hpa@zytor.com>");
-MODULE_DESCRIPTION("x86 generic MSR driver (+LLNL Approved List)");
-MODULE_VERSION("1.4");
-MODULE_LICENSE("GPL");
+MODULE_AUTHOR("LLNL");
+MODULE_DESCRIPTION("x86 msr-safe driver (+allowlist)");
+MODULE_VERSION("1.5");
+MODULE_LICENSE("LGPL");
