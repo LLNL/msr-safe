@@ -48,12 +48,17 @@ clean:
 check: msrsave/msrsave_test
 	msrsave/msrsave_test
 
+# current msr-safe/msrsave version
+CURRENT_VERSION := -DVERSION=\"1.4.0\"
+
 msrsave/msrsave.o: msrsave/msrsave.c msrsave/msrsave.h
-	$(CC) $(CFLAGS) -fPIC -shared -c msrsave/msrsave.c -o $@
+	$(CC) $(CFLAGS) $(CURRENT_VERSION) -fPIC -shared -c msrsave/msrsave.c -o $@
 
 msrsave/msrsave_main.o: msrsave/msrsave_main.c msrsave/msrsave.h
+	$(CC) $(CFLAGS) $(CURRENT_VERSION) -fPIC -shared -c msrsave/msrsave_main.c -o $@
 
 msrsave/msrsave: msrsave/msrsave_main.o msrsave/msrsave.o
+	$(CC) $(CFLAGS) $(CURRENT_VERSION) $^ -o $@
 
 msrsave/msrsave_test.o: msrsave/msrsave_test.c msrsave/msrsave.h
 

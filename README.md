@@ -88,6 +88,15 @@ the SLURM resource manager as a SPANK plugin. This plugin can be built with the
 uses the SLURM SPANK infrastructure to make a popen(3) call to the msrsave
 command line utility in the job epilogue and prologue.
 
+The version of msrsave (and msr-safe) can be modified by updating the following
+compiler flag:
+
+    -DVERSION=\"MAJOR.MINOR.PATCH\"
+
+The msrsave version can be queried with:
+
+    msrsave --version
+
 Troubleshooting
 ---------------
 
