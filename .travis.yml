@@ -1,31 +1,63 @@
 language: c
 
+sudo: true
+
 compiler:
-    - gcc
+  - gcc
 
-install:
-    # none
-
-script:
-    - uname -a
-    - which g++
-    - g++ --version
-    - make VERBOSE=1
+env:
+  global:
+  - COMPILER_CC=gcc
+  - COMPILER_CXX=g++
 
 matrix:
-    include:
-    - os: linux
-      dist: trusty
-      sudo: required
-    - os: linux
-      dist: xenial
+  include:
+  - name: trusty
+    os: linux
+    dist: trusty # GCC 4.8.2
+    env:
+    - COMPILER_CC=gcc
+    - COMPILER_CXX=g++
+
+  - name: xenial
+    os: linux
+    dist: xenial # GCC 5.4.0
+    env:
+    - COMPILER_CC=gcc
+    - COMPILER_CXX=g++
+
+  - name: bionic
+    os: linux
+    dist: bionic # GCC 7.4.0
+    env:
+    - COMPILER_CC=gcc
+    - COMPILER_CXX=g++
+
+  allow_failures:
+  - name: precise
+    os: linux
+    dist: precise # GCC 4.6.3
+    env:
+    - COMPILER_CC=gcc
+    - COMPILER_CXX=g++
 
 before_script:
-    - sudo apt-get install -y linux-headers-`uname -r`
+  - date
+  - sudo apt-get update
+  - sudo apt-get install -y linux-headers-`uname -r`
+
+after_script:
+  - date
+
+install:
+  # none
+
+script:
+  - ./scripts/build.sh
 
 notifications:
-    email:
-        recipients:
-            - labasan1@llnl.gov
-        on_success: always
-        on_failure: always
+  email:
+    recipients:
+      - brink2@llnl.gov
+    on_success: always
+    on_failure: always
