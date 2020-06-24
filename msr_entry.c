@@ -44,20 +44,20 @@
 #include <linux/version.h>
 
 #include "msr_batch.h"
-#include "msr_whitelist.h"
+#include "msr_approved_list.h"
 
 static struct class *msr_class;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
 static enum cpuhp_state cpuhp_msr_state;
 #endif
 static int mdev_msr_safe;
-static int mdev_msr_whitelist;
+static int mdev_msr_approved_list;
 static int mdev_msr_batch;
 
 module_param(mdev_msr_safe, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(mdev_msr_safe, "Major number for msr_safe (int).");
-module_param(mdev_msr_whitelist, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-MODULE_PARM_DESC(mdev_msr_whitelist, "Major number for msr_whitelist (int).");
+module_param(mdev_msr_approved_list, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(mdev_msr_approved_list, "Major number for msr_approved_list (int).");
 module_param(mdev_msr_batch, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(mdev_msr_batch, "Major number for msr_batch (int).");
 
@@ -106,7 +106,7 @@ static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_
         return -EINVAL; /* Invalid chunk size */
     }
 
-    if (!capable(CAP_SYS_RAWIO) && !msr_whitelist_maskexists(reg))
+    if (!capable(CAP_SYS_RAWIO) && !msr_approved_list_maskexists(reg))
     {
         return -EACCES;
     }
@@ -146,7 +146,7 @@ static ssize_t msr_write(struct file *file, const char __user *buf, size_t count
         return -EINVAL; // Invalid chunk size
     }
 
-    mask = capable(CAP_SYS_RAWIO) ? 0xffffffffffffffff : msr_whitelist_writemask(reg);
+    mask = capable(CAP_SYS_RAWIO) ? 0xffffffffffffffff : msr_approved_list_writemask(reg);
 
     if (!capable(CAP_SYS_RAWIO) && mask == 0)
     {
@@ -361,10 +361,10 @@ static int __init msr_init(void)
         goto out;
     }
 
-    err = msr_whitelist_init(&mdev_msr_whitelist);
+    err = msr_approved_list_init(&mdev_msr_approved_list);
     if (err != 0)
     {
-        pr_debug("failed to initialize msr_whitelist\n");
+        pr_debug("failed to initialize msr_approved_list\n");
         goto out_batch;
     }
 
@@ -389,7 +389,7 @@ static int __init msr_init(void)
 
     pr_debug("msr_safe major dev: %i\n", mdev_msr_safe);
     pr_debug("msr_batch major dev: %i\n", mdev_msr_batch);
-    pr_debug("msr_whitelist major dev: %i\n", mdev_msr_whitelist);
+    pr_debug("msr_approved_list major dev: %i\n", mdev_msr_approved_list);
 
     msr_class = class_create(THIS_MODULE, "msr_safe");
     if (IS_ERR(msr_class))
@@ -428,7 +428,7 @@ out_class:
 out_chrdev:
     __unregister_chrdev(mdev_msr_safe, 0, num_possible_cpus(), "cpu/msr_safe");
 out_wlist:
-    msr_whitelist_cleanup(mdev_msr_whitelist);
+    msr_approved_list_cleanup(mdev_msr_approved_list);
 out_batch:
     msrbatch_cleanup(mdev_msr_batch);
 out:
@@ -453,13 +453,13 @@ static void __exit msr_exit(void)
     unregister_hotcpu_notifier(&msr_class_cpu_notifier);
 #endif
 
-    msr_whitelist_cleanup(mdev_msr_whitelist);
+    msr_approved_list_cleanup(mdev_msr_approved_list);
     msrbatch_cleanup(mdev_msr_batch);
 }
 
 module_exit(msr_exit)
 
 MODULE_AUTHOR("H. Peter Anvin <hpa@zytor.com>");
-MODULE_DESCRIPTION("x86 generic MSR driver (+LLNL Whitelist)");
+MODULE_DESCRIPTION("x86 generic MSR driver (+LLNL Approved List)");
 MODULE_VERSION("1.4");
 MODULE_LICENSE("GPL");

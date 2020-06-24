@@ -32,7 +32,7 @@
 
 /*
  * The msr-safe Linux kernel module enables user access to read and
- * write capabilities for a restricted set of whitelisted Model
+ * write capabilities for a restricted set of approved Model
  * Specific Registers (MSRs) on x86 platforms.  The purpose of this
  * slurm plugin is to ensure that MSRs modified within a user's slurm
  * job allocation are reset to their original state before the compute
@@ -40,7 +40,7 @@
  * system.  The msr-safe kernel module is targeting HPC systems that
  * enforce single user occupancy per compute node, and is not
  * appropriate for systems where compute nodes are shared between
- * users.  The modifications that one user makes to whitelisted
+ * users.  The modifications that one user makes to approved
  * registers may impact subsequent users of the processor if not
  * restored.
  */
@@ -141,7 +141,7 @@ int slurm_spank_job_prolog(spank_t spank_ctx, int argc, char **argv)
     FILE *out_log = NULL;
     char out_log_name[NAME_MAX * 2];
     char msrsave_file[NAME_MAX * 2];
-    const char *whitelist_path = "/dev/cpu/msr_whitelist";
+    const char *approved_list_path = "/dev/cpu/msr_approved_list";
     const char *msr_path = "/dev/cpu/%d/msr_safe";
     int num_cpu = sysconf(_SC_NPROCESSORS_ONLN);
     char hostname[NAME_MAX];
@@ -165,7 +165,7 @@ int slurm_spank_job_prolog(spank_t spank_ctx, int argc, char **argv)
     }
     if (!err) {
         snprintf(msrsave_file, NAME_MAX * 2, "%s-%s", SLURM_SPANK_MSRSAVE_FILE_PREFIX, hostname);
-        err = msr_save(msrsave_file, whitelist_path, msr_path, num_cpu, out_log, out_log);
+        err = msr_save(msrsave_file, approved_list_path, msr_path, num_cpu, out_log, out_log);
         if (err) {
             slurm_info("msr_save failed:");
 	}
@@ -189,7 +189,7 @@ int slurm_spank_job_epilog(spank_t spank_ctx, int argc, char **argv)
     FILE *out_log = NULL;
     char out_log_name[NAME_MAX * 2];
     char msrsave_file[NAME_MAX * 2];
-    const char *whitelist_path = "/dev/cpu/msr_whitelist";
+    const char *approved_list_path = "/dev/cpu/msr_approved_list";
     const char *msr_path = "/dev/cpu/%d/msr_safe";
     int num_cpu = sysconf(_SC_NPROCESSORS_ONLN);
     char hostname[NAME_MAX];
@@ -213,7 +213,7 @@ int slurm_spank_job_epilog(spank_t spank_ctx, int argc, char **argv)
     }
     if (!err) {
         snprintf(msrsave_file, NAME_MAX * 2, "%s-%s", SLURM_SPANK_MSRSAVE_FILE_PREFIX, hostname);
-        err = msr_restore(msrsave_file, whitelist_path, msr_path, num_cpu, out_log, out_log);
+        err = msr_restore(msrsave_file, approved_list_path, msr_path, num_cpu, out_log, out_log);
         if (err) {
             slurm_info("msr_restore failed:");
 	}
