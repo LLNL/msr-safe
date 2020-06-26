@@ -61,28 +61,28 @@ static int is_good_value(uint64_t write_val, uint64_t mask)
     return result;
 }
 
-static int msr_parse_whitelist(const char *whitelist_path, size_t *num_msr_ptr, uint64_t **msr_offset_ptr, uint64_t **msr_mask_ptr, FILE *error_log)
+static int msr_parse_approved_list(const char *approved_list_path, size_t *num_msr_ptr, uint64_t **msr_offset_ptr, uint64_t **msr_mask_ptr, FILE *error_log)
 {
     enum {BUFFER_SIZE = 8192};
     int err = 0;
     int tmp_err = 0;
     int i;
     int tmp_fd = -1;
-    int whitelist_fd = -1;
+    int approved_list_fd = -1;
     size_t num_scan = 0;
     size_t num_msr = 0;
     ssize_t num_read = 0;
     ssize_t num_write = 0;
-    char *whitelist_buffer = NULL;
-    char *whitelist_ptr = NULL;
+    char *approved_list_buffer = NULL;
+    char *approved_list_ptr = NULL;
     uint64_t *msr_offset = NULL;
     uint64_t *msr_mask = NULL;
-    struct stat whitelist_stat;
-    char tmp_path[NAME_MAX] = "/tmp/msrsave_whitelist_XXXXXX";
+    struct stat approved_list_stat;
+    char tmp_path[NAME_MAX] = "/tmp/msrsave_approved_list_XXXXXX";
     char err_msg[NAME_MAX];
     char copy_buffer[BUFFER_SIZE];
 
-    /* Copy whitelist into temporary file */
+    /* Copy approved list into temporary file */
     tmp_fd = mkstemp(tmp_path);
     if (tmp_fd == -1)
     {
@@ -91,20 +91,20 @@ static int msr_parse_whitelist(const char *whitelist_path, size_t *num_msr_ptr, 
         goto exit;
     }
 
-    whitelist_fd = open(whitelist_path, O_RDONLY);
-    if (whitelist_fd == -1)
+    approved_list_fd = open(approved_list_path, O_RDONLY);
+    if (approved_list_fd == -1)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Open of whitelist file named \"%s\" failed!: %s\n", whitelist_path, strerror(errno));
+        fprintf(error_log, "Open of approved list file named \"%s\" failed!: %s\n", approved_list_path, strerror(errno));
         goto exit;
     }
 
-    while ((num_read = read(whitelist_fd, copy_buffer, sizeof(copy_buffer))))
+    while ((num_read = read(approved_list_fd, copy_buffer, sizeof(copy_buffer))))
     {
         if (num_read == -1)
         {
             err = errno ? errno : -1;
-            fprintf(error_log, "Read of whitelist file \"%s\" failed!: %s\n", whitelist_path, strerror(errno));
+            fprintf(error_log, "Read of approved list file \"%s\" failed!: %s\n", approved_list_path, strerror(errno));
             goto exit;
         }
 
@@ -126,20 +126,20 @@ static int msr_parse_whitelist(const char *whitelist_path, size_t *num_msr_ptr, 
         goto exit;
     }
 
-    tmp_err = close(whitelist_fd);
-    whitelist_fd = -1;
+    tmp_err = close(approved_list_fd);
+    approved_list_fd = -1;
     if (tmp_err == -1)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Close of whitelist file named\"%s\" failed!: %s\n", whitelist_path, strerror(errno));
+        fprintf(error_log, "Close of approved list file named\"%s\" failed!: %s\n", approved_list_path, strerror(errno));
         goto exit;
     }
 
     *msr_offset_ptr = NULL;
     *msr_mask_ptr = NULL;
 
-    /* Figure out how big the whitelist file is */
-    tmp_err = stat(tmp_path, &whitelist_stat);
+    /* Figure out how big the approved list file is */
+    tmp_err = stat(tmp_path, &approved_list_stat);
     if (tmp_err != 0)
     {
         err = errno ? errno : -1;
@@ -147,38 +147,38 @@ static int msr_parse_whitelist(const char *whitelist_path, size_t *num_msr_ptr, 
         goto exit;
     }
 
-    if (whitelist_stat.st_size == 0)
+    if (approved_list_stat.st_size == 0)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Whitelist file (%s) size is zero!: %s\n", tmp_path, strerror(errno));
+        fprintf(error_log, "Approved list file (%s) size is zero!: %s\n", tmp_path, strerror(errno));
         goto exit;
     }
 
     /* Allocate buffer for file contents and null terminator */
-    whitelist_buffer = (char*)malloc(whitelist_stat.st_size + 1);
-    if (!whitelist_buffer)
+    approved_list_buffer = (char*)malloc(approved_list_stat.st_size + 1);
+    if (!approved_list_buffer)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Could not allocate array of size %zu!: %s\n", whitelist_stat.st_size, strerror(errno));
+        fprintf(error_log, "Could not allocate array of size %zu!: %s\n", approved_list_stat.st_size, strerror(errno));
         goto exit;
     }
-    whitelist_buffer[whitelist_stat.st_size] = '\0';
+    approved_list_buffer[approved_list_stat.st_size] = '\0';
 
     /* Open file */
     tmp_fd = open(tmp_path, O_RDONLY);
     if (tmp_fd == -1)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Could not open whitelist temporary file \"%s\"!: %s\n", tmp_path, strerror(errno));
+        fprintf(error_log, "Could not open approved list temporary file \"%s\"!: %s\n", tmp_path, strerror(errno));
         goto exit;
     }
 
     /* Read contents */
-    num_read = read(tmp_fd, whitelist_buffer, whitelist_stat.st_size);
-    if (num_read != whitelist_stat.st_size)
+    num_read = read(tmp_fd, approved_list_buffer, approved_list_stat.st_size);
+    if (num_read != approved_list_stat.st_size)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Contents read from whitelist file is too small: %zu < %zu!: %s\n", num_read, whitelist_stat.st_size, strerror(errno));
+        fprintf(error_log, "Contents read from approved list file is too small: %zu < %zu!: %s\n", num_read, approved_list_stat.st_size, strerror(errno));
         goto exit;
     }
 
@@ -188,27 +188,27 @@ static int msr_parse_whitelist(const char *whitelist_path, size_t *num_msr_ptr, 
     if (tmp_err)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Unable to close temporary whitelist file called \"%s\": %s\n", tmp_path, strerror(errno));
+        fprintf(error_log, "Unable to close temporary approved list file called \"%s\": %s\n", tmp_path, strerror(errno));
         goto exit;
     }
 
     /* Count the number of new lines in the file that do not start with # */
-    whitelist_ptr = whitelist_buffer;
-    while (whitelist_ptr && *whitelist_ptr)
+    approved_list_ptr = approved_list_buffer;
+    while (approved_list_ptr && *approved_list_ptr)
     {
-        if (*whitelist_ptr != '#')
+        if (*approved_list_ptr != '#')
         {
             ++num_msr;
         }
-        whitelist_ptr = strchr(whitelist_ptr, '\n');
-        if (whitelist_ptr)
+        approved_list_ptr = strchr(approved_list_ptr, '\n');
+        if (approved_list_ptr)
         {
-            ++whitelist_ptr;
+            ++approved_list_ptr;
         }
     }
     *num_msr_ptr = num_msr;
 
-    /* Allocate buffers for parsed whitelist */
+    /* Allocate buffers for parsed approved list */
     msr_offset = *msr_offset_ptr = (uint64_t *)malloc(sizeof(uint64_t) * num_msr);
     if (!msr_offset)
     {
@@ -225,39 +225,39 @@ static int msr_parse_whitelist(const char *whitelist_path, size_t *num_msr_ptr, 
         goto exit;
     }
 
-    /* Parse the whitelist */
-    const char *whitelist_format = "%zX %zX\n";
-    whitelist_ptr = whitelist_buffer;
+    /* Parse the approved list */
+    const char *approved_list_format = "%zX %zX\n";
+    approved_list_ptr = approved_list_buffer;
     for (i = 0; i < num_msr; ++i)
     {
-        while (*whitelist_ptr == '#')
+        while (*approved_list_ptr == '#')
         {
             /* '#' is on first position means line is a comment, treat next line. */
-            whitelist_ptr = strchr(whitelist_ptr, '\n');
-            if (whitelist_ptr)
+            approved_list_ptr = strchr(approved_list_ptr, '\n');
+            if (approved_list_ptr)
             {
-                whitelist_ptr++; /* Move the pointer to the next line */
+                approved_list_ptr++; /* Move the pointer to the next line */
             }
             else
             {
                 err = -1;
-                fprintf(stderr, "Error: Failed to parse whitelist file named \"%s\"\n", whitelist_path);
+                fprintf(stderr, "Error: Failed to parse approved list file named \"%s\"\n", approved_list_path);
                 goto exit;
             }
         }
-        num_scan = sscanf(whitelist_ptr, whitelist_format, msr_offset + i, msr_mask + i);
+        num_scan = sscanf(approved_list_ptr, approved_list_format, msr_offset + i, msr_mask + i);
         if (num_scan != 2)
         {
             err = -1;
-            fprintf(stderr, "Error: Failed to parse whitelist file named \"%s\"\n", whitelist_path);
+            fprintf(stderr, "Error: Failed to parse approved list file named \"%s\"\n", approved_list_path);
             goto exit;
         }
-        whitelist_ptr = strchr(whitelist_ptr, '\n');
-        whitelist_ptr++; /* Move the pointer to the next line */
-        if (!whitelist_ptr)
+        approved_list_ptr = strchr(approved_list_ptr, '\n');
+        approved_list_ptr++; /* Move the pointer to the next line */
+        if (!approved_list_ptr)
         {
             err = -1;
-            fprintf(stderr, "Error: Failed to parse whitelist file named \"%s\"\n", whitelist_path);
+            fprintf(stderr, "Error: Failed to parse approved list file named \"%s\"\n", approved_list_path);
             goto exit;
         }
     }
@@ -268,18 +268,18 @@ exit:
     {
         close(tmp_fd);
     }
-    if (whitelist_fd != -1)
+    if (approved_list_fd != -1)
     {
-        close(whitelist_fd);
+        close(approved_list_fd);
     }
-    if (whitelist_buffer)
+    if (approved_list_buffer)
     {
-        free(whitelist_buffer);
+        free(approved_list_buffer);
     }
     return err;
 }
 
-int msr_save(const char *save_path, const char *whitelist_path, const char *msr_path_format, int num_cpu, FILE *output_log, FILE *error_log)
+int msr_save(const char *save_path, const char *approved_list_path, const char *msr_path_format, int num_cpu, FILE *output_log, FILE *error_log)
 {
     int err = 0;
     int tmp_err = 0;
@@ -291,7 +291,7 @@ int msr_save(const char *save_path, const char *whitelist_path, const char *msr_
     uint64_t *save_buffer = NULL;
     FILE *save_fid = NULL;
 
-    err = msr_parse_whitelist(whitelist_path, &num_msr, &msr_offset, &msr_mask, error_log);
+    err = msr_parse_approved_list(approved_list_path, &num_msr, &msr_offset, &msr_mask, error_log);
     if (err)
     {
         goto exit;
@@ -314,7 +314,7 @@ int msr_save(const char *save_path, const char *whitelist_path, const char *msr_
 
     /* Open all MSR files.
      * Read ALL existing data
-     * Pass through the whitelist mask. */
+     * Pass through the approved list mask. */
     for (i = 0; i < num_cpu; ++i)
     {
         char msr_file_name[NAME_MAX];
@@ -416,7 +416,7 @@ exit:
     return err;
 }
 
-int msr_restore(const char *restore_path, const char *whitelist_path, const char *msr_path_format, int num_cpu, FILE *output_log, FILE *error_log)
+int msr_restore(const char *restore_path, const char *approved_list_path, const char *msr_path_format, int num_cpu, FILE *output_log, FILE *error_log)
 {
     int err = 0;
     int tmp_err = 0;
@@ -432,10 +432,10 @@ int msr_restore(const char *restore_path, const char *whitelist_path, const char
     uint64_t *restore_buffer = NULL;
     FILE *restore_fid = NULL;
     struct stat restore_stat;
-    struct stat whitelist_stat;
+    struct stat approved_list_stat;
     char err_msg[NAME_MAX];
 
-    err = msr_parse_whitelist(whitelist_path, &num_msr, &msr_offset, &msr_mask, error_log);
+    err = msr_parse_approved_list(approved_list_path, &num_msr, &msr_offset, &msr_mask, error_log);
     if (err)
     {
         goto exit;
@@ -447,7 +447,7 @@ int msr_restore(const char *restore_path, const char *whitelist_path, const char
     }
 
     /* Check that the timestamp of the restore file is after the timestamp
-       for the whitelist file */
+       for the approved list file */
     tmp_err = stat(restore_path, &restore_stat);
     if (tmp_err != 0)
     {
@@ -456,18 +456,18 @@ int msr_restore(const char *restore_path, const char *whitelist_path, const char
         goto exit;
     }
 
-    tmp_err = stat(whitelist_path, &whitelist_stat);
+    tmp_err = stat(approved_list_path, &approved_list_stat);
     if (tmp_err != 0)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "stat() of %s failed!: %s\n", whitelist_path, strerror(errno));
+        fprintf(error_log, "stat() of %s failed!: %s\n", approved_list_path, strerror(errno));
         goto exit;
     }
 
-    if (restore_stat.st_mtime < whitelist_stat.st_mtime)
+    if (restore_stat.st_mtime < approved_list_stat.st_mtime)
     {
         err = -1;
-        fprintf(error_log, "Error: whitelist was modified after restore file was written!\n");
+        fprintf(error_log, "Error: approved list was modified after restore file was written!\n");
         goto exit;
     }
 
@@ -508,7 +508,7 @@ int msr_restore(const char *restore_path, const char *whitelist_path, const char
 
     /* Open all MSR files.
      * Read ALL existing data
-     * Pass through the whitelist mask
+     * Pass through the approved list mask
      * Or in restore values
      * Write back to MSR files. */
     for (i = 0; i < num_cpu; ++i)

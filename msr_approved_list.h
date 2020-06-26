@@ -30,7 +30,7 @@
  */
 
 /*
- * Internal declarations for x86 MSR whitelist implementation functions.
+ * Internal declarations for x86 MSR approved list implementation functions.
  *
  * Thank you to everyone who has contributed and helped with this project:
  *
@@ -38,21 +38,21 @@
  * Tapasya Patki, Barry Rountree, Kendrick Shaw, Marty McFadden
  */
 
-#ifndef _ARCH_X68_KERNEL_MSR_WHITELIST_HEADER_INCLUDE
-#define _ARCH_X68_KERNEL_MSR_WHITELIST_HEADER_INCLUDE
+#ifndef _ARCH_X68_KERNEL_MSR_APPROVED_LIST_HEADER_INCLUDE
+#define _ARCH_X68_KERNEL_MSR_APPROVED_LIST_HEADER_INCLUDE
 
 #include <linux/types.h>
 
-int msr_whitelist_init(int *majordev);
+int msr_approved_list_init(int *majordev);
 
-int msr_whitelist_cleanup(int majordev);
+int msr_approved_list_cleanup(int majordev);
 
-int msr_whitelist_exists(void);
+int msr_approved_list_exists(void);
 
-int msr_whitelist_maskexists(loff_t reg);
+int msr_approved_list_maskexists(loff_t reg);
 
-u64 msr_whitelist_readmask(loff_t reg);
+u64 msr_approved_list_readmask(loff_t reg);
 
-u64 msr_whitelist_writemask(loff_t reg);
+u64 msr_approved_list_writemask(loff_t reg);
 
 #endif
