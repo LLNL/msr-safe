@@ -44,20 +44,20 @@
 #include <linux/version.h>
 
 #include "msr_batch.h"
-#include "msr_approved_list.h"
+#include "msr_allowlist.h"
 
 static struct class *msr_class;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
 static enum cpuhp_state cpuhp_msr_state;
 #endif
 static int mdev_msr_safe;
-static int mdev_msr_approved_list;
+static int mdev_msr_allowlist;
 static int mdev_msr_batch;
 
 module_param(mdev_msr_safe, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(mdev_msr_safe, "Major number for msr_safe (int).");
-module_param(mdev_msr_approved_list, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-MODULE_PARM_DESC(mdev_msr_approved_list, "Major number for msr_approved_list (int).");
+module_param(mdev_msr_allowlist, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(mdev_msr_allowlist, "Major number for msr_allowlist (int).");
 module_param(mdev_msr_batch, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(mdev_msr_batch, "Major number for msr_batch (int).");
 
@@ -106,7 +106,7 @@ static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_
         return -EINVAL; /* Invalid chunk size */
     }
 
-    if (!capable(CAP_SYS_RAWIO) && !msr_approved_list_maskexists(reg))
+    if (!capable(CAP_SYS_RAWIO) && !msr_allowlist_maskexists(reg))
     {
         return -EACCES;
     }
@@ -146,7 +146,7 @@ static ssize_t msr_write(struct file *file, const char __user *buf, size_t count
         return -EINVAL; // Invalid chunk size
     }
 
-    mask = capable(CAP_SYS_RAWIO) ? 0xffffffffffffffff : msr_approved_list_writemask(reg);
+    mask = capable(CAP_SYS_RAWIO) ? 0xffffffffffffffff : msr_allowlist_writemask(reg);
 
     if (!capable(CAP_SYS_RAWIO) && mask == 0)
     {
@@ -361,10 +361,10 @@ static int __init msr_init(void)
         goto out;
     }
 
-    err = msr_approved_list_init(&mdev_msr_approved_list);
+    err = msr_allowlist_init(&mdev_msr_allowlist);
     if (err != 0)
     {
-        pr_debug("failed to initialize msr_approved_list\n");
+        pr_debug("failed to initialize msr_allowlist\n");
         goto out_batch;
     }
 
@@ -389,7 +389,7 @@ static int __init msr_init(void)
 
     pr_debug("msr_safe major dev: %i\n", mdev_msr_safe);
     pr_debug("msr_batch major dev: %i\n", mdev_msr_batch);
-    pr_debug("msr_approved_list major dev: %i\n", mdev_msr_approved_list);
+    pr_debug("msr_allowlist major dev: %i\n", mdev_msr_allowlist);
 
     msr_class = class_create(THIS_MODULE, "msr_safe");
     if (IS_ERR(msr_class))
@@ -428,7 +428,7 @@ out_class:
 out_chrdev:
     __unregister_chrdev(mdev_msr_safe, 0, num_possible_cpus(), "cpu/msr_safe");
 out_wlist:
-    msr_approved_list_cleanup(mdev_msr_approved_list);
+    msr_allowlist_cleanup(mdev_msr_allowlist);
 out_batch:
     msrbatch_cleanup(mdev_msr_batch);
 out:
@@ -453,7 +453,7 @@ static void __exit msr_exit(void)
     unregister_hotcpu_notifier(&msr_class_cpu_notifier);
 #endif
 
-    msr_approved_list_cleanup(mdev_msr_approved_list);
+    msr_allowlist_cleanup(mdev_msr_allowlist);
     msrbatch_cleanup(mdev_msr_batch);
 }
 

@@ -30,7 +30,7 @@
  */
 
 /*
- * Internal declarations for x86 MSR approved list implementation functions.
+ * Internal declarations for x86 MSR allowlist implementation functions.
  *
  * Thank you to everyone who has contributed and helped with this project:
  *
@@ -38,21 +38,21 @@
  * Tapasya Patki, Barry Rountree, Kendrick Shaw, Marty McFadden
  */
 
-#ifndef _ARCH_X68_KERNEL_MSR_APPROVED_LIST_HEADER_INCLUDE
-#define _ARCH_X68_KERNEL_MSR_APPROVED_LIST_HEADER_INCLUDE
+#ifndef _ARCH_X68_KERNEL_MSR_ALLOWLIST_HEADER_INCLUDE
+#define _ARCH_X68_KERNEL_MSR_ALLOWLIST_HEADER_INCLUDE
 
 #include <linux/types.h>
 
-int msr_approved_list_init(int *majordev);
+int msr_allowlist_init(int *majordev);
 
-int msr_approved_list_cleanup(int majordev);
+int msr_allowlist_cleanup(int majordev);
 
-int msr_approved_list_exists(void);
+int msr_allowlist_exists(void);
 
-int msr_approved_list_maskexists(loff_t reg);
+int msr_allowlist_maskexists(loff_t reg);
 
-u64 msr_approved_list_readmask(loff_t reg);
+u64 msr_allowlist_readmask(loff_t reg);
 
-u64 msr_approved_list_writemask(loff_t reg);
+u64 msr_allowlist_writemask(loff_t reg);
 
 #endif

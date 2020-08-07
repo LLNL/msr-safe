@@ -16,13 +16,13 @@ start() {
     AL_CPU=$(al_cpu)
   fi
 
-  if [ -z "${APPROVED_LIST:-}" ]; then
-    APPROVED_LIST="/usr/share/msr-safe/approved_lists/${AL_CPU}"
+  if [ -z "${ALLOWLIST:-}" ]; then
+    ALLOWLIST="/usr/share/msr-safe/allowlists/${AL_CPU}"
   fi
 
-  if [ -f "/usr/share/msr-safe/approved_lists/${AL_CPU}" ]; then
+  if [ -f "/usr/share/msr-safe/allowlists/${AL_CPU}" ]; then
     /sbin/modprobe msr-safe && \
-    cat "${APPROVED_LIST}" > /dev/cpu/msr_approved_list
+    cat "${ALLOWLIST}" > /dev/cpu/msr_allowlist
 
     return $?
   else
@@ -31,7 +31,7 @@ start() {
 }
 
 stop() {
-    echo > /dev/cpu/msr_approved_list && \
+    echo > /dev/cpu/msr_allowlist && \
     /sbin/rmmod msr-safe
 
     return $?

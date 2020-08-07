@@ -36,14 +36,14 @@
 #include <stdio.h>
 
 int msr_save(const char *out_path,
-             const char *approved_list_path,
+             const char *allowlist_path,
              const char *msr_path,
              int num_cpu,
              FILE *output_log,
              FILE *error_log);
 
 int msr_restore(const char *in_path,
-                const char *approved_list_path,
+                const char *allowlist_path,
                 const char *msr_path,
                 int num_cpu,
                 FILE *output_log,

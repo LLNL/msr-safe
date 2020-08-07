@@ -83,30 +83,30 @@ void msrsave_test_check_msr(uint64_t *check_val, size_t num_check, const char *p
 int main(int argc, char **argv)
 {
     int err = 0;
-    const uint64_t approved_list_off[] = {0x0000000000000000ULL,
-                                          0x0000000000000008ULL,
-                                          0x0000000000000010ULL,
-                                          0x0000000000000018ULL,
-                                          0x0000000000000020ULL,
-                                          0x0000000000000028ULL,
-                                          0x0000000000000030ULL,
-                                          0x0000000000000038ULL,
-                                          0x0000000000000040ULL,
-                                          0x0000000000000048ULL,
-                                          0x0000000000000050ULL,
-                                          0x0000000000000058ULL,
-                                          0x0000000000000060ULL,
-                                          0x0000000000000068ULL,
-                                          0x0000000000000070ULL,
-                                          0x0000000000000078ULL,
-                                          0x0000000000000080ULL,
-                                          0x0000000000000088ULL,
-                                          0x0000000000000090ULL,
-                                          0x0000000000000098ULL,
-                                          0x1000000000000100ULL  /* negative offset should be skipped */
+    const uint64_t allowlist_off[] = {0x0000000000000000ULL,
+                                      0x0000000000000008ULL,
+                                      0x0000000000000010ULL,
+                                      0x0000000000000018ULL,
+                                      0x0000000000000020ULL,
+                                      0x0000000000000028ULL,
+                                      0x0000000000000030ULL,
+                                      0x0000000000000038ULL,
+                                      0x0000000000000040ULL,
+                                      0x0000000000000048ULL,
+                                      0x0000000000000050ULL,
+                                      0x0000000000000058ULL,
+                                      0x0000000000000060ULL,
+                                      0x0000000000000068ULL,
+                                      0x0000000000000070ULL,
+                                      0x0000000000000078ULL,
+                                      0x0000000000000080ULL,
+                                      0x0000000000000088ULL,
+                                      0x0000000000000090ULL,
+                                      0x0000000000000098ULL,
+                                      0x1000000000000100ULL  /* negative offset should be skipped */
     };
 
-    const uint64_t approved_list_mask[] = {0x8000000000000000ULL,
+    const uint64_t allowlist_mask[] = {0x8000000000000000ULL,
                                            0x8000000000000000ULL,
                                            0x8000000000000000ULL,
                                            0x8000000000000000ULL,
@@ -128,21 +128,21 @@ int main(int argc, char **argv)
                                            0xFFFFFFFFFFFFFFFFULL,
                                            0x8000000000000000ULL};
 
-    enum {NUM_MSR = sizeof(approved_list_off) / sizeof(uint64_t)};
-    assert(NUM_MSR == sizeof(approved_list_mask) / sizeof(uint64_t));
+    enum {NUM_MSR = sizeof(allowlist_off) / sizeof(uint64_t)};
+    assert(NUM_MSR == sizeof(allowlist_mask) / sizeof(uint64_t));
     const char *test_save_path = "msrsave_test_store";
-    const char *test_approved_list_path = "msrsave_test_approved_list";
+    const char *test_allowlist_path = "msrsave_test_allowlist";
     const char *test_msr_path = "msrsave_test_msr.%d";
-    const char *approved_list_format = "0x%.8zX 0x%.16zX\n";
+    const char *allowlist_format = "0x%.8zX 0x%.16zX\n";
     const int num_cpu = 10;
     int i;
 
     /* Create a mock white list from the data in the constants above. */
-    FILE *fid = fopen(test_approved_list_path, "w");
+    FILE *fid = fopen(test_allowlist_path, "w");
     assert(fid != NULL);
     for (i = 0; i < NUM_MSR; ++i)
     {
-        fprintf(fid, approved_list_format, approved_list_off[i], approved_list_mask[i]);
+        fprintf(fid, allowlist_format, allowlist_off[i], allowlist_mask[i]);
     }
     fclose(fid);
 
@@ -162,7 +162,7 @@ int main(int argc, char **argv)
     const char *log_file_name = "msrsave_test.log";
     FILE *log_file = fopen(log_file_name, "w");
     /* Save the current state to a file */
-    err = msr_save(test_save_path, test_approved_list_path, test_msr_path, num_cpu, log_file, log_file);
+    err = msr_save(test_save_path, test_allowlist_path, test_msr_path, num_cpu, log_file, log_file);
     assert(err == 0);
 
     /* Overwrite the mock msr files with new data */
@@ -178,7 +178,7 @@ int main(int argc, char **argv)
     msrsave_test_mock_msr(msr_val, sizeof(msr_val), test_msr_path, num_cpu);
 
     /* Restore to the original values */
-    err = msr_restore(test_save_path, test_approved_list_path, test_msr_path, num_cpu, log_file, log_file);
+    err = msr_restore(test_save_path, test_allowlist_path, test_msr_path, num_cpu, log_file, log_file);
     assert(err == 0);
 
     /* Check that the values that are writable have been restored. */
@@ -186,7 +186,7 @@ int main(int argc, char **argv)
     hval = 0x9EADBEEF;
     for (i = 0; i < NUM_MSR - 1; ++i)
     {
-        if (approved_list_mask[i] & 0xFFFFFFFF) {
+        if (allowlist_mask[i] & 0xFFFFFFFF) {
             msr_val[i] = 0xDEADBEEF00000000 | i;
         }
         else {
@@ -203,7 +203,7 @@ int main(int argc, char **argv)
         snprintf(this_path, NAME_MAX, test_msr_path, i);
         unlink(this_path);
     }
-    unlink(test_approved_list_path);
+    unlink(test_allowlist_path);
     unlink(test_save_path);
     fclose(log_file);
     if (!err) {

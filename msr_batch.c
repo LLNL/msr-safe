@@ -56,7 +56,7 @@
 
 #include "msr_batch.h"
 #include "msr_safe.h"
-#include "msr_approved_list.h"
+#include "msr_allowlist.h"
 
 static struct class *cdev_class;
 static char cdev_created;
@@ -90,7 +90,7 @@ static int msrbatch_close(struct inode *inode, struct file *file)
     return 0;
 }
 
-static int msrbatch_apply_approved_list(struct msr_batch_array *oa)
+static int msrbatch_apply_allowlist(struct msr_batch_array *oa)
 {
     struct msr_batch_op *op;
     int err = 0;
@@ -113,14 +113,14 @@ static int msrbatch_apply_approved_list(struct msr_batch_array *oa)
             continue;
         }
 
-        if (!msr_approved_list_maskexists(op->msr))
+        if (!msr_allowlist_maskexists(op->msr))
         {
-            pr_debug("No approved list entry for MSR %x\n", op->msr);
+            pr_debug("No allowlist entry for MSR %x\n", op->msr);
             op->err = err = -EACCES;
         }
         else
         {
-            op->wmask = msr_approved_list_writemask(op->msr);
+            op->wmask = msr_allowlist_writemask(op->msr);
             /* Check for read-only case */
             if (op->wmask == 0 && !op->isrdmsr)
             {
@@ -182,10 +182,10 @@ static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
         goto bundle_alloc;
     }
 
-    err = msrbatch_apply_approved_list(&koa);
+    err = msrbatch_apply_allowlist(&koa);
     if (err)
     {
-        pr_debug("Failed to apply approved list %d\n", err);
+        pr_debug("Failed to apply allowlist %d\n", err);
         goto copyout_and_return;
     }
 
