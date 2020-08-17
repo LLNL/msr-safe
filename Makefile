@@ -30,13 +30,13 @@
 # Uncomment following line(s) to enable debug output from different
 # portions of kernel module.
 #
-#CFLAGS_msr_approved_list.o := -DDEBUG
+#CFLAGS_msr_allowlist.o := -DDEBUG
 #CFLAGS_msr_entry.o := -DDEBUG
 #CFLAGS_msr_batch.o := -DDEBUG
 #CFLAGS_msr-smp.o := -DDEBUG
 
 obj-m += msr-safe.o
-msr-safe-objs := msr_entry.o msr_approved_list.o msr-smp.o msr_batch.o
+msr-safe-objs := msr_entry.o msr_allowlist.o msr-smp.o msr_batch.o
 
 all: msrsave/msrsave
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules

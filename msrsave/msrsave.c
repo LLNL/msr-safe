@@ -61,28 +61,28 @@ static int is_good_value(uint64_t write_val, uint64_t mask)
     return result;
 }
 
-static int msr_parse_approved_list(const char *approved_list_path, size_t *num_msr_ptr, uint64_t **msr_offset_ptr, uint64_t **msr_mask_ptr, FILE *error_log)
+static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, uint64_t **msr_offset_ptr, uint64_t **msr_mask_ptr, FILE *error_log)
 {
     enum {BUFFER_SIZE = 8192};
     int err = 0;
     int tmp_err = 0;
     int i;
     int tmp_fd = -1;
-    int approved_list_fd = -1;
+    int allowlist_fd = -1;
     size_t num_scan = 0;
     size_t num_msr = 0;
     ssize_t num_read = 0;
     ssize_t num_write = 0;
-    char *approved_list_buffer = NULL;
-    char *approved_list_ptr = NULL;
+    char *allowlist_buffer = NULL;
+    char *allowlist_ptr = NULL;
     uint64_t *msr_offset = NULL;
     uint64_t *msr_mask = NULL;
-    struct stat approved_list_stat;
-    char tmp_path[NAME_MAX] = "/tmp/msrsave_approved_list_XXXXXX";
+    struct stat allowlist_stat;
+    char tmp_path[NAME_MAX] = "/tmp/msrsave_allowlist_XXXXXX";
     char err_msg[NAME_MAX];
     char copy_buffer[BUFFER_SIZE];
 
-    /* Copy approved list into temporary file */
+    /* Copy allowlist into temporary file */
     tmp_fd = mkstemp(tmp_path);
     if (tmp_fd == -1)
     {
@@ -91,20 +91,20 @@ static int msr_parse_approved_list(const char *approved_list_path, size_t *num_m
         goto exit;
     }
 
-    approved_list_fd = open(approved_list_path, O_RDONLY);
-    if (approved_list_fd == -1)
+    allowlist_fd = open(allowlist_path, O_RDONLY);
+    if (allowlist_fd == -1)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Open of approved list file named \"%s\" failed!: %s\n", approved_list_path, strerror(errno));
+        fprintf(error_log, "Open of allowlist file named \"%s\" failed!: %s\n", allowlist_path, strerror(errno));
         goto exit;
     }
 
-    while ((num_read = read(approved_list_fd, copy_buffer, sizeof(copy_buffer))))
+    while ((num_read = read(allowlist_fd, copy_buffer, sizeof(copy_buffer))))
     {
         if (num_read == -1)
         {
             err = errno ? errno : -1;
-            fprintf(error_log, "Read of approved list file \"%s\" failed!: %s\n", approved_list_path, strerror(errno));
+            fprintf(error_log, "Read of allowlist file \"%s\" failed!: %s\n", allowlist_path, strerror(errno));
             goto exit;
         }
 
@@ -126,20 +126,20 @@ static int msr_parse_approved_list(const char *approved_list_path, size_t *num_m
         goto exit;
     }
 
-    tmp_err = close(approved_list_fd);
-    approved_list_fd = -1;
+    tmp_err = close(allowlist_fd);
+    allowlist_fd = -1;
     if (tmp_err == -1)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Close of approved list file named\"%s\" failed!: %s\n", approved_list_path, strerror(errno));
+        fprintf(error_log, "Close of allowlist file named\"%s\" failed!: %s\n", allowlist_path, strerror(errno));
         goto exit;
     }
 
     *msr_offset_ptr = NULL;
     *msr_mask_ptr = NULL;
 
-    /* Figure out how big the approved list file is */
-    tmp_err = stat(tmp_path, &approved_list_stat);
+    /* Figure out how big the allowlist file is */
+    tmp_err = stat(tmp_path, &allowlist_stat);
     if (tmp_err != 0)
     {
         err = errno ? errno : -1;
@@ -147,7 +147,7 @@ static int msr_parse_approved_list(const char *approved_list_path, size_t *num_m
         goto exit;
     }
 
-    if (approved_list_stat.st_size == 0)
+    if (allowlist_stat.st_size == 0)
     {
         err = errno ? errno : -1;
         fprintf(error_log, "Approved list file (%s) size is zero!: %s\n", tmp_path, strerror(errno));
@@ -155,30 +155,30 @@ static int msr_parse_approved_list(const char *approved_list_path, size_t *num_m
     }
 
     /* Allocate buffer for file contents and null terminator */
-    approved_list_buffer = (char*)malloc(approved_list_stat.st_size + 1);
-    if (!approved_list_buffer)
+    allowlist_buffer = (char*)malloc(allowlist_stat.st_size + 1);
+    if (!allowlist_buffer)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Could not allocate array of size %zu!: %s\n", approved_list_stat.st_size, strerror(errno));
+        fprintf(error_log, "Could not allocate array of size %zu!: %s\n", allowlist_stat.st_size, strerror(errno));
         goto exit;
     }
-    approved_list_buffer[approved_list_stat.st_size] = '\0';
+    allowlist_buffer[allowlist_stat.st_size] = '\0';
 
     /* Open file */
     tmp_fd = open(tmp_path, O_RDONLY);
     if (tmp_fd == -1)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Could not open approved list temporary file \"%s\"!: %s\n", tmp_path, strerror(errno));
+        fprintf(error_log, "Could not open allowlist temporary file \"%s\"!: %s\n", tmp_path, strerror(errno));
         goto exit;
     }
 
     /* Read contents */
-    num_read = read(tmp_fd, approved_list_buffer, approved_list_stat.st_size);
-    if (num_read != approved_list_stat.st_size)
+    num_read = read(tmp_fd, allowlist_buffer, allowlist_stat.st_size);
+    if (num_read != allowlist_stat.st_size)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Contents read from approved list file is too small: %zu < %zu!: %s\n", num_read, approved_list_stat.st_size, strerror(errno));
+        fprintf(error_log, "Contents read from allowlist file is too small: %zu < %zu!: %s\n", num_read, allowlist_stat.st_size, strerror(errno));
         goto exit;
     }
 
@@ -188,27 +188,27 @@ static int msr_parse_approved_list(const char *approved_list_path, size_t *num_m
     if (tmp_err)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Unable to close temporary approved list file called \"%s\": %s\n", tmp_path, strerror(errno));
+        fprintf(error_log, "Unable to close temporary allowlist file called \"%s\": %s\n", tmp_path, strerror(errno));
         goto exit;
     }
 
     /* Count the number of new lines in the file that do not start with # */
-    approved_list_ptr = approved_list_buffer;
-    while (approved_list_ptr && *approved_list_ptr)
+    allowlist_ptr = allowlist_buffer;
+    while (allowlist_ptr && *allowlist_ptr)
     {
-        if (*approved_list_ptr != '#')
+        if (*allowlist_ptr != '#')
         {
             ++num_msr;
         }
-        approved_list_ptr = strchr(approved_list_ptr, '\n');
-        if (approved_list_ptr)
+        allowlist_ptr = strchr(allowlist_ptr, '\n');
+        if (allowlist_ptr)
         {
-            ++approved_list_ptr;
+            ++allowlist_ptr;
         }
     }
     *num_msr_ptr = num_msr;
 
-    /* Allocate buffers for parsed approved list */
+    /* Allocate buffers for parsed allowlist */
     msr_offset = *msr_offset_ptr = (uint64_t *)malloc(sizeof(uint64_t) * num_msr);
     if (!msr_offset)
     {
@@ -225,39 +225,39 @@ static int msr_parse_approved_list(const char *approved_list_path, size_t *num_m
         goto exit;
     }
 
-    /* Parse the approved list */
-    const char *approved_list_format = "%zX %zX\n";
-    approved_list_ptr = approved_list_buffer;
+    /* Parse the allowlist */
+    const char *allowlist_format = "%zX %zX\n";
+    allowlist_ptr = allowlist_buffer;
     for (i = 0; i < num_msr; ++i)
     {
-        while (*approved_list_ptr == '#')
+        while (*allowlist_ptr == '#')
         {
             /* '#' is on first position means line is a comment, treat next line. */
-            approved_list_ptr = strchr(approved_list_ptr, '\n');
-            if (approved_list_ptr)
+            allowlist_ptr = strchr(allowlist_ptr, '\n');
+            if (allowlist_ptr)
             {
-                approved_list_ptr++; /* Move the pointer to the next line */
+                allowlist_ptr++; /* Move the pointer to the next line */
             }
             else
             {
                 err = -1;
-                fprintf(stderr, "Error: Failed to parse approved list file named \"%s\"\n", approved_list_path);
+                fprintf(stderr, "Error: Failed to parse allowlist file named \"%s\"\n", allowlist_path);
                 goto exit;
             }
         }
-        num_scan = sscanf(approved_list_ptr, approved_list_format, msr_offset + i, msr_mask + i);
+        num_scan = sscanf(allowlist_ptr, allowlist_format, msr_offset + i, msr_mask + i);
         if (num_scan != 2)
         {
             err = -1;
-            fprintf(stderr, "Error: Failed to parse approved list file named \"%s\"\n", approved_list_path);
+            fprintf(stderr, "Error: Failed to parse allowlist file named \"%s\"\n", allowlist_path);
             goto exit;
         }
-        approved_list_ptr = strchr(approved_list_ptr, '\n');
-        approved_list_ptr++; /* Move the pointer to the next line */
-        if (!approved_list_ptr)
+        allowlist_ptr = strchr(allowlist_ptr, '\n');
+        allowlist_ptr++; /* Move the pointer to the next line */
+        if (!allowlist_ptr)
         {
             err = -1;
-            fprintf(stderr, "Error: Failed to parse approved list file named \"%s\"\n", approved_list_path);
+            fprintf(stderr, "Error: Failed to parse allowlist file named \"%s\"\n", allowlist_path);
             goto exit;
         }
     }
@@ -268,18 +268,18 @@ exit:
     {
         close(tmp_fd);
     }
-    if (approved_list_fd != -1)
+    if (allowlist_fd != -1)
     {
-        close(approved_list_fd);
+        close(allowlist_fd);
     }
-    if (approved_list_buffer)
+    if (allowlist_buffer)
     {
-        free(approved_list_buffer);
+        free(allowlist_buffer);
     }
     return err;
 }
 
-int msr_save(const char *save_path, const char *approved_list_path, const char *msr_path_format, int num_cpu, FILE *output_log, FILE *error_log)
+int msr_save(const char *save_path, const char *allowlist_path, const char *msr_path_format, int num_cpu, FILE *output_log, FILE *error_log)
 {
     int err = 0;
     int tmp_err = 0;
@@ -291,7 +291,7 @@ int msr_save(const char *save_path, const char *approved_list_path, const char *
     uint64_t *save_buffer = NULL;
     FILE *save_fid = NULL;
 
-    err = msr_parse_approved_list(approved_list_path, &num_msr, &msr_offset, &msr_mask, error_log);
+    err = msr_parse_allowlist(allowlist_path, &num_msr, &msr_offset, &msr_mask, error_log);
     if (err)
     {
         goto exit;
@@ -314,7 +314,7 @@ int msr_save(const char *save_path, const char *approved_list_path, const char *
 
     /* Open all MSR files.
      * Read ALL existing data
-     * Pass through the approved list mask. */
+     * Pass through the allowlist mask. */
     for (i = 0; i < num_cpu; ++i)
     {
         char msr_file_name[NAME_MAX];
@@ -416,7 +416,7 @@ exit:
     return err;
 }
 
-int msr_restore(const char *restore_path, const char *approved_list_path, const char *msr_path_format, int num_cpu, FILE *output_log, FILE *error_log)
+int msr_restore(const char *restore_path, const char *allowlist_path, const char *msr_path_format, int num_cpu, FILE *output_log, FILE *error_log)
 {
     int err = 0;
     int tmp_err = 0;
@@ -432,10 +432,10 @@ int msr_restore(const char *restore_path, const char *approved_list_path, const 
     uint64_t *restore_buffer = NULL;
     FILE *restore_fid = NULL;
     struct stat restore_stat;
-    struct stat approved_list_stat;
+    struct stat allowlist_stat;
     char err_msg[NAME_MAX];
 
-    err = msr_parse_approved_list(approved_list_path, &num_msr, &msr_offset, &msr_mask, error_log);
+    err = msr_parse_allowlist(allowlist_path, &num_msr, &msr_offset, &msr_mask, error_log);
     if (err)
     {
         goto exit;
@@ -447,7 +447,7 @@ int msr_restore(const char *restore_path, const char *approved_list_path, const 
     }
 
     /* Check that the timestamp of the restore file is after the timestamp
-       for the approved list file */
+       for the allowlist file */
     tmp_err = stat(restore_path, &restore_stat);
     if (tmp_err != 0)
     {
@@ -456,18 +456,18 @@ int msr_restore(const char *restore_path, const char *approved_list_path, const 
         goto exit;
     }
 
-    tmp_err = stat(approved_list_path, &approved_list_stat);
+    tmp_err = stat(allowlist_path, &allowlist_stat);
     if (tmp_err != 0)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "stat() of %s failed!: %s\n", approved_list_path, strerror(errno));
+        fprintf(error_log, "stat() of %s failed!: %s\n", allowlist_path, strerror(errno));
         goto exit;
     }
 
-    if (restore_stat.st_mtime < approved_list_stat.st_mtime)
+    if (restore_stat.st_mtime < allowlist_stat.st_mtime)
     {
         err = -1;
-        fprintf(error_log, "Error: approved list was modified after restore file was written!\n");
+        fprintf(error_log, "Error: allowlist was modified after restore file was written!\n");
         goto exit;
     }
 
@@ -508,7 +508,7 @@ int msr_restore(const char *restore_path, const char *approved_list_path, const 
 
     /* Open all MSR files.
      * Read ALL existing data
-     * Pass through the approved list mask
+     * Pass through the allowlist mask
      * Or in restore values
      * Write back to MSR files. */
     for (i = 0; i < num_cpu; ++i)

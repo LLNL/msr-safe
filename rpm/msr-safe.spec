@@ -36,8 +36,8 @@ done
 
 %install
 %{__make} install DESTDIR=%{buildroot} prefix=%{_prefix} sbindir=%{_sbindir} mandir=%{_mandir}
-install -d %{buildroot}/%{_datadir}/msr-safe/approved_lists
-install -m 0644 approved_lists/* %{buildroot}/%{_datadir}/msr-safe/approved_lists/
+install -d %{buildroot}/%{_datadir}/msr-safe/allowlists
+install -m 0644 allowlists/* %{buildroot}/%{_datadir}/msr-safe/allowlists/
 install -d %{buildroot}%{_unitdir}
 install -m 0644 %{SOURCE1} %{buildroot}%{_unitdir}/msr-safe.service
 install -d %{buildroot}/%{_sysconfdir}/sysconfig
@@ -81,7 +81,7 @@ fi
 
 %files
 %defattr(-,root,root,-)
-%{_datadir}/msr-safe/approved_lists/*
+%{_datadir}/msr-safe/allowlists/*
 %{_unitdir}/msr-safe.service
 %{_udevrulesdir}/10-msr-safe.rules
 %config %{_sysconfdir}/sysconfig/msr-safe

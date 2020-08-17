@@ -62,7 +62,7 @@ int main(int argc, char **argv)
                         "\n"
                         "DESCRIPTION\n"
                         "       The  msrsave  application  is  used  to save to a file the  state of all write\n"
-                        "       accessible MSR values defined in the current MSR approved list or restore the MSR\n"
+                        "       accessible MSR values defined in the current MSR allowlist or restore the MSR\n"
                         "       values from a saved state file. The msrsave application  also respects the\n"
                         "       standard --version  and  --help  options  for  printing  the msr-safe pack-\n"
                         "       age version or a brief message about usage.\n"
@@ -125,15 +125,15 @@ int main(int argc, char **argv)
     {
         const char *file_name = argv[optind];
         const char *msr_path = "/dev/cpu/%d/msr_safe";
-        const char *msr_approved_list_path = "/dev/cpu/msr_approved_list";
+        const char *msr_allowlist_path = "/dev/cpu/msr_allowlist";
         int num_cpu = sysconf(_SC_NPROCESSORS_ONLN);
         if (do_restore)
         {
-            err = msr_restore(file_name, msr_approved_list_path, msr_path, num_cpu, stdout, stderr);
+            err = msr_restore(file_name, msr_allowlist_path, msr_path, num_cpu, stdout, stderr);
         }
         else
         {
-            err = msr_save(file_name, msr_approved_list_path, msr_path, num_cpu, stdout, stderr);
+            err = msr_save(file_name, msr_allowlist_path, msr_path, num_cpu, stdout, stderr);
         }
     }
 
