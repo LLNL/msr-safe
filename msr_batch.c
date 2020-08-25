@@ -61,11 +61,6 @@ static int msr_batch_open(struct inode *inode, struct file *file)
     return 0;
 }
 
-static int msrbatch_close(struct inode *inode, struct file *file)
-{
-    return 0;
-}
-
 static int msrbatch_apply_allowlist(struct msr_batch_array *oa)
 {
     struct msr_batch_op *op;

@@ -144,7 +144,7 @@ static ssize_t msr_write(struct file *file, const char __user *buf, size_t count
         return -EINVAL; // Invalid chunk size
     }
 
-    mask = capable(CAP_SYS_RAWIO) ? 0xffffffffffffffff : msr_allowlist_writemask(reg);
+    wmask = capable(CAP_SYS_RAWIO) ? 0xffffffffffffffff : msr_allowlist_writemask(reg);
 
     if (!capable(CAP_SYS_RAWIO) && wmask == 0)
     {
@@ -454,7 +454,7 @@ static void __exit msr_exit(void)
 #endif
 
     msr_allowlist_cleanup(mdev_msr_allowlist);
-    msrbatch_cleanup(mdev_msr_batch);
+    msr_batch_cleanup(mdev_msr_batch);
 }
 
 module_exit(msr_exit)
@@ -462,4 +462,4 @@ module_exit(msr_exit)
 MODULE_AUTHOR("LLNL");
 MODULE_DESCRIPTION("x86 msr-safe driver (+allowlist)");
 MODULE_VERSION("1.5");
-MODULE_LICENSE("LGPL");
+MODULE_LICENSE("GPL");
