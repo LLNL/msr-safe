@@ -83,6 +83,37 @@ static void __msr_safe_batch(void *info)
     }
 }
 
+#ifdef CONFIG_CPUMASK_OFFSTACK
+
+int msr_safe_batch(struct msr_batch_array *oa)
+{
+    cpumask_var_t cpus_to_run_on;
+    struct msr_batch_op *op;
+
+    zalloc_cpumask_var( &cpus_to_run_on, GFP_KERNEL );
+
+    for (op = oa->ops; op < oa->ops + oa->numops; ++op)
+    {
+        cpumask_set_cpu(op->cpu, cpus_to_run_on);
+    }
+
+    on_each_cpu_mask(cpus_to_run_on, __msr_safe_batch, oa, 1);
+
+    free_cpumask_var(cpus_to_run_on);
+
+    for (op = oa->ops; op < oa->ops + oa->numops; ++op)
+    {
+        if (op->err)
+        {
+            return op->err;
+        }
+    }
+
+    return 0;
+}
+
+#else
+
 int msr_safe_batch(struct msr_batch_array *oa)
 {
     struct cpumask cpus_to_run_on;
@@ -106,3 +137,5 @@ int msr_safe_batch(struct msr_batch_array *oa)
 
     return 0;
 }
+
+#endif //CONFIG_CPUMASK_OFFSTACK
