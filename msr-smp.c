@@ -90,7 +90,7 @@ int msr_safe_batch(struct msr_batch_array *oa)
     cpumask_var_t cpus_to_run_on;
     struct msr_batch_op *op;
 
-    zalloc_cpumask_var( &cpus_to_run_on, GFP_KERNEL );
+    zalloc_cpumask_var(&cpus_to_run_on, GFP_KERNEL);
 
     for (op = oa->ops; op < oa->ops + oa->numops; ++op)
     {
