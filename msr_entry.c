@@ -1,15 +1,13 @@
-/* ----------------------------------------------------------------------- *
- *
- *   Copyright 2000-2008 H. Peter Anvin - All Rights Reserved
- *   Copyright 2009 Intel Corporation; author: H. Peter Anvin
- *
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation, Inc., 675 Mass Ave, Cambridge MA 02139,
- *   USA; either version 2 of the License, or (at your option) any later
- *   version; incorporated herein by reference.
- *
- * ----------------------------------------------------------------------- */
+// Copyright 2011-2020 Lawrence Livermore National Security, LLC and other
+// msr-safe Project Developers. See the top-level COPYRIGHT file for
+// details.
+//
+// SPDX-License-Identifier: GPL-2.0-only
+
+// Copyright 2000-2008 H. Peter Anvin - All Rights Reserved
+// Copyright 2009 Intel Corporation; author: H. Peter Anvin <hpa@zytor.com>
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
 
 /*
  * x86 MSR access device
@@ -459,7 +457,7 @@ static void __exit msr_exit(void)
 
 module_exit(msr_exit)
 
-MODULE_AUTHOR("H. Peter Anvin <hpa@zytor.com>");
+MODULE_AUTHOR("M. Fadden, K. Shoga, B. Rountree, H. P. Anvin");
 MODULE_DESCRIPTION("x86 generic MSR driver (+LLNL Approved List)");
 MODULE_VERSION("1.5");
 MODULE_LICENSE("GPL");
