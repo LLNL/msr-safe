@@ -4,7 +4,7 @@
 Name:       msr-safe
 Version:    0
 Release:    0.4.git%{shortrev}%{?dist}
-License:    GPLv3+
+License:    GPLv2
 Summary:    Allows safer access to model specific registers (MSRs)
 Url:        https://github.com/LLNL/msr-safe
 Group:      System Environment/Daemons
@@ -93,6 +93,8 @@ fi
 
 
 %changelog
+* Fri Sep 11 2020 Stephanie Brink <brink2@llnl.gov>
+- Update license
 * Tue Aug 23 2017 Ben Allen <bsallen@alcf.anl.gov> 9240638-4
 - Rev package version to 0.4
 * Tue Jan 17 2017 Ben Allen <bsallen@alcf.anl.gov> 7bfb843-2
