@@ -1,9 +1,10 @@
+%global tag         %(git describe --tags --abbrev=0 | sed -e "s|^v||")
 %global rev         %(git rev-parse HEAD)
 %global shortrev    %(r=%{rev}; echo ${r:0:12})
 
 Name:       msr-safe
-Version:    0
-Release:    0.4.git%{shortrev}%{?dist}
+Version:    %{tag}.git%{shortrev}%{?dist}
+Release:    1
 License:    GPLv2
 Summary:    Allows safer access to model specific registers (MSRs)
 Url:        https://github.com/LLNL/msr-safe
