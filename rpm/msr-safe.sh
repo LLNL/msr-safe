@@ -20,7 +20,7 @@ start() {
     ALLOWLIST="/usr/share/msr-safe/allowlists/${AL_CPU}"
   fi
 
-  if [ -f "/usr/share/msr-safe/allowlists/${AL_CPU}" ]; then
+  if [ -f "${ALLOWLIST}" ]; then
     /sbin/modprobe msr-safe && \
     cat "${ALLOWLIST}" > /dev/cpu/msr_allowlist
 
