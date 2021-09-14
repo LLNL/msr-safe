@@ -1,4 +1,4 @@
-# Copyright 2011-2020 Lawrence Livermore National Security, LLC and other
+# Copyright 2011-2021 Lawrence Livermore National Security, LLC and other
 # msr-safe Project Developers. See the top-level COPYRIGHT file for
 # details.
 #
