@@ -1,0 +1,36 @@
+name: msr-safe CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+
+jobs:
+
+  build-msr-safe:
+    strategy:
+      matrix:
+        env: [ ubuntu-latest, ubuntu-20.04, ubuntu-18.04 ]
+
+    runs-on: ${{matrix.env}}
+
+    steps:
+      # checkout msr-safe repository under $GITHUB_WORKSPACE
+      - uses: actions/checkout@v2
+
+      - name: Install linux headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y linux-headers-`uname -r`
+
+      - name: Compile check
+        run: |
+          export CC=gcc
+          export CXX=g++
+          ${CC} --version
+          ${CXX} --version
+          uname -a
+          # build
+          make VERBOSE=1
