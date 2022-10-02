@@ -43,6 +43,7 @@
 
 #include "msr_batch.h"
 #include "msr_allowlist.h"
+#include "msr_version.h"
 
 static struct class *msr_class;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
@@ -51,6 +52,7 @@ static enum cpuhp_state cpuhp_msr_state;
 static int mdev_msr_safe;
 static int mdev_msr_allowlist;
 static int mdev_msr_batch;
+static int mdev_msr_version;
 
 module_param(mdev_msr_safe, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(mdev_msr_safe, "Major number for msr_safe (int).");
@@ -58,6 +60,8 @@ module_param(mdev_msr_allowlist, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(mdev_msr_allowlist, "Major number for msr_allowlist (int).");
 module_param(mdev_msr_batch, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 MODULE_PARM_DESC(mdev_msr_batch, "Major number for msr_batch (int).");
+module_param(mdev_msr_version, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+MODULE_PARM_DESC(mdev_msr_version, "Major number for msr_version (int).");
 
 static loff_t msr_seek(struct file *file, loff_t offset, int orig)
 {
@@ -366,6 +370,13 @@ static int __init msr_init(void)
         goto out_batch;
     }
 
+    err = msr_version_init(&mdev_msr_version);
+    if (err != 0)
+    {
+        pr_debug("failed to initialize msr_version\n");
+        goto out_version;
+    }
+
     /*
      * register_chrdev will return:
      *    If major == 0, dynamically allocate a major and return its number
@@ -388,6 +399,7 @@ static int __init msr_init(void)
     pr_debug("msr_safe major dev: %i\n", mdev_msr_safe);
     pr_debug("msr_batch major dev: %i\n", mdev_msr_batch);
     pr_debug("msr_allowlist major dev: %i\n", mdev_msr_allowlist);
+    pr_debug("msr_version major dev: %i\n", mdev_msr_version);
 
     msr_class = class_create(THIS_MODULE, "msr_safe");
     if (IS_ERR(msr_class))
@@ -429,6 +441,8 @@ out_wlist:
     msr_allowlist_cleanup(mdev_msr_allowlist);
 out_batch:
     msrbatch_cleanup(mdev_msr_batch);
+out_version:
+    msr_version_cleanup(mdev_msr_version);
 out:
     return err;
 }
@@ -453,6 +467,7 @@ static void __exit msr_exit(void)
 
     msr_allowlist_cleanup(mdev_msr_allowlist);
     msrbatch_cleanup(mdev_msr_batch);
+    msr_version_cleanup(mdev_msr_version);
 }
 
 module_exit(msr_exit)
