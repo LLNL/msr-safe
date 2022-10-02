@@ -10,6 +10,7 @@
 #include <linux/fs.h>
 #include <linux/version.h>
 #include <linux/module.h>
+#include <linux/uaccess.h>
 
 static struct class *cdev_class;
 static char cdev_created;
