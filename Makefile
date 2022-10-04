@@ -13,7 +13,7 @@
 #CFLAGS_msr-smp.o := -DDEBUG
 
 obj-m += msr-safe.o
-msr-safe-objs := msr_entry.o msr_allowlist.o msr-smp.o msr_batch.o
+msr-safe-objs := msr_entry.o msr_allowlist.o msr-smp.o msr_batch.o msr_version.o
 
 all: msrsave/msrsave
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
