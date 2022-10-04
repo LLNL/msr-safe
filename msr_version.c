@@ -27,13 +27,16 @@ static ssize_t read_version(struct file *file, char __user *buf, size_t count, l
     size_t len = strlen( THIS_MODULE->version ) + 1 < count ?
         strlen( THIS_MODULE->version ) + 1 :
         count;
-    if(*ppos > 0){
+    if (*ppos > 0)
+    {
         return 0;
     }
-    if(len > count){
+    if (len > count)
+    {
         return -EFAULT;
     }
-    if(copy_to_user( buf, THIS_MODULE->version, len)){
+    if (copy_to_user(buf, THIS_MODULE->version, len))
+    {
         return -EFAULT;
     }
     *ppos = 1;
