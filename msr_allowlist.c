@@ -210,7 +210,7 @@ static ssize_t read_allowlist(struct file *file, char __user *buf, size_t count,
 
     if (idx == 0)
     {
-        len = sprintf(kbuf, "# MSR # Write Mask # Comment\n" "0x%08llX 0x%016llX\n", e.msr, e.wmask);
+        len = sprintf(kbuf, "%-10s %-18s\n" "0x%08llX 0x%016llX\n", "#MSR", "Write mask", e.msr, e.wmask);
     }
     else
     {
