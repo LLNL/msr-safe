@@ -106,7 +106,7 @@ static ssize_t write_allowlist(struct file *file, const char __user *buf, size_t
     if (count+1 > MAX_WLIST_BSIZE)
     {
         pr_err("%s: buffer of %zu bytes too large\n", __FUNCTION__, count);
-        return -EINVAL;
+        return -E2BIG;
     }
 
     kbuf = kzalloc(count+1, GFP_KERNEL);
@@ -143,7 +143,7 @@ static ssize_t write_allowlist(struct file *file, const char __user *buf, size_t
     if (num_entries == 0)
     {
         pr_err("%s: No valid entries found in %zu bytes of input\n", __FUNCTION__, count);
-        err = -EINVAL;
+        err = -ENOMSG;
         goto out_freebuffer;
     }
 
@@ -173,7 +173,7 @@ static ssize_t write_allowlist(struct file *file, const char __user *buf, size_t
             if (find_in_allowlist(entry->msr))
             {
                 pr_err("%s: Duplicate: %llX\n", __FUNCTION__, entry->msr);
-                err = -EINVAL;
+                err = -ENOTUNIQ;
                 delete_allowlist();
                 goto out_releasemutex;
             }
@@ -220,7 +220,7 @@ static ssize_t read_allowlist(struct file *file, char __user *buf, size_t count,
 
     if (len > count)
     {
-        return -EFAULT;
+        return -E2BIG;
     }
 
     if (copy_to_user(tmp, kbuf, len))
@@ -336,7 +336,7 @@ static int parse_next_allowlist_entry(char *inbuf, char **nextinbuf, struct allo
         if (*s == 0)
         {
             pr_debug("%s: Premature EOF\n", __FUNCTION__);
-            return -EINVAL;
+            return -EILSEQ;
         }
 
         tmp = *s;

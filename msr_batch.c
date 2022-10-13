@@ -100,7 +100,7 @@ static int msrbatch_apply_allowlist(struct msr_batch_array *oa)
             if (op->wmask == 0 && !op->isrdmsr)
             {
                 pr_debug("MSR %x is read-only\n", op->msr);
-                op->err = err = -EACCES;
+                op->err = err = -EROFS;
             }
         }
     }
@@ -147,7 +147,7 @@ static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
     koa.ops = kmalloc_array(koa.numops, sizeof(*koa.ops), GFP_KERNEL);
     if (!koa.ops)
     {
-        return -ENOMEM;
+        return -E2BIG;
     }
 
     if (copy_from_user(koa.ops, uops, koa.numops * sizeof(*koa.ops)))
