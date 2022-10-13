@@ -101,11 +101,10 @@ static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_
     u32 reg = *ppos;
     int cpu = iminor(file->f_path.dentry->d_inode);
     int err = 0;
-    ssize_t bytes = 0;
 
-    if (count % 8)
+    if (count != 8)
     {
-        return -EINVAL; /* Invalid chunk size */
+        return -EINVAL; /* Single read only.*/
     }
 
     if (!capable(CAP_SYS_RAWIO) && !msr_allowlist_maskexists(reg))
@@ -113,23 +112,18 @@ static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_
         return -EACCES;
     }
 
-    for (; count; count -= 8)
+    err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
+    if (err)
     {
-        err = rdmsr_safe_on_cpu(cpu, reg, &data[0], &data[1]);
-        if (err)
-        {
-            break;
-        }
-        if (copy_to_user(tmp, &data, 8))
-        {
-            err = -EFAULT;
-            break;
-        }
-        tmp += 2;
-        bytes += 8;
+        return err;
     }
 
-    return bytes ? bytes : err;
+    if (copy_to_user(tmp, &data, 8))
+    {
+        return -EFAULT;
+    }
+
+    return 8;
 }
 
 static ssize_t msr_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
@@ -141,11 +135,10 @@ static ssize_t msr_write(struct file *file, const char __user *buf, size_t count
     u64 mask;
     int cpu = iminor(file->f_path.dentry->d_inode);
     int err = 0;
-    ssize_t bytes = 0;
 
-    if (count % 8)
+    if (count != 8) /* single write only */
     {
-        return -EINVAL; // Invalid chunk size
+        return -EINVAL; 
     }
 
     mask = capable(CAP_SYS_RAWIO) ? 0xffffffffffffffff : msr_allowlist_writemask(reg);
@@ -155,37 +148,31 @@ static ssize_t msr_write(struct file *file, const char __user *buf, size_t count
         return -EACCES;
     }
 
-    for (; count; count -= 8)
+    if (copy_from_user(&data, tmp, 8))
     {
-        if (copy_from_user(&data, tmp, 8))
-        {
-            err = -EFAULT;
-            break;
-        }
-
-        if (mask != 0xffffffffffffffff)
-        {
-            err = rdmsr_safe_on_cpu(cpu, reg, &curdata[0], &curdata[1]);
-            if (err)
-            {
-                break;
-            }
-
-            *(u64 *)&curdata[0] &= ~mask;
-            *(u64 *)&data[0] &= mask;
-            *(u64 *)&data[0] |= *(u64 *)&curdata[0];
-        }
-
-        err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
-        if (err)
-        {
-            break;
-        }
-        tmp += 2;
-        bytes += 8;
+        return -EFAULT;
     }
 
-    return bytes ? bytes : err;
+    if (mask != 0xffffffffffffffff)
+    {
+        err = rdmsr_safe_on_cpu(cpu, reg, &curdata[0], &curdata[1]);
+        if (err)
+        {
+            return err;
+        }
+
+        *(u64 *)&curdata[0] &= ~mask;
+        *(u64 *)&data[0] &= mask;
+        *(u64 *)&data[0] |= *(u64 *)&curdata[0];
+    }
+
+    err = wrmsr_safe_on_cpu(cpu, reg, data[0], data[1]);
+    if (err)
+    {
+        return err;
+    }
+
+    return 8;
 }
 
 static int msr_open(struct inode *inode, struct file *file)
