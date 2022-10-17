@@ -38,33 +38,6 @@ static char cdev_created;
 static char cdev_registered;
 static char cdev_class_created;
 
-static int msrbatch_open(struct inode *inode, struct file *file)
-{
-    unsigned int cpu;
-    struct cpuinfo_x86 *c;
-
-    cpu = iminor(file->f_path.dentry->d_inode);
-    if (cpu >= nr_cpu_ids || !cpu_online(cpu))
-    {
-        pr_debug("cpu #%u does not exist\n", cpu);
-        return -ENXIO; // No such CPU
-    }
-
-    c = &cpu_data(cpu);
-    if (!cpu_has(c, X86_FEATURE_MSR))
-    {
-        pr_debug("cpu #%u does not have MSR feature.\n", cpu);
-        return -EIO; // MSR not supported
-    }
-
-    return 0;
-}
-
-static int msrbatch_close(struct inode *inode, struct file *file)
-{
-    return 0;
-}
-
 static int msrbatch_apply_allowlist(struct msr_batch_array *oa)
 {
     struct msr_batch_op *op;
@@ -189,10 +162,8 @@ bundle_alloc:
 static const struct file_operations fops =
 {
     .owner = THIS_MODULE,
-    .open = msrbatch_open,
     .unlocked_ioctl = msrbatch_ioctl,
-    .compat_ioctl = msrbatch_ioctl,
-    .release = msrbatch_close
+    .compat_ioctl = msrbatch_ioctl
 };
 
 void msrbatch_cleanup(int majordev)
