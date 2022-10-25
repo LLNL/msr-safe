@@ -107,7 +107,7 @@ static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_
         return -EINVAL; /* Single read only.*/
     }
 
-    if (!capable(CAP_SYS_RAWIO) && !msr_allowlist_maskexists(reg))
+    if (!msr_allowlist_maskexists(reg))
     {
         return -EACCES;
     }
@@ -141,9 +141,9 @@ static ssize_t msr_write(struct file *file, const char __user *buf, size_t count
         return -EINVAL; 
     }
 
-    mask = capable(CAP_SYS_RAWIO) ? 0xffffffffffffffff : msr_allowlist_writemask(reg);
+    mask = msr_allowlist_writemask(reg);
 
-    if (!capable(CAP_SYS_RAWIO) && mask == 0)
+    if (mask == 0)
     {
         return -EACCES;
     }

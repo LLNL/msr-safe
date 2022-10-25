@@ -69,7 +69,6 @@ static int msrbatch_apply_allowlist(struct msr_batch_array *oa)
 {
     struct msr_batch_op *op;
     int err = 0;
-    bool has_sys_rawio_cap = capable(CAP_SYS_RAWIO);
 
     for (op = oa->ops; op < oa->ops + oa->numops; ++op)
     {
@@ -79,12 +78,6 @@ static int msrbatch_apply_allowlist(struct msr_batch_array *oa)
         {
             pr_debug("No such CPU %d\n", op->cpu);
             op->err = err = -ENXIO; // No such CPU
-            continue;
-        }
-
-        if (has_sys_rawio_cap)
-        {
-            op->wmask = 0xffffffffffffffff;
             continue;
         }
 
