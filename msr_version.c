@@ -56,6 +56,10 @@ static char *msr_version_nodename(struct device *dev, mode_t *mode)
 static char *msr_version_nodename(struct device *dev, umode_t *mode)
 #endif
 {
+    if (mode)
+    {
+        *mode = 0400;   // read-only
+    }
     return kasprintf(GFP_KERNEL, "cpu/msr_safe_version");
 }
 
