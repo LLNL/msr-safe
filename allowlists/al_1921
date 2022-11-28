@@ -157,8 +157,6 @@
 0x00000C9E 0x0000000000000000 # "
 0x00000C9F 0x0000000000000000 # "
 0x00000DA0 0x0000000000000000 # Extended Supervisor State, r/w
-#
-C000
 0xC0000080 0x0000000000000000 # Extended Feature Enable, r/w
 0xC0000081 0x0000000000000000 # SYSCALL Target Address, r/w
 0xC0000082 0x0000000000000000 # Long Mode SYSCALL Target Address, r/w
@@ -199,10 +197,10 @@ C000
 0xC0010007 0x0000000000000000 # Performance Event Counter 3, r/w, volatile
 0xC0010010 0x0000000000000000 # System Configuration, r/w
 0xC0010015 0x0000000000000000 # Hardware Configuration, r/w
-Note:  IO Range Base addresses given as MSRC001_001[6..8] (p 161)
-       IO Range Mask addresses given as MSRC001_001[7..9] (p 162)
-       Intrepreting as MSRC001_001[6,8] and MSRC001_001[7,9].
-       See https://community.amd.com/t5/newcomers-start-here/ppr-documentation-errata/m-p/561391#M2275
+#Note:  IO Range Base addresses given as MSRC001_001[6..8] (p 161)
+#       IO Range Mask addresses given as MSRC001_001[7..9] (p 162)
+#       Intrepreting as MSRC001_001[6,8] and MSRC001_001[7,9].
+#       See https://community.amd.com/t5/newcomers-start-here/ppr-documentation-errata/m-p/561391#M2275
 0xC0010016 0x0000000000000000 # IO Range Base 0, r/w
 0xC0010017 0x0000000000000000 # IO Range Mask 0, r/w
 0xC0010018 0x0000000000000000 # IO Range Base 1, r/w
