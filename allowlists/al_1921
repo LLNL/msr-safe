@@ -263,7 +263,7 @@
 0xC0010209 0x0000FFFFFFFFFFFF # Performance Event Counter 4, r/w, volatile
 0xC001020A 0x0000030FFFD7FFFF # Performance Event Select  5, r/w
 0xC001020B 0x0000FFFFFFFFFFFF # Performance Event Counter 5, r/w, volatile
-0xC0010230 0x0000030FFFD7FFFF # L3 Performance Event Select, r/w
+0xC0010230 0x0F07DC000040FFFF # L3 Performance Event Select, r/w
 0xC0010231 0x0001FFFFFFFFFFFF # Performance Event Counter, r/w, volatile
 0xC0010232 0x0F07DC000040FFFF # L3 Performance Event Select, r/w
 0xC0010233 0x0001FFFFFFFFFFFF # Performance Event Counter, r/w, volatile
