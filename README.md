@@ -4,11 +4,11 @@ msr_safe - kernel module implementing access-control lists for  model-specific r
 
 # SYNOPSIS
 
-**/dev/cpu/\<cpuid\>/msr_safe**  
-**/dev/cpu/msr_batch**  
-**/dev/cpu/msr_allowlist**  
-**/dev/cpu/msr_version**  
-**msr-save**  
+**/dev/cpu/\<cpuid\>/msr_safe**
+**/dev/cpu/msr_batch**
+**/dev/cpu/msr_allowlist**
+**/dev/cpu/msr_version**
+**msr-save**
 
 # OVERVIEW
 msr_safe provides controlled userspace access to model-specific registers
@@ -24,8 +24,8 @@ Building the kernel module requires linux kernel headers.  Best practice
 for production environments requires creation of *msr-user* and *msr-admin*
 groups.  Members of the former can read and write MSRs using either the
 per-CPU interface or the batch interface, subject to the restrictions
-specified in the allow list. Memebers of the latter can also change the
-contents of the allow list.
+specified in the allowlist. Members of the latter can also change the
+contents of the allowlist.
 ```
 git clone https://github.com/LLNL/msr-safe
 cd msr-safe
@@ -70,14 +70,14 @@ as the write mask is 0.
 0x00000010 0x0000000000000000 # "MSR_TIME_STAMP_COUNTER"
 ```
 
-This entry allows MSR_PEFF_CTL (at address 0x199) to be read, but only the
+This entry allows MSR_PERF_CTL (at address 0x199) to be read, but only the
 bottom sixteen bits are writeable.
 ```
 0x00000199 0x000000000000ffff # "MSR_PERF_CTL"
 ```
 
 It is up to the system administrator to create appropriate per-architecture,
-per-user allow lists.  The "safety" of a particular MRS depends on the totality
+per-user allowlists.  The "safety" of a particular MRS depends on the totality
 of the environment.  The msr-safe repo provides sample allowlists that have
 been useful in other installations; they may or may not be appropriate for
 yours.
@@ -113,7 +113,7 @@ second-phase error is the discovery of a duplicate allowlist entry.  See
 
 ## /dev/cpu/\<cpuid\>/msr_safe  
 
-Per logical-cpu inteface for model-specific registers.  Supports **llseek(2)**,
+Per logical-cpu interface for model-specific registers.  Supports **llseek(2)**,
 **read(2)**, **write(2)**, and **open(2)**.  Reads or writes a single MSR at a
 time.  To access multiple MSRs and/or MSRs across multiple logical CPUs, use
 **/dev/cpu/msr_batch**.
@@ -140,7 +140,7 @@ struct msr_batch_array
 ```
 
 The maximum __numops__ is system-dependent, but 30k operations is not
-unhead-of.  Each op is contained in a __struct msr_batch_op__:
+unheard-of.  Each op is contained in a __struct msr_batch_op__:
 
 ```
 struct msr_batch_op
@@ -159,7 +159,7 @@ value for __isrdmsr__ indicates a write operation, any other value indicates a
 read operation.  __err__ is populated by the kernel if there is an error on a
 particular operation, and will be one of __ENXIO__ (the virtual CPU does not
 exist or is offline), __EACCES__ (the requested MSR was not found in the
-allowist), or __EROFS__ (a write operation was attempted on an MSR with a write
+allowlist), or __EROFS__ (a write operation was attempted on an MSR with a write
 mask of 0).
 
 __msr__ is the address of the model-specific register.  __msrdata__ is the
@@ -167,11 +167,11 @@ value that will be written to or read from the MSR, respectively.
 Finally, the __wmask__ records the writemask for the MSR provided in the
 allowlist.
 
-## /dev/cpu/msr_safe_version  
+## /dev/cpu/msr_safe_version
 
 Starting with version 1.6, this device contains the loaded version of msr-safe.
 
-# RETURN VALUES  
+# RETURN VALUES
 
 On success, calls to **write(2)** and **read(2)** return the number of bytes
 written or read, which in the case of **/dev/cpu/\<cpu\>/msr_safe** will be 8
@@ -186,40 +186,40 @@ occur.
 
 # ERRORS
 
-## /dev/cpu/msr_allowlist  
+## /dev/cpu/msr_allowlist
 
 ### **write(2)**
 
-__E2BIG__  
+__E2BIG__
 **\<count\>** exceeds MAX_WLIST_BSIZE (defined as (128 * 1024) + 1)
 
-__EILSEQ__  
+__EILSEQ__
 Unexpected EOF.
 
-__EINVAL__  
+__EINVAL__
 Address or writemask caused parsing error.
 
-__EFAULT__  
+__EFAULT__
 Kernel **copy_from_user()** failed.
 
-__ENOMEM__  
+__ENOMEM__
 Kernel unable to allocate memory to hold the raw or parsed allowlist.
 
-__ENOMSG__  
+__ENOMSG__
 No valid allowlist entries found.
 
-__ENOTUNIQ__  
+__ENOTUNIQ__
 Duplicate allowlist entries found.
 
-__ERANGE__  
+__ERANGE__
 Address or writemask is too large for an unsigned long long.
 
 ### **read(2)**
 
-__E2BIG__  
+__E2BIG__
 The **read(2)** **\<count\>** parameter was less than 60 bytes.
 
-__EFAULT__  
+__EFAULT__
 Kernel **copy_from_user()** failed.
 
 
@@ -229,102 +229,102 @@ __EINVAL__
 The **\<whence\>** parameter was
 neither __SEEK_CUR__ nor __SEEK_SET__, e.g., __SEEK_END__.
 
-## /dev/cpu/\<cpuid\>/msr_safe  
+## /dev/cpu/\<cpuid\>/msr_safe
 
 ### **read(2)**
 
-__EACCESS__  
-The MSR requested is not in the allow list.
+__EACCESS__
+The MSR requested is not in the allowlist.
 
-__EBUSY__  
+__EBUSY__
 Requested virtual CPU is (temporarily?) locked.
 
-__EFAULT__  
+__EFAULT__
 Kernel **copy_to_user()** failed.
 
-__EIO__  
+__EIO__
 A general protection fault occurred.  See the description for
 __EIO__ errors in the **/dev/cpu/msr_batch** section below.
 
-__EINVAL__  
+__EINVAL__
 Number of bytes requested to read is something other than 8.
 
-__ENXIO__  
+__ENXIO__
 Requested virtual CPU does not exist or is offline.
 
 
 ### **write(2)**
 
-__EACCESS__  
-The MSR requested is not in the allow list.
+__EACCESS__
+The MSR requested is not in the allowlist.
 
-__EBUSY__  
+__EBUSY__
 Requested virtual CPU is (temporarily?) locked.
 
-__EFAULT__  
+__EFAULT__
 Kernel **copy_from_user()** failed.
 
-__EIO__  
+__EIO__
 A general protection fault occurred.  See the description for
 __EIO__ errors in the **/dev/cpu/msr_batch** section below.
 
-__EINVAL__  
+__EINVAL__
 Number of bytes requested to read is something other than 8.
 
-__ENXIO__  
+__ENXIO__
 Requested virtual CPU does not exist or is offline.
 
 ### **open(2)**
 
-__EIO__  
+__EIO__
 Model-specific registers not supported on this virtual CPU.
 
-__ENXIO__  
+__ENXIO__
 Requested virtual CPU does not exist or is offline.
 
 ### /dev/cpu/msr_batch
 
-### **ioctl(2)**  
+### **ioctl(2)**
 
 All of the operations in the batch will be executed.  Each operation may result
 in an __EIO__, __ENXIO__, __EACCES__, or __EROFS__ error, which will be
 recorded in the __msr_batch_op__ struct.  If any operation caused an error, the
 first such error becomes the return value for **ioctl(2)**.
 
-__E2BIG__  
+__E2BIG__
 Kernel unable to allocate memory to hold the array of operations.
 
-__EACCES__  
+__EACCES__
 An individual operation requested an MSR that is not present in the allowlist.
 
-__EBADF__  
+__EBADF__
 The __msr_batch__ file was not opened for reading.
 
-__EFAULT__  
+__EFAULT__
 Kernel **copy_from_user()** or **copy_to_user()** failed.
 
-__EINVAL__  
+__EINVAL__
 Number of requested batch operations is <=0.
 
 __EIO__
 A general protection fault occurred.  On Intel processors this
 can be caused by a) attempting to access an MSR outside of ring 0, b)
-attempting to acceses a non-existent or reserved MSR address, c) writing 1-bits
+attempting to access a non-existent or reserved MSR address, c) writing 1-bits
 to a reserved area of an MSR, d) writing a non-canonical address to MSRs that
 take memory addresses, or e) writing to MSR bits that are marked as read-only.
 
-__ENOMEM__  
+__ENOMEM__
 Kernel unable to allocate memory to hold the results of __zalloc_cpumask_var()__.
 
-__ENOTTY__  
+__ENOTTY__
 Invalid ioctl command.  As of this writing the only ioctl command
 supported on this device is __X86_IOC_MSR_BATCH__, defined in __msr_safe.h__.
 
-__ENXIO__  
+__ENXIO__
 An individual operation requested a virtual CPU does not exist or is offline.
 
-__EROFS__  
-An indivdiual operation requested a write to a read-only MSR.
+__EROFS__
+An individual operation requested a write to a read-only MSR.
 
 
 ### **open(2)**
@@ -360,21 +360,21 @@ The msrsave version can be queried with:
 ## Model-specific registers
 
 The safety of a particular model-specific register depends on the system
-environment.  The sample allow lists provided were developed for non-classified
-high peformance computing systems where only a single non-privileged user at a
+environment.  The sample allowlists provided were developed for non-classified
+high performance computing systems where only a single non-privileged user at a
 time can access a given compute node.  These lists should be re-evaluated for
 use in other environments, particularly multi-user environments.
 
 ## Filesystems permissions
 
 msr-safe is designed to support multiple classes of users, each of which would
-have their own group and allow list.  **Best practice is to unload and reload the
+have their own group and allowlist.  **Best practice is to unload and reload the
 msr-safe kernel module when changing device ownership or permissions.**  If
 this is not done, a lower-privileged user can open **/dev/cpu/msr_batch** and
-retain the file descriptor until the permissions (and allow list) are changed
+retain the file descriptor until the permissions (and allowlist) are changed
 to allow higher-privileged users to run and the allowlist remains readable by
 the less-privileged user, the less-privileged user can continue using their
-original file descriptor with the higher-privileged allow list.
+original file descriptor with the higher-privileged allowlist.
 
 # FAQ
 
@@ -436,64 +436,70 @@ are happy to share.
 #include <inttypes.h>   // PRIu8
 #include <stdlib.h>     // exit(3)
 #include <sys/ioctl.h>  // ioctl(2)
+
 #include "../msr_safe.h"   // batch data structs
+
 #define MSR_MPERF 0xE7
 
-char const * const allowlist = "0xE7 0xFFFFFFFFFFFFFFFF\n"; // MPERF
+char const *const allowlist = "0xE7 0xFFFFFFFFFFFFFFFF\n";  // MPERF
 
 static uint8_t const nCPUs = 32;
 
-void
-set_allowlist(){
+void set_allowlist()
+{
     int fd = open("/dev/cpu/msr_allowlist", O_WRONLY);
-    assert( -1 != fd );
-    ssize_t nbytes = write( fd, allowlist, strlen(allowlist) );
-    assert( strlen(allowlist) == nbytes );
+    assert(-1 != fd);
+    ssize_t nbytes = write(fd, allowlist, strlen(allowlist));
+    assert(strlen(allowlist) == nbytes);
     close(fd);
 }
 
-void
-measure_serial_latency(){
+void measure_serial_latency()
+{
     int fd[nCPUs], rc;
     char filename[255];
     uint64_t data[nCPUs];
-    memset( data, 0, sizeof(uint64_t)*nCPUs );
+    memset(data, 0, sizeof(uint64_t)*nCPUs);
 
     // Open each of the msr_safe devices (one per CPU)
-    for( uint8_t i=0; i<nCPUs; i++ ){
-        rc = snprintf( filename, 254, "/dev/cpu/%"PRIu8"/msr_safe", i );
-        assert( -1 != rc );
-        fd[i] = open( filename, O_RDWR );
-        assert( -1 != fd[i] );
+    for (uint8_t i = 0; i < nCPUs; i++)
+    {
+        rc = snprintf(filename, 254, "/dev/cpu/%"PRIu8"/msr_safe", i);
+        assert(-1 != rc);
+        fd[i] = open(filename, O_RDWR);
+        assert(-1 != fd[i]);
     }
     // Write 0 to each MPERF register
-    for( uint8_t i=0; i<nCPUs; i++ ){
-        rc = pwrite( fd[i], &data[i], sizeof( uint64_t ), MSR_MPERF );
-        assert( 8 == rc );
+    for (uint8_t i = 0; i < nCPUs; i++)
+    {
+        rc = pwrite(fd[i], &data[i], sizeof(uint64_t), MSR_MPERF);
+        assert(8 == rc);
     }
 
     // Read each MPERF register
-    for( uint8_t i=0; i<nCPUs; i++ ){
-        pread( fd[i], &data[i], sizeof( uint64_t ), MSR_MPERF );
-        assert( 8 == rc );
+    for (uint8_t i = 0; i < nCPUs; i++)
+    {
+        pread(fd[i], &data[i], sizeof(uint64_t), MSR_MPERF);
+        assert(8 == rc);
     }
 
     // Show results
     printf("Serial cycles from first write to last read:"
-            "%"PRIu64" (on %"PRIu8" CPUs)\n",
-            data[nCPUs-1], nCPUs);
+           "%"PRIu64" (on %"PRIu8" CPUs)\n",
+           data[nCPUs - 1], nCPUs);
 }
 
-void
-measure_batch_latency(){
+void measure_batch_latency()
+{
     struct msr_batch_array rbatch, wbatch;
     struct msr_batch_op r_ops[nCPUs], w_ops[nCPUs];
     int fd, rc;
 
-    fd = open( "/dev/cpu/msr_batch", O_RDONLY );
-    assert( -1 != fd );
+    fd = open("/dev/cpu/msr_batch", O_RDONLY);
+    assert(-1 != fd);
 
-    for( uint8_t i=0; i<nCPUs; i++ ){
+    for (uint8_t i = 0; i < nCPUs; i++)
+    {
         r_ops[i].cpu = w_ops[i].cpu = i;
         r_ops[i].isrdmsr = 1;
         w_ops[i].isrdmsr = 0;
@@ -504,24 +510,23 @@ measure_batch_latency(){
     rbatch.ops = r_ops;
     wbatch.ops = w_ops;
 
-    rc = ioctl( fd, X86_IOC_MSR_BATCH, &wbatch );
-    assert( -1 != rc );
-    rc = ioctl( fd, X86_IOC_MSR_BATCH, &rbatch );
-    assert( -1 != rc );
+    rc = ioctl(fd, X86_IOC_MSR_BATCH, &wbatch);
+    assert(-1 != rc);
+    rc = ioctl(fd, X86_IOC_MSR_BATCH, &rbatch);
+    assert(-1 != rc);
 
     printf("Batch cycles from first write to last read:"
-            "%llu (on %"PRIu8" CPUs)\n",
-            r_ops[nCPUs - 1].msrdata, nCPUs);
+           "%llu (on %"PRIu8" CPUs)\n",
+           r_ops[nCPUs - 1].msrdata, nCPUs);
 }
 
-int
-main(){
+int main()
+{
     set_allowlist();
     measure_serial_latency();
     measure_batch_latency();
     return 0;
 }
-
 ```
 
 # Release
@@ -535,11 +540,3 @@ SPDX-License-Identifier: GPL-2.0-only
 `LLNL-CODE-807679`
 
 License and LLNL release number have been corrected to match internal records.
-
-
-
-
-
-
-
-
