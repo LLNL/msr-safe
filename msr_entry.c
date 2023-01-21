@@ -178,7 +178,6 @@ static ssize_t msr_write(struct file *file, const char __user *buf, size_t count
 static int msr_open(struct inode *inode, struct file *file)
 {
     unsigned int cpu = iminor(file->f_path.dentry->d_inode);
-    struct cpuinfo_x86 *c;
 
     if (cpu >= nr_cpu_ids || !cpu_online(cpu))
     {
