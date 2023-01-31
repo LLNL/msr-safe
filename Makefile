@@ -26,7 +26,7 @@ check: msrsave/msrsave_test
 	msrsave/msrsave_test
 
 # current msr-safe/msrsave version
-CURRENT_VERSION := -DVERSION=\"1.6.0\"
+CURRENT_VERSION := -DVERSION=\"1.7.0\"
 
 msrsave/msrsave.o: msrsave/msrsave.c msrsave/msrsave.h
 	$(CC) $(CFLAGS) $(CURRENT_VERSION) -fPIC -c msrsave/msrsave.c -o $@
