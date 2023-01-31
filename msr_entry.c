@@ -388,5 +388,5 @@ module_exit(msr_exit)
 
 MODULE_AUTHOR("M. Fadden, K. Shoga, B. Rountree, H. P. Anvin");
 MODULE_DESCRIPTION("x86 generic MSR driver (+LLNL Approved List)");
-MODULE_VERSION("1.6");
+MODULE_VERSION("1.7");
 MODULE_LICENSE("GPL");
