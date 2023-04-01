@@ -257,7 +257,11 @@ static struct notifier_block __refdata msr_class_cpu_notifier =
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
 static char *msr_devnode(struct device *dev, mode_t *mode)
 #else
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6,2,0)
 static char *msr_devnode(struct device *dev, umode_t *mode)
+#else
+static char *msr_devnode(const struct device *dev, umode_t *mode)
+#endif
 #endif
 {
     return kasprintf(GFP_KERNEL, "cpu/%u/msr_safe", MINOR(dev->devt));

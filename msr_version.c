@@ -53,7 +53,11 @@ static const struct file_operations fops =
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
 static char *msr_version_nodename(struct device *dev, mode_t *mode)
 #else
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6,2,0)
 static char *msr_version_nodename(struct device *dev, umode_t *mode)
+#else
+static char *msr_version_nodename(const struct device *dev, umode_t *mode)
+#endif
 #endif
 {
     if (mode)
