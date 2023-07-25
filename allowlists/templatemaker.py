@@ -159,7 +159,7 @@ def main():
             msrs = msr_map.generate_sorted_unique_msrs_for_file_list(df_dm[architecture])
             print('Enter output filename:')
             filename = input()
-            with open(os.path.join('templates', filename), 'w') as f:
+            with open(os.path.join('templates', filename), 'w'):
                 write_msrs_to_file(msrs, filename)
             print('Template written to templates/' + filename)
 
