@@ -18,20 +18,6 @@ class MSRMap:
         self.read_all_files(directory)
         self.sorted = False
 
-
-    def add_msr(self, msr, fname):
-        self.sorted = False
-        # Treats (msr, arch) as unique (Ik Ik...)
-        if msr not in self.msrs:
-            self.msrs[msr] = []
-        self.msrs[msr].append(fname)
-
-        # Inverted index
-        if fname not in self.file_indices:
-            self.file_indices[fname] = []
-        self.file_indices[fname].append(msr)
-
-
     def add_msr(self, msr, fname, name):
         self.sorted = False
         # Treats (msr, arch) as unique (Ik Ik...)
