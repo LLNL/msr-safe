@@ -70,7 +70,6 @@ class MSRMap:
                         if stripped_line and re.match(r'^[0-9A-Fa-f]+H', stripped_line):  # checks if the line starts with a hexadecimal number followed by 'H'
                             parts = stripped_line.split('\t')
                             msr = parts[0].rstrip('H')
-                            msr = stripped_line.split('\t')[0].rstrip('H')
                             name = parts[2].strip() if len(parts) > 1 else ''
                             try:
                                 msr_int = int(msr, 16)  # Convert hexadecimal string to integer
