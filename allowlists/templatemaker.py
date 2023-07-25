@@ -139,8 +139,6 @@ def main():
     msr_map = MSRMap()
 
     while True:
-        for architecture in msr_map.file_indices:
-            print(architecture)
         print('Available architectures:')
         for architecture in df_dm.keys():
             print(architecture)
