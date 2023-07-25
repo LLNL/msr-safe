@@ -8,7 +8,7 @@ import os
 import collections
 import regex as re
 
-scrap_dir = 'Intel_MSRs'
+scrap_dir = 'Intel_MSRs/blr'
 
 class MSRMap:
     def __init__(self, directory=scrap_dir):
@@ -56,7 +56,7 @@ class MSRMap:
                         if stripped_line and re.match(r'^[0-9A-Fa-f]+H', stripped_line):  # checks if the line starts with a hexadecimal number followed by 'H'
                             parts = stripped_line.split('\t')
                             msr = parts[0].rstrip('H')
-                            name = parts[2].strip() if len(parts) > 1 else ''
+                            name = parts[1].strip() if len(parts) > 1 else ''
                             try:
                                 msr_int = int(msr, 16)  # Convert hexadecimal string to integer
                                 file_name_without_ext = os.path.splitext(filename)[0]
