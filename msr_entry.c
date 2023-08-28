@@ -319,7 +319,11 @@ static int __init msr_init(void)
     pr_debug("msr_allowlist major dev: %i\n", mdev_msr_allowlist);
     pr_debug("msr_version major dev: %i\n", mdev_msr_version);
 
-    msr_class = class_create(THIS_MODULE, "msr_safe");
+    msr_class = class_create(
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,4,0)
+                    THIS_MODULE,
+#endif
+                    "msr_safe");
     if (IS_ERR(msr_class))
     {
         err = PTR_ERR(msr_class);

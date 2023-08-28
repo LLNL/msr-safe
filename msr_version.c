@@ -107,7 +107,11 @@ int msr_version_init(int *majordev)
     }
     cdev_registered = 1;
 
-    cdev_class = class_create(THIS_MODULE, "msr_safe_version");
+    cdev_class = class_create(
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,4,0)
+                    THIS_MODULE,
+#endif
+                    "msr_safe_version");
     if (IS_ERR(cdev_class))
     {
         err = PTR_ERR(cdev_class);
