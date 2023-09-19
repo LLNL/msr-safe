@@ -1,0 +1,5 @@
+# Trigger a build pipeline for the following systems
+cztb2-build-and-test:
+  variables:
+    CI_MACHINE: "cztb2"
+  extends: [.build]
