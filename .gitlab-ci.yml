@@ -1,0 +1,17 @@
+variables:
+  CUSTOM_CI_BUILDS_DIR: "/usr/workspace/msr-safe/gitlab-runner"
+  BUILD_ROOT: ${CI_PROJECT_DIR}
+
+stages:
+  - build
+
+# build across power lab
+build-cztb2:
+ tags:
+   - shell
+   - cztb2
+ stage: build
+ script:
+   - git clone $MSR_SAFE_ANSIBLE
+   - cd msr-safe-ansible-setup
+   - ansible-playbook msr-safe-powerlab-playbook.yml
