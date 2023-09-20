@@ -183,7 +183,11 @@ void msrbatch_cleanup(int majordev)
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
 static char *msrbatch_nodename(struct device *dev, mode_t *mode)
 #else
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6,2,0)
 static char *msrbatch_nodename(struct device *dev, umode_t *mode)
+#else
+static char *msrbatch_nodename(const struct device *dev, umode_t *mode)
+#endif
 #endif
 {
     return kasprintf(GFP_KERNEL, "cpu/msr_batch");
@@ -207,7 +211,11 @@ int msrbatch_init(int *majordev)
     }
     cdev_registered = 1;
 
-    cdev_class = class_create(THIS_MODULE, "msr_batch");
+    cdev_class = class_create(
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,4,0)
+                    THIS_MODULE,
+#endif
+                    "msr_batch");
     if (IS_ERR(cdev_class))
     {
         err = PTR_ERR(cdev_class);
