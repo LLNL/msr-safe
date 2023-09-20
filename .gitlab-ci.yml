@@ -1,5 +1,5 @@
 variables:
-  CUSTOM_CI_BUILDS_DIR: "/usr/workspace/msr-safe/gitlab-runner"
+  CUSTOM_CI_BUILDS_DIR: "/usr/workspace/msr/gitlab-runner"
   BUILD_ROOT: ${CI_PROJECT_DIR}
 
 stages:
