@@ -1,12 +1,12 @@
-# This file contains the model-specific registers available in 06_6A processors
-# based on a close reading of volume 4 of the Intel 64 and IA-32 Architectures
-# Software Development Manual (335592-079US March 2023).
-# Uncommenting allows reading a particular MSR.
-# Modifying the write mask allows writing to those particular bits.
-# Be sure to cat the modified list into /dev/cpu/msr_allowlist.
-# See the README file for more details.
-#
-# MSR        # Write Mask       # Comment
+## This file contains the model-specific registers available in 06_6A processors
+## based on a close reading of volume 4 of the Intel 64 and IA-32 Architectures
+## Software Development Manual (335592-079US March 2023).
+## Uncommenting allows reading a particular MSR.
+## Modifying the write mask allows writing to those particular bits.
+## Be sure to cat the modified list into /dev/cpu/msr_allowlist.
+## See the README file for more details.
+##
+## MSR        # Write Mask       # Comment
 # 0x00000000 0x0000000000000000 # "IA32_P5_MC_ADDR (Table: 2-20)"
 # 0x00000001 0x0000000000000000 # "IA32_P5_MC_TYPE (Table: 2-20)"
 # 0x00000006 0x0000000000000000 # "IA32_MONITOR_FILTER_SIZE (Table: 2-20)"
