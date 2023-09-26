@@ -6,7 +6,7 @@
 ## Be sure to cat the modified list into /dev/cpu/msr_allowlist.
 ## See the README file for more details.
 ##
-# MSR        # Write Mask       # Comment
+## MSR        # Write Mask       # Comment
 # 0x00000000 0x0000000000000000 # "IA32_P5_MC_ADDR (Table: 2-20)"
 # 0x00000001 0x0000000000000000 # "IA32_P5_MC_TYPE (Table: 2-20)"
 # 0x00000006 0x0000000000000000 # "IA32_MONITOR_FILTER_SIZE (Table: 2-20)"
