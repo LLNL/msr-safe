@@ -6,7 +6,7 @@
 ## Be sure to cat the modified list into /dev/cpu/msr_allowlist.
 ## See the README file for more details.
 ##
-## MSR        # Write Mask       # Comment
+# MSR        # Write Mask       # Comment
 # 0x00000033 0x0000000000000000 # "MSR_MEMORY_CTRL (Table: 2-52)"
 # 0x000000A7 0x0000000000000000 # "MSR_BIOS_DEBUG (Table: 2-52)"
 # 0x000000BC 0x0000000000000000 # "IA32_MISC_PACKAGE_CTLS (Table: 2-52)"
