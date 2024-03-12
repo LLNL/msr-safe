@@ -63,4 +63,5 @@ build-cztb2:
  script:
    - git clone $MSR_SAFE_ANSIBLE
    - cd msr-safe-ansible-setup
+   - echo "TARGET_BRANCH=${TARGET_BRANCH}"
    - ansible-playbook msr-safe-powerlab-playbook.yml --extra-vars "branch=${TARGET_BRANCH}"
