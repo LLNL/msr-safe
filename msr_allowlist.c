@@ -359,13 +359,23 @@ static int parse_next_allowlist_entry(char *inbuf, char **nextinbuf, struct allo
     return *nextinbuf - inbuf;
 }
 
+// Check the Linux Kernel version to determine whether to use
+// a const struct or a struct for device.
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
 static char *msr_allowlist_nodename(struct device *dev, mode_t *mode)
 #else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
+static char *msr_allowlist_nodename(struct device *dev, umode_t *mode)
+#else
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(6,2,0)
+#ifndef RHEL_RELEASE
 static char *msr_allowlist_nodename(struct device *dev, umode_t *mode)
 #else
 static char *msr_allowlist_nodename(const struct device *dev, umode_t *mode)
+#endif
+#else
+static char *msr_allowlist_nodename(const struct device *dev, umode_t *mode)
+#endif
 #endif
 #endif
 {
@@ -427,6 +437,8 @@ int msr_allowlist_init(int *majordev)
     }
     cdev_class_created = 1;
 
+    // Depending on the Linux Kernel version and backports, this may fail with an incompatible
+    // pointer error. If so, you may need to modify above where msr_allowlist_nodename is declared.
     cdev_class->devnode = msr_allowlist_nodename;
 
     dev = device_create(cdev_class, NULL, MKDEV(*majordev, 0), NULL, "msr_allowlist");
