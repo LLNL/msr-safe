@@ -1,17 +1,20 @@
 variables:
   CUSTOM_CI_BUILDS_DIR: "/usr/workspace/msr/gitlab-runner"
   BUILD_ROOT: ${CI_PROJECT_DIR}
+  TARGET_BRANCH: ${CI_COMMIT_REF_NAME}
 
 stages:
   - build
 
-# build across power lab
-build-cztb2:
- tags:
-   - shell
-   - cztb2
- stage: build
- script:
-   - git clone $MSR_SAFE_ANSIBLE
-   - cd msr-safe-ansible-setup
-   - ansible-playbook msr-safe-powerlab-playbook.yml
+# Template for jobs triggering a build-and-test sub-pipelines:
+.build:
+  stage: build
+  trigger:
+    include:
+      - local: '.gitlab/${CI_MACHINE}-build-and-test.yml'
+    strategy: depend
+    forward:
+      pipeline_variables: true
+
+include:
+  - local: .gitlab/subscribed-pipelines.yml
