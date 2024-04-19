@@ -6,7 +6,7 @@ set -o pipefail
 . /etc/sysconfig/msr-safe
 
 al_cpu() {
-  printf 'al_%.2x%x\n' \
+  printf 'al_%.2X_%X\n' \
   $(grep -m1 'cpu family' /proc/cpuinfo | cut -f2 -d: | tr -d ' ') \
   $(grep -m1 'model' /proc/cpuinfo | cut -f2 -d: | tr -d ' ')
 }
