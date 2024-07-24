@@ -1,4 +1,4 @@
-// Copyright 2011-2021 Lawrence Livermore National Security, LLC and other
+// Copyright 2012-2021 Lawrence Livermore National Security, LLC and other
 // msr-safe Project Developers. See the top-level COPYRIGHT file for
 // details.
 //
@@ -180,15 +180,22 @@ void msrbatch_cleanup(int majordev)
     }
 }
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
-static char *msrbatch_nodename(struct device *dev, mode_t *mode)
-#else
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(6,2,0)
-static char *msrbatch_nodename(struct device *dev, umode_t *mode)
-#else
-static char *msrbatch_nodename(const struct device *dev, umode_t *mode)
-#endif
-#endif
+#define msrbatch_nodename_selector _Generic(\
+        (((struct class *)0)->devnode),\
+        char* (*) (      struct device *,  mode_t *) : msrbatch_nodename1,\
+        char* (*) (      struct device *, umode_t *) : msrbatch_nodename2,\
+        char* (*) (const struct device *, umode_t *) : msrbatch_nodename3 \
+        )
+
+static char *msrbatch_nodename1(struct device *dev, mode_t *mode)
+{
+    return kasprintf(GFP_KERNEL, "cpu/msr_batch");
+}
+static char *msrbatch_nodename2(struct device *dev, umode_t *mode)
+{
+    return kasprintf(GFP_KERNEL, "cpu/msr_batch");
+}
+static char *msrbatch_nodename3(const struct device *dev, umode_t *mode)
 {
     return kasprintf(GFP_KERNEL, "cpu/msr_batch");
 }
@@ -224,7 +231,7 @@ int msrbatch_init(int *majordev)
     }
     cdev_class_created = 1;
 
-    cdev_class->devnode = msrbatch_nodename;
+    cdev_class->devnode = msrbatch_nodename_selector;
 
     dev = device_create(cdev_class, NULL, MKDEV(*majordev, 0), NULL, "msr_batch");
     if (IS_ERR(dev))
