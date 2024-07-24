@@ -359,15 +359,23 @@ static int parse_next_allowlist_entry(char *inbuf, char **nextinbuf, struct allo
     return *nextinbuf - inbuf;
 }
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
-static char *msr_allowlist_nodename(struct device *dev, mode_t *mode)
-#else
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(6,2,0)
-static char *msr_allowlist_nodename(struct device *dev, umode_t *mode)
-#else
-static char *msr_allowlist_nodename(const struct device *dev, umode_t *mode)
-#endif
-#endif
+
+#define msr_allowlist_nodename_selector _Generic(\
+        (((struct class *)0)->devnode),\
+        char* (*) (struct device *,       mode_t  *) : msr_allowlist_nodename1,\
+        char* (*) (struct device *,       umode_t *) : msr_allowlist_nodename2,\
+        char* (*) (const struct device *, umode_t *) : msr_allowlist_nodename3 \
+        )
+
+static char *msr_allowlist_nodename1(struct device *dev, mode_t *mode)
+{
+    return kasprintf(GFP_KERNEL, "cpu/msr_allowlist");
+}
+static char *msr_allowlist_nodename2(struct device *dev, umode_t *mode)
+{
+    return kasprintf(GFP_KERNEL, "cpu/msr_allowlist");
+}
+static char *msr_allowlist_nodename3(const struct device *dev, umode_t *mode)
 {
     return kasprintf(GFP_KERNEL, "cpu/msr_allowlist");
 }
@@ -427,7 +435,7 @@ int msr_allowlist_init(int *majordev)
     }
     cdev_class_created = 1;
 
-    cdev_class->devnode = msr_allowlist_nodename;
+    cdev_class->devnode = msr_allowlist_nodename_selector;
 
     dev = device_create(cdev_class, NULL, MKDEV(*majordev, 0), NULL, "msr_allowlist");
     if (IS_ERR(dev))
