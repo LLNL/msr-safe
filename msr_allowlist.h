@@ -20,7 +20,7 @@
 
 int msr_allowlist_init(int *majordev);
 
-int msr_allowlist_cleanup(int majordev);
+void msr_allowlist_cleanup(int majordev);
 
 int msr_allowlist_exists(void);
 

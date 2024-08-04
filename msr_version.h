@@ -20,6 +20,6 @@
 
 int msr_version_init(int *majordev);
 
-int msr_version_cleanup(int majordev);
+void msr_version_cleanup(int majordev);
 
 #endif
