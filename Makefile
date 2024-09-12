@@ -56,7 +56,7 @@ prefix ?= $(HOME)/build
 exec_prefix ?= $(prefix)
 sbindir ?= $(exec_prefix)/sbin
 libdir ?= $(exec_preffix)/lib
-datarootdir ?= $(prefix)/shae
+datarootdir ?= $(prefix)/share
 mandir ?= $(datarootdir)/man
 man1dir ?= $(mandir)/man1
 
