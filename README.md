@@ -331,6 +331,11 @@ An individual operation requested a write to a read-only MSR.
 
 There are no msr_safe-specific error conditions.
 
+# ALLOWLIST CONTRIBUTIONS
+
+The contribs/ folder contains allowlists shared by 
+our external collaborators, organized by site-name.
+
 # msr-save
 
 The msrsave utility provides a mechanism for saving and restoring MSR values
