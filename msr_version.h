@@ -22,4 +22,26 @@ int msr_version_init(int *majordev);
 
 void msr_version_cleanup(int majordev);
 
+#define MSR_SAFE_VERSION_MAJOR 1
+#define MSR_SAFE_VERSION_MINOR 8
+#define MSR_SAFE_VERSION_PATCH 0
+
+#define MSR_SAFE_VERSION_u32 ( \
+	          ( MSR_SAFE_VERSION_MAJOR << 16 )	\
+		| ( MSR_SAFE_VERSION_MINOR << 8 )	\
+		| ( MSR_SAFE_VERSION_PATCH << 0 ) )
+
+#define MAKESTRING( s ) #s
+#define MAKE_VERSION_STRING(major,minor,patch) \
+	MAKESTRING( major ) 	\
+	"."			\
+	MAKESTRING( minor )	\
+	"."			\
+	MAKESTRING( patch )
+
+#define MSR_SAFE_VERSION_STR MAKE_VERSION_STRING(\
+		MSR_SAFE_VERSION_MAJOR,\
+		MSR_SAFE_VERSION_MINOR,\
+		MSR_SAFE_VERSION_PATCH)
+
 #endif
