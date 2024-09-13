@@ -135,12 +135,19 @@ being a pointer to a __struct msr_batch_array__.
 struct msr_batch_array
 {
     __u32 numops;             // In: # of operations in operations array
+    __u32 version;	      // In: MSR_SAFE_VERSION_u32 (see msr_version.h)
     struct msr_batch_op *ops; // In: Array[numops] of operations
 };
 ```
 
 The maximum __numops__ is system-dependent, but 30k operations is not
-unheard-of.  Each op is contained in a __struct msr_batch_op__:
+unheard-of.
+
+Starting in version 2.0.0, the __version__ field will be
+compared to the version of the loaded kernel module with a mismatch
+resulting in an error.  Earlier versions do not check this field.
+
+Each op is contained in a __struct msr_batch_op__:
 
 ```
 struct msr_batch_op
