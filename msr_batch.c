@@ -1,4 +1,4 @@
-// Copyright 2011-2021 Lawrence Livermore National Security, LLC and other
+// Copyright 2012-2021 Lawrence Livermore National Security, LLC and other
 // msr-safe Project Developers. See the top-level COPYRIGHT file for
 // details.
 //
@@ -31,7 +31,9 @@
 
 #include "msr_batch.h"
 #include "msr_safe.h"
+#include "msr-smp.h"
 #include "msr_allowlist.h"
+#include "msr_version.h"
 
 static struct class *cdev_class;
 static char cdev_created;
@@ -73,7 +75,6 @@ static int msrbatch_apply_allowlist(struct msr_batch_array *oa)
     return err;
 }
 
-extern int msr_safe_batch(struct msr_batch_array *oa);
 
 static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
 {
@@ -102,10 +103,18 @@ static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
         return -EFAULT;
     }
 
-    if (koa.numops <= 0)
+    if (koa.numops == 0)
     {
         pr_debug("Invalid # of ops %d\n", koa.numops);
         return -EINVAL;
+    }
+
+    if ( ((koa.version >> 16) & 0xff) != MSR_SAFE_VERSION_MAJOR ){
+	pr_debug("Version mismatch: loaded is %d, requested is %d\n",
+			MSR_SAFE_VERSION_MAJOR,
+			(koa.version >> 16) & 0xff
+	);
+	return -ENOPROTOOPT;
     }
 
     uops = koa.ops;
@@ -180,15 +189,22 @@ void msrbatch_cleanup(int majordev)
     }
 }
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
-static char *msrbatch_nodename(struct device *dev, mode_t *mode)
-#else
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(6,2,0)
-static char *msrbatch_nodename(struct device *dev, umode_t *mode)
-#else
-static char *msrbatch_nodename(const struct device *dev, umode_t *mode)
-#endif
-#endif
+#define msrbatch_nodename_selector _Generic(\
+        (((struct class *)0)->devnode),\
+        char* (*) (      struct device *,  mode_t *) : msrbatch_nodename1,\
+        char* (*) (      struct device *, umode_t *) : msrbatch_nodename2,\
+        char* (*) (const struct device *, umode_t *) : msrbatch_nodename3 \
+        )
+
+static char *msrbatch_nodename1(struct device *dev, mode_t *mode)
+{
+    return kasprintf(GFP_KERNEL, "cpu/msr_batch");
+}
+static char *msrbatch_nodename2(struct device *dev, umode_t *mode)
+{
+    return kasprintf(GFP_KERNEL, "cpu/msr_batch");
+}
+static char *msrbatch_nodename3(const struct device *dev, umode_t *mode)
 {
     return kasprintf(GFP_KERNEL, "cpu/msr_batch");
 }
@@ -224,7 +240,7 @@ int msrbatch_init(int *majordev)
     }
     cdev_class_created = 1;
 
-    cdev_class->devnode = msrbatch_nodename;
+    cdev_class->devnode = msrbatch_nodename_selector;
 
     dev = device_create(cdev_class, NULL, MKDEV(*majordev, 0), NULL, "msr_batch");
     if (IS_ERR(dev))

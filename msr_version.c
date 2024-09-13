@@ -11,6 +11,7 @@
 #include <linux/version.h>
 #include <linux/module.h>
 #include <linux/uaccess.h>
+#include "msr_version.h"
 
 static struct class *cdev_class;
 static char cdev_created;
@@ -50,15 +51,30 @@ static const struct file_operations fops =
     .open = open_version
 };
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
-static char *msr_version_nodename(struct device *dev, mode_t *mode)
-#else
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(6,2,0)
-static char *msr_version_nodename(struct device *dev, umode_t *mode)
-#else
-static char *msr_version_nodename(const struct device *dev, umode_t *mode)
-#endif
-#endif
+#define msr_version_nodename_selector _Generic(\
+        (((struct class *)0)->devnode),\
+        char * (*) (      struct device *,  mode_t *) : msr_version_nodename1,\
+        char * (*) (      struct device *, umode_t *) : msr_version_nodename2,\
+        char * (*) (const struct device *, umode_t *) : msr_version_nodename3 \
+        )
+
+static char *msr_version_nodename1(struct device *dev, mode_t *mode)
+{
+    if (mode)
+    {
+        *mode = 0400;   // read-only
+    }
+    return kasprintf(GFP_KERNEL, "cpu/msr_safe_version");
+}
+static char *msr_version_nodename2(struct device *dev, umode_t *mode)
+{
+    if (mode)
+    {
+        *mode = 0400;   // read-only
+    }
+    return kasprintf(GFP_KERNEL, "cpu/msr_safe_version");
+}
+static char *msr_version_nodename3(const struct device *dev, umode_t *mode)
 {
     if (mode)
     {
@@ -120,7 +136,7 @@ int msr_version_init(int *majordev)
     }
     cdev_class_created = 1;
 
-    cdev_class->devnode = msr_version_nodename;
+    cdev_class->devnode = msr_version_nodename_selector;
 
     dev = device_create(cdev_class, NULL, MKDEV(*majordev, 0), NULL, "msr_safe_version");
     if (IS_ERR(dev))

@@ -135,12 +135,20 @@ being a pointer to a __struct msr_batch_array__.
 struct msr_batch_array
 {
     __u32 numops;             // In: # of operations in operations array
+    __u32 version;	      // In: MSR_SAFE_VERSION_u32 (see msr_version.h)
     struct msr_batch_op *ops; // In: Array[numops] of operations
 };
 ```
 
 The maximum __numops__ is system-dependent, but 30k operations is not
-unheard-of.  Each op is contained in a __struct msr_batch_op__:
+unheard-of.
+
+Starting in version 2.0.0, the __version__ field will be
+compared to the version of the loaded kernel module with a mismatch
+in the major version number resulting in an error.
+Earlier versions do not check this field.
+
+Each op is contained in a __struct msr_batch_op__:
 
 ```
 struct msr_batch_op
@@ -285,17 +293,11 @@ Requested virtual CPU does not exist or is offline.
 ### /dev/cpu/msr_batch
 
 ### **ioctl(2)**
+Verifying the batch request can result in the following errors.
 
-All of the operations in the batch will be executed.  Each operation may result
-in an __EIO__, __ENXIO__, __EACCES__, or __EROFS__ error, which will be
-recorded in the __msr_batch_op__ struct.  If any operation caused an error, the
-first such error becomes the return value for **ioctl(2)**.
-
-__E2BIG__
-Kernel unable to allocate memory to hold the array of operations.
-
-__EACCES__
-An individual operation requested an MSR that is not present in the allowlist.
+__ENOTTY__
+Invalid ioctl command.  As of this writing the only ioctl command
+supported on this device is __X86_IOC_MSR_BATCH__, defined in __msr_safe.h__.
 
 __EBADF__
 The __msr_batch__ file was not opened for reading.
@@ -304,7 +306,25 @@ __EFAULT__
 Kernel **copy_from_user()** or **copy_to_user()** failed.
 
 __EINVAL__
-Number of requested batch operations is <=0.
+Number of requested batch operations is 0.
+
+__ENOPROTOOPT__
+There is a mismatch between the major version number of the currently-loaded
+msr-safe kernel module and the version number requested by the batch struct.
+
+__E2BIG__
+Kernel unable to allocate memory to hold the array of operations.
+
+__ENOMEM__
+Kernel unable to allocate memory to hold the results of __zalloc_cpumask_var()__.
+
+If all is well, all of the operations in the batch will be executed.  If an
+individual operation results in one of the following errors, the error will
+be recorded in its __msr_batch_op__ struct.  The first of these errors will
+become the return value for **ioctl(2)**.
+
+__EACCES__
+An individual operation requested an MSR that is not present in the allowlist.
 
 __EIO__
 A general protection fault occurred.  On Intel processors this
@@ -312,13 +332,6 @@ can be caused by a) attempting to access an MSR outside of ring 0, b)
 attempting to access a non-existent or reserved MSR address, c) writing 1-bits
 to a reserved area of an MSR, d) writing a non-canonical address to MSRs that
 take memory addresses, or e) writing to MSR bits that are marked as read-only.
-
-__ENOMEM__
-Kernel unable to allocate memory to hold the results of __zalloc_cpumask_var()__.
-
-__ENOTTY__
-Invalid ioctl command.  As of this writing the only ioctl command
-supported on this device is __X86_IOC_MSR_BATCH__, defined in __msr_safe.h__.
 
 __ENXIO__
 An individual operation requested a virtual CPU does not exist or is offline.

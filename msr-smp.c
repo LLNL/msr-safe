@@ -18,6 +18,7 @@
 #include <linux/smp.h>
 
 #include "msr_safe.h"
+#include "msr-smp.h"
 
 static void __msr_safe_batch(void *info)
 {

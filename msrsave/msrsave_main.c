@@ -14,10 +14,7 @@
 #include <unistd.h>
 
 #include "msrsave.h"
-
-#ifndef VERSION
-#define VERSION "0.0.0"
-#endif
+#include "../msr_version.h"
 
 int main(int argc, char **argv)
 {
@@ -59,7 +56,7 @@ int main(int argc, char **argv)
 
     if (argc > 1 && strncmp(argv[1], "--version", strlen("--version") + 1) == 0)
     {
-        printf("%s\n", VERSION);
+        printf("%s\n", MSR_SAFE_VERSION_STR);
         printf("\nCopyright (C) 2016, Intel Corporation. All rights reserved.\n\n");
         return 0;
     }
