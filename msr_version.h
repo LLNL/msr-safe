@@ -22,8 +22,8 @@ int msr_version_init(int *majordev);
 
 void msr_version_cleanup(int majordev);
 
-#define MSR_SAFE_VERSION_MAJOR 1
-#define MSR_SAFE_VERSION_MINOR 8
+#define MSR_SAFE_VERSION_MAJOR 2
+#define MSR_SAFE_VERSION_MINOR 0
 #define MSR_SAFE_VERSION_PATCH 0
 
 #define MSR_SAFE_VERSION_u32 ( \

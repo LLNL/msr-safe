@@ -26,13 +26,14 @@
 #include <stdlib.h>     // exit(3)
 #include <sys/ioctl.h>  // ioctl(2)
 
-#include "../msr_safe.h"   // batch data structs
+#include "../msr_safe.h"   	// batch data structs
+#include "../msr_version.h"	// MSR_SAFE_VERSION_u32
 
 #define MSR_MPERF 0xE7
 
 char const *const allowlist = "0xE7 0xFFFFFFFFFFFFFFFF\n";  // MPERF
 
-static uint8_t const nCPUs = 32;
+static uint8_t const nCPUs = 16;
 
 void set_allowlist()
 {
@@ -74,7 +75,7 @@ void measure_serial_latency()
 
     // Show results
     printf("Serial cycles from first write to last read:"
-           "%"PRIu64" (on %"PRIu8" CPUs)\n",
+           "%9"PRIu64" (on %"PRIu8" CPUs)\n",
            data[nCPUs - 1], nCPUs);
 }
 
@@ -95,7 +96,8 @@ void measure_batch_latency()
         r_ops[i].msr = w_ops[i].msr = MSR_MPERF;
         w_ops[i].msrdata = 0;
     }
-    rbatch.numops = wbatch.numops = nCPUs;
+    rbatch.numops  = wbatch.numops  = nCPUs;
+    rbatch.version = wbatch.version = MSR_SAFE_VERSION_u32;
     rbatch.ops = r_ops;
     wbatch.ops = w_ops;
 
@@ -104,8 +106,8 @@ void measure_batch_latency()
     rc = ioctl(fd, X86_IOC_MSR_BATCH, &rbatch);
     assert(-1 != rc);
 
-    printf("Batch cycles from first write to last read:"
-           "%llu (on %"PRIu8" CPUs)\n",
+    printf("Batch cycles from first write to last read: "
+           "%9llu (on %"PRIu8" CPUs)\n",
            r_ops[nCPUs - 1].msrdata, nCPUs);
 }
 

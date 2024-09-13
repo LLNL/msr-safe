@@ -33,6 +33,7 @@
 #include "msr_safe.h"
 #include "msr-smp.h"
 #include "msr_allowlist.h"
+#include "msr_version.h"
 
 static struct class *cdev_class;
 static char cdev_created;
@@ -102,10 +103,18 @@ static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
         return -EFAULT;
     }
 
-    if (koa.numops <= 0)
+    if (koa.numops == 0)
     {
         pr_debug("Invalid # of ops %d\n", koa.numops);
         return -EINVAL;
+    }
+
+    if ( ((koa.version >> 16) & 0xff) != MSR_SAFE_VERSION_MAJOR ){
+	pr_debug("Version mismatch: loaded is %d, requested is %d\n",
+			MSR_SAFE_VERSION_MAJOR,
+			(koa.version >> 16) & 0xff
+	);
+	return -ENOPROTOOPT;
     }
 
     uops = koa.ops;
