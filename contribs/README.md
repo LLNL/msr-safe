@@ -1,3 +1,5 @@
-The contribs/ folder contains allow lists shared by 
+### Allowlist Contributions
+
+The contribs/ folder contains allowlists shared by 
 our external collaborators, organized by site-name.
 
