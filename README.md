@@ -153,27 +153,63 @@ Each op is contained in a __struct msr_batch_op__:
 ```
 struct msr_batch_op
 {
-    __u16 cpu;     // In: CPU to execute {rd/wr}msr instruction
-    __u16 isrdmsr; // In: 0=wrmsr, non-zero=rdmsr
-    __s32 err;     // Out: set if error occurred with this operation
-    __u32 msr;     // In: MSR address
-    __u64 msrdata; // In/Out: Data to write or data that was read
-    __u64 wmask;   // Out: Write mask applied to wrmsr
+    __u16 cpu;          // In: CPU to execute {rd/wr}msr instruction
+    __u16 op;           // In: OR at least one of the following:
+                        //   OP_WRITE, OP_READ, OP_POLL, OP_INITIAL_MPERF,
+                        //   OP_FINAL_MPERF, OP_POLL_MPERF
+    __s32 err;          // Out: set if error occurred with this operation
+    __u32 poll_max;     // In/Out:  Max/remaining poll attempts
+    __u32 msr;          // In: MSR Address to perform operation
+    __u64 msrdata;      // In/Out: Input/Result to/from operation
+    __u64 wmask;        // Out: Write mask applied to wrmsr
+    __u64 mperf_initial;// Out: reference clock reading at the start of the op
+    __u64 mperf_poll;   // Out: reference clock reading at start of final poll
+    __u64 mperf_final;  // Out: reference clock reading at the end of r/w/p
+    __u64 msrdata2;	// Out: last polled reading
 };
 ```
 
-The __cpu__ uses the same numbering found in __/dev/cpu/\<cpuid\>__.  A zero
-value for __isrdmsr__ indicates a write operation, any other value indicates a
-read operation.  __err__ is populated by the kernel if there is an error on a
+The __cpu__ uses the same numbering found in __/dev/cpu/\<cpuid\>__.
+
+The __op__ is a bit array describing what the operating measures.  In the
+order of operation:
+
+1. If __OP_INITIAL_MPERF__ is set, read the MPERF reference cycle counter
+into __mperf_initial__.
+
+2. If __OP_WRITE__ is set, write the value in __msrdata__ to the MSR
+specified by __msr__.
+
+3. If __OP_READ__ is set, read the value from __msr__ into __msrdata__.
+
+4. If __OP_POLL__ is set, loop through the following:
+	a. If __poll_max__ is zero, break out of the loop.
+	b. If __OP_POLL_MPERF__ is set, read the MPERF reference cycle
+	counter into __mperf_poll__.
+	c. Read __msr__ into __msrdata2__.  If the values differ,
+	break out of the loop.
+	d. Decrement __poll_max__ and continue the loop.
+
+5. If __OP_FINAL_MPERF__ is set, read the MPERF reference cycle
+counter into __mperf_final__.
+
+Successive operations combining __OP_READ__, __OP_POLL__, and __OP_x_MPERF__
+flags allows the user to measure how often an MSR is updated.  Use of
+__OP_POLL__ without __OP_READ__ provides notice when the MSR has reached
+the user-specified value.
+
+A zero __err__ is populated by the kernel if there is an error on a
 particular operation, and will be one of __ENXIO__ (the virtual CPU does not
 exist or is offline), __EACCES__ (the requested MSR was not found in the
 allowlist), or __EROFS__ (a write operation was attempted on an MSR with a write
 mask of 0).
 
-__msr__ is the address of the model-specific register.  __msrdata__ is the
-value that will be written to or read from the MSR, respectively.
-Finally, the __wmask__ records the writemask for the MSR provided in the
-allowlist.
+__msr__ is the address of the model-specific register.
+
+__msrdata__ is the value that will be written to or read from the MSR,
+respectively.
+
+__wmask__ records the writemask for the MSR provided in the allowlist.
 
 ## /dev/cpu/msr_safe_version
 
