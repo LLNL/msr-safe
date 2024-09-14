@@ -12,6 +12,7 @@
  */
 
 #include <asm/msr.h>
+#include <asm/msr-index.h>
 #include <linux/cpumask.h>
 #include <linux/module.h>
 #include <linux/preempt.h>
@@ -25,9 +26,12 @@ static void __msr_safe_batch(void *info)
     struct msr_batch_array *oa = info;
     struct msr_batch_op *op;
     int this_cpu = smp_processor_id();
-    u32 *dp;
+    u64 rdval, wrval, mperfval, pollval;
+    u32 *rdptr=(u32 *)&rdval, *wrptr=(u32 *)&wrval, *mperfptr=(u32 *)&mperfval, *pollptr=(u32 *)&pollval;
+    /*
     u64 oldmsr;
     u64 newmsr;
+    */
 
     for (op = oa->ops; op < oa->ops + oa->numops; ++op)
     {
@@ -37,6 +41,7 @@ static void __msr_safe_batch(void *info)
         }
 
         op->err = 0;
+	/*
         dp = (u32 *)&oldmsr;
         if (rdmsr_safe(op->msr, &dp[0], &dp[1]))
         {
@@ -56,6 +61,62 @@ static void __msr_safe_batch(void *info)
         {
             op->err = -EIO;
         }
+	*/
+
+	if ( op->op & OP_INITIAL_MPERF ){
+		if ( rdmsr_safe( MSR_IA32_MPERF, &mperfptr[0], &mperfptr[1] )){
+			op->err = -EIO;
+			continue;
+		}
+		op->mperf_initial = mperfval;
+	}
+	if ( op->op & OP_WRITE || op->op & OP_READ || op->op & OP_POLL ){
+		if ( rdmsr_safe( op->msr, &rdptr[0], &rdptr[1] )){
+			op->err = -EIO;
+			continue;
+		}
+		if ( op->op & OP_READ || op->op & OP_POLL ){
+			op->msrdata = rdval;
+		}
+	}
+	if ( op->op & OP_WRITE ){
+		wrval = op->msrdata & op->wmask;
+		wrval |= rdval & ~op->wmask;
+		if ( wrmsr_safe( op->msr, wrptr[0], wrptr[1] ) ){
+			op->err = -EIO;
+			continue;
+		}
+	}
+	if ( op->op & OP_POLL ){
+		while(1){
+			if( 0 == op->poll_max ){
+				break;
+			}
+			op->poll_max--;
+			if ( op->op & OP_POLL_MPERF ){
+				if ( rdmsr_safe( MSR_IA32_MPERF, &mperfptr[0], &mperfptr[1] )){
+					op->err = -EIO;
+					continue;
+				}
+				op->mperf_poll = mperfval;
+			}
+			if ( rdmsr_safe( op->msr, &pollptr[0], &pollptr[1] )){
+				op->err = -EIO;
+				continue;
+			}
+			if ( pollval != rdval ){
+				op->msrdata2 = pollval;
+				break;
+			}
+		}
+	}
+	if ( op->op & OP_FINAL_MPERF ){
+		if ( rdmsr_safe( MSR_IA32_MPERF, &mperfptr[0], &mperfptr[1] )){
+			op->err = -EIO;
+			continue;
+		}
+		op->mperf_final = mperfval;
+	}
     }
 }
 

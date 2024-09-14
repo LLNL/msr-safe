@@ -18,12 +18,12 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 
-#define OP_WRITE	0x01
-#define OP_READ		0x02
-#define OP_POLL		0x04
-#define OP_INITAL_MPERF	0x10
-#define OP_FINAL_MPERF  0x20
-#define OP_POLL_MPERF	0x40
+#define OP_WRITE		0x01
+#define OP_READ			0x02
+#define OP_POLL			0x04
+#define OP_INITIAL_MPERF	0x10
+#define OP_FINAL_MPERF  	0x20
+#define OP_POLL_MPERF		0x40
 
 struct msr_batch_op
 {
