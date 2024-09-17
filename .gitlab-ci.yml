@@ -15,6 +15,11 @@ stages:
     strategy: depend
     forward:
       pipeline_variables: true
+    id_tokens:
+      CI_JOB_JWT:
+        aud: https://lc.llnl.gov/gitlab
 
 include:
   - local: .gitlab/subscribed-pipelines.yml
+  - project: 'lc-templates/id_tokens'
+    file: 'id_tokens.yml'
