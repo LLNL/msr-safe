@@ -3,11 +3,6 @@ variables:
   BUILD_ROOT: ${CI_PROJECT_DIR}
   TARGET_BRANCH: ${CI_COMMIT_REF_NAME}
 
-defaults:
-  id_tokens:
-    CI_JOB_JWT:
-      aud: https://lc.llnl.gov/gitlab
-
 stages:
   - build
 
@@ -22,6 +17,7 @@ stages:
       pipeline_variables: true
 
 include:
-  - local: .gitlab/subscribed-pipelines.yml
+  # Sets ID tokens for every job using `default:`
   - project: 'lc-templates/id_tokens'
     file: 'id_tokens.yml'
+  - local: .gitlab/subscribed-pipelines.yml
