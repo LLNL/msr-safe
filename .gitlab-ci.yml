@@ -3,6 +3,11 @@ variables:
   BUILD_ROOT: ${CI_PROJECT_DIR}
   TARGET_BRANCH: ${CI_COMMIT_REF_NAME}
 
+defaults:
+  id_tokens:
+    CI_JOB_JWT:
+      aud: https://lc.llnl.gov/gitlab
+
 stages:
   - build
 
@@ -15,9 +20,6 @@ stages:
     strategy: depend
     forward:
       pipeline_variables: true
-    id_tokens:
-      CI_JOB_JWT:
-        aud: https://lc.llnl.gov/gitlab
 
 include:
   - local: .gitlab/subscribed-pipelines.yml
