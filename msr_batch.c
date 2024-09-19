@@ -1,4 +1,4 @@
-// Copyright 2012-2021 Lawrence Livermore National Security, LLC and other
+// Copyright 2011-2021 Lawrence Livermore National Security, LLC and other
 // msr-safe Project Developers. See the top-level COPYRIGHT file for
 // details.
 //
@@ -181,11 +181,11 @@ void msrbatch_cleanup(int majordev)
 }
 
 #define msrbatch_nodename_selector _Generic(\
-        (((struct class *)0)->devnode),\
-        char* (*) (      struct device *,  mode_t *) : msrbatch_nodename1,\
-        char* (*) (      struct device *, umode_t *) : msrbatch_nodename2,\
-        char* (*) (const struct device *, umode_t *) : msrbatch_nodename3 \
-        )
+    (((struct class *)0)->devnode),\
+    char* (*) (      struct device *,  mode_t *) : msrbatch_nodename1,\
+    char* (*) (      struct device *, umode_t *) : msrbatch_nodename2,\
+    char* (*) (const struct device *, umode_t *) : msrbatch_nodename3 \
+    )
 
 static char *msrbatch_nodename1(struct device *dev, mode_t *mode)
 {

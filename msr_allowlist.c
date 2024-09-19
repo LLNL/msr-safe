@@ -361,20 +361,22 @@ static int parse_next_allowlist_entry(char *inbuf, char **nextinbuf, struct allo
 
 
 #define msr_allowlist_nodename_selector _Generic(\
-        (((struct class *)0)->devnode),\
-        char* (*) (struct device *,       mode_t  *) : msr_allowlist_nodename1,\
-        char* (*) (struct device *,       umode_t *) : msr_allowlist_nodename2,\
-        char* (*) (const struct device *, umode_t *) : msr_allowlist_nodename3 \
-        )
+    (((struct class *)0)->devnode),\
+    char* (*) (struct device *,       mode_t  *) : msr_allowlist_nodename1,\
+    char* (*) (struct device *,       umode_t *) : msr_allowlist_nodename2,\
+    char* (*) (const struct device *, umode_t *) : msr_allowlist_nodename3 \
+    )
 
 static char *msr_allowlist_nodename1(struct device *dev, mode_t *mode)
 {
     return kasprintf(GFP_KERNEL, "cpu/msr_allowlist");
 }
+
 static char *msr_allowlist_nodename2(struct device *dev, umode_t *mode)
 {
     return kasprintf(GFP_KERNEL, "cpu/msr_allowlist");
 }
+
 static char *msr_allowlist_nodename3(const struct device *dev, umode_t *mode)
 {
     return kasprintf(GFP_KERNEL, "cpu/msr_allowlist");
