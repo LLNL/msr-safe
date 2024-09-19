@@ -44,7 +44,6 @@
 #include "msr_batch.h"
 #include "msr_allowlist.h"
 #include "msr_version.h"
-#include "msr_version.h"
 
 static struct class *msr_class;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
