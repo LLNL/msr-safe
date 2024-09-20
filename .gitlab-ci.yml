@@ -19,7 +19,4 @@ stages:
       pipeline_variables: true
 
 include:
-  # Sets ID tokens for every job using `default:`
-  - project: 'lc-templates/id_tokens'
-    file: 'id_tokens.yml'
   - local: .gitlab/subscribed-pipelines.yml
