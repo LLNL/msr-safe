@@ -19,5 +19,3 @@ stages:
     strategy: depend
     forward:
       pipeline_variables: true
-
-include:
