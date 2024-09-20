@@ -30,6 +30,9 @@ status_pending:
     - cztb2
   extends: [.on_cztb2]
   stage: status_initiate
+  id_tokens:
+    CI_JOB_JWT:
+      aud: https://lc.llnl.gov/gitlab
   script:
     - export pipeline_status="pending"
     - *status_report
