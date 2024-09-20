@@ -1,3 +1,5 @@
+include: [component: $CI_SERVER_FQDN/lc-components/id_tokens/id_tokens-component@main]
+
 # Trigger a build pipeline for the following systems
 cztb2-build-and-test:
   variables:
