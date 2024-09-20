@@ -1,3 +1,5 @@
+include: [component: $CI_SERVER_FQDN/lc-components/id_tokens/id_tokens-component@main]
+
 variables:
   CUSTOM_CI_BUILDS_DIR: "/usr/workspace/msr/gitlab-runner"
   BUILD_ROOT: ${CI_PROJECT_DIR}
@@ -17,7 +19,4 @@ stages:
       pipeline_variables: true
 
 include:
-  # Sets ID tokens for every job using `default:`
-  - project: 'lc-templates/id_tokens'
-    file: 'id_tokens.yml'
   - local: .gitlab/subscribed-pipelines.yml
