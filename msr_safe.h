@@ -18,19 +18,41 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 
+#define OP_WRITE            0x0001
+#define OP_READ             0x0002
+#define OP_POLL             0x0004
+#define OP_INITIAL_MPERF    0x0010
+#define OP_FINAL_MPERF      0x0020
+#define OP_POLL_MPERF       0x0040
+#define OP_INITIAL_APERF    0x0100
+#define OP_FINAL_APERF      0x0200
+#define OP_POLL_APERF       0x0400
+
 struct msr_batch_op
 {
-    __u16 cpu;     // In: CPU to execute {rd/wr}msr instruction
-    __u16 isrdmsr; // In: 0=wrmsr, non-zero=rdmsr
-    __s32 err;     // Out: set if error occurred with this operation
-    __u32 msr;     // In: MSR Address to perform operation
-    __u64 msrdata; // In/Out: Input/Result to/from operation
-    __u64 wmask;   // Out: Write mask applied to wrmsr
+    __u16 cpu;              // In: CPU to execute {rd/wr}msr instruction
+    __u16 op;               // In: OR at least one of the following:
+                            //   OP_WRITE, OP_READ, OP_POLL, OP_INITIAL_MPERF,
+                            //   OP_FINAL_MPERF, OP_POLL_MPERF
+                            //   OP_INITIAL_APERF, OP_FINAL_APERF, OP_POLL_APERF
+    __s32 err;              // Out: set if error occurred with this operation
+    __u32 poll_max;         // In/Out:  Max/remaining poll attempts
+    __u32 msr;              // In: MSR Address to perform operation
+    __u64 msrdata;          // In/Out: Input/Result to/from operation
+    __u64 wmask;            // Out: Write mask applied to wrmsr
+    __u64 mperf_initial;    // Out: reference clock reading at the start of the op
+    __u64 mperf_poll;       // Out: reference clock reading at start of final poll
+    __u64 mperf_final;      // Out: reference clock reading at the end of r/w/p
+    __u64 aperf_initial;    // Out: cycle count reading at the start of the op
+    __u64 aperf_poll;       // Out: cycle count reading at start of final poll
+    __u64 aperf_final;      // Out: cycle count reading at the end of r/w/p
+    __u64 msrdata2;         // Out: last polled reading
 };
 
 struct msr_batch_array
 {
     __u32 numops;             // In: # of operations in operations array
+    __u32 version;      // In: MSR_SAFE_VERSION_u32 (see msr_version.h)
     struct msr_batch_op *ops; // In: Array[numops] of operations
 };
 

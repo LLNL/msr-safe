@@ -44,6 +44,7 @@
 #include "msr_batch.h"
 #include "msr_allowlist.h"
 #include "msr_version.h"
+#include "msr_version.h"
 
 static struct class *msr_class;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
@@ -254,15 +255,28 @@ static struct notifier_block __refdata msr_class_cpu_notifier =
 };
 #endif
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,39)
-static char *msr_devnode(struct device *dev, mode_t *mode)
-#else
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(6,2,0)
-static char *msr_devnode(struct device *dev, umode_t *mode)
-#else
-static char *msr_devnode(const struct device *dev, umode_t *mode)
-#endif
-#endif
+/* The type of (((struct class *)0)->devnode) has changed at least
+ * twice in the mainline linux kernel.  Trying to pin these changes
+ * to specific mainline kernel versions runs into the problem of
+ * distros backporting features to older kernels.  Instead, we are
+ * now keying off of the change in the parameter types.*/
+
+#define msr_devnode_selector _Generic(\
+        (((struct class *)0)->devnode),\
+        char * (*) (struct device *, mode_t *) : msr_devnode1,\
+        char * (*) (struct device *, umode_t *) : msr_devnode2,\
+        char * (*) (const struct device *, umode_t *) : msr_devnode3\
+        )
+
+static char *msr_devnode1(struct device *dev, mode_t *mode)
+{
+    return kasprintf(GFP_KERNEL, "cpu/%u/msr_safe", MINOR(dev->devt));
+}
+static char *msr_devnode2(struct device *dev, umode_t *mode)
+{
+    return kasprintf(GFP_KERNEL, "cpu/%u/msr_safe", MINOR(dev->devt));
+}
+static char *msr_devnode3(const struct device *dev, umode_t *mode)
 {
     return kasprintf(GFP_KERNEL, "cpu/%u/msr_safe", MINOR(dev->devt));
 }
@@ -329,7 +343,7 @@ static int __init msr_init(void)
         err = PTR_ERR(msr_class);
         goto out_chrdev;
     }
-    msr_class->devnode = msr_devnode;
+    msr_class->devnode = msr_devnode_selector;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
     i = 0;
@@ -396,5 +410,5 @@ module_exit(msr_exit)
 
 MODULE_AUTHOR("M. Fadden, K. Shoga, B. Rountree, H. P. Anvin");
 MODULE_DESCRIPTION("x86 generic MSR driver (+LLNL Approved List)");
-MODULE_VERSION("1.7");
+MODULE_VERSION( MSR_SAFE_VERSION_STR );
 MODULE_LICENSE("GPL");

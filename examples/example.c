@@ -19,20 +19,21 @@
 #include <stdio.h>      // printf(3)
 #include <assert.h>     // assert(3)
 #include <fcntl.h>      // open(2)
-#include <unistd.h>     // write(2), pwrite(2), pread(2)
+#include <unistd.h>     // write(2)
 #include <string.h>     // strlen(3), memset(3)
 #include <stdint.h>     // uint8_t
 #include <inttypes.h>   // PRIu8
 #include <stdlib.h>     // exit(3)
 #include <sys/ioctl.h>  // ioctl(2)
 
-#include "../msr_safe.h"   // batch data structs
+#include "../msr_safe.h"   	// batch data structs
+#include "../msr_version.h"	// MSR_SAFE_VERSION_u32
 
 #define MSR_MPERF 0xE7
 
-char const *const allowlist = "0xE7 0xFFFFFFFFFFFFFFFF\n";  // MPERF
+char const *const allowlist = "0x611 0xFFFFFFFFFFFFFFFF\n";  // PKG_ENERGY_STATUS
 
-static uint8_t const nCPUs = 32;
+static uint8_t const nCPUs = 16;
 
 void set_allowlist()
 {
@@ -43,76 +44,54 @@ void set_allowlist()
     close(fd);
 }
 
-void measure_serial_latency()
-{
-    int fd[nCPUs], rc;
-    char filename[255];
-    uint64_t data[nCPUs];
-    memset(data, 0, sizeof(uint64_t)*nCPUs);
+void batch( void ){
+	struct msr_batch_array b;
+	b.version = MSR_SAFE_VERSION_u32;
 
-    // Open each of the msr_safe devices (one per CPU)
-    for (uint8_t i = 0; i < nCPUs; i++)
-    {
-        rc = snprintf(filename, 254, "/dev/cpu/%"PRIu8"/msr_safe", i);
-        assert(-1 != rc);
-        fd[i] = open(filename, O_RDWR);
-        assert(-1 != fd[i]);
-    }
-    // Write 0 to each MPERF register
-    for (uint8_t i = 0; i < nCPUs; i++)
-    {
-        rc = pwrite(fd[i], &data[i], sizeof(uint64_t), MSR_MPERF);
-        assert(8 == rc);
-    }
+	struct msr_batch_op o[] = {
+		{ .cpu = 2,
+            .op             = OP_READ | OP_POLL | OP_INITIAL_MPERF | OP_FINAL_MPERF | OP_POLL_MPERF | OP_INITIAL_APERF | OP_FINAL_APERF | OP_POLL_APERF,
+            .err            = 0,
+            .poll_max       = 10000,
+            .msr            = 0x611,
+            .msrdata        = 0,
+            .wmask          = 0,
+            .mperf_initial  = 0,
+            .mperf_poll     = 0,
+            .mperf_final    = 0,
+            .aperf_initial  = 0,
+            .aperf_poll     = 0,
+            .aperf_final    = 0,
+            .msrdata2       = 0 }
+	};
+	b.numops = sizeof(o) / sizeof( struct msr_batch_op );
+	b.ops = o;
 
-    // Read each MPERF register
-    for (uint8_t i = 0; i < nCPUs; i++)
-    {
-        pread(fd[i], &data[i], sizeof(uint64_t), MSR_MPERF);
-        assert(8 == rc);
-    }
+	int fd, rc;
 
-    // Show results
-    printf("Serial cycles from first write to last read:"
-           "%"PRIu64" (on %"PRIu8" CPUs)\n",
-           data[nCPUs - 1], nCPUs);
-}
+	fd = open( "/dev/cpu/msr_batch", O_RDONLY );
+	assert(-1 != fd);
 
-void measure_batch_latency()
-{
-    struct msr_batch_array rbatch, wbatch;
-    struct msr_batch_op r_ops[nCPUs], w_ops[nCPUs];
-    int fd, rc;
+    printf("cpu op err poll_max msr msrdata wmask mi mp mf ai ap af msrdata2\n");
+	for( size_t i=0; i<100000; i++ ){
+		o[0].poll_max = 10000;
+		rc = ioctl( fd, X86_IOC_MSR_BATCH, &b );
+		assert(-1 != rc);
 
-    fd = open("/dev/cpu/msr_batch", O_RDONLY);
-    assert(-1 != fd);
+        //      cpu  op err p  m   md    w   mi   mp   mf   ai   ap   af md2
+        printf("%hu %hu %d %u %u %llu %llu %llu %llu %llu %llu %llu %llu %llu\n",
+                o[0].cpu, o[0].op, o[0].err, o[0].poll_max, o[0].msr, o[0].msrdata, o[0].wmask,
+                o[0].mperf_initial, o[0].mperf_poll, o[0].mperf_final,
+                o[0].aperf_initial, o[0].aperf_poll, o[0].aperf_final,
+                o[0].msrdata2);
 
-    for (uint8_t i = 0; i < nCPUs; i++)
-    {
-        r_ops[i].cpu = w_ops[i].cpu = i;
-        r_ops[i].isrdmsr = 1;
-        w_ops[i].isrdmsr = 0;
-        r_ops[i].msr = w_ops[i].msr = MSR_MPERF;
-        w_ops[i].msrdata = 0;
-    }
-    rbatch.numops = wbatch.numops = nCPUs;
-    rbatch.ops = r_ops;
-    wbatch.ops = w_ops;
-
-    rc = ioctl(fd, X86_IOC_MSR_BATCH, &wbatch);
-    assert(-1 != rc);
-    rc = ioctl(fd, X86_IOC_MSR_BATCH, &rbatch);
-    assert(-1 != rc);
-
-    printf("Batch cycles from first write to last read:"
-           "%llu (on %"PRIu8" CPUs)\n",
-           r_ops[nCPUs - 1].msrdata, nCPUs);
+	}
+	close( fd );
 }
 
 int main()
 {
     set_allowlist();
-    measure_serial_latency();
-    measure_batch_latency();
+    batch();
     return 0;
 }

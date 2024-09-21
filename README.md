@@ -135,37 +135,83 @@ being a pointer to a __struct msr_batch_array__.
 struct msr_batch_array
 {
     __u32 numops;             // In: # of operations in operations array
+    __u32 version;	      // In: MSR_SAFE_VERSION_u32 (see msr_version.h)
     struct msr_batch_op *ops; // In: Array[numops] of operations
 };
 ```
 
 The maximum __numops__ is system-dependent, but 30k operations is not
-unheard-of.  Each op is contained in a __struct msr_batch_op__:
+unheard-of.
+
+Starting in version 2.0.0, the __version__ field will be
+compared to the version of the loaded kernel module with a mismatch
+in the major version number resulting in an error.
+Earlier versions do not check this field.
+
+Each op is contained in a __struct msr_batch_op__:
 
 ```
 struct msr_batch_op
 {
-    __u16 cpu;     // In: CPU to execute {rd/wr}msr instruction
-    __u16 isrdmsr; // In: 0=wrmsr, non-zero=rdmsr
-    __s32 err;     // Out: set if error occurred with this operation
-    __u32 msr;     // In: MSR address
-    __u64 msrdata; // In/Out: Data to write or data that was read
-    __u64 wmask;   // Out: Write mask applied to wrmsr
+    __u16 cpu;          // In: CPU to execute {rd/wr}msr instruction
+    __u16 op;           // In: OR at least one of the following:
+                        //   OP_WRITE, OP_READ, OP_POLL, OP_INITIAL_MPERF,
+                        //   OP_FINAL_MPERF, OP_POLL_MPERF
+    __s32 err;          // Out: set if error occurred with this operation
+    __u32 poll_max;     // In/Out:  Max/remaining poll attempts
+    __u32 msr;          // In: MSR Address to perform operation
+    __u64 msrdata;      // In/Out: Input/Result to/from operation
+    __u64 wmask;        // Out: Write mask applied to wrmsr
+    __u64 mperf_initial;// Out: reference clock reading at the start of the op
+    __u64 mperf_poll;   // Out: reference clock reading at start of final poll
+    __u64 mperf_final;  // Out: reference clock reading at the end of r/w/p
+    __u64 msrdata2;	// Out: last polled reading
 };
 ```
 
-The __cpu__ uses the same numbering found in __/dev/cpu/\<cpuid\>__.  A zero
-value for __isrdmsr__ indicates a write operation, any other value indicates a
-read operation.  __err__ is populated by the kernel if there is an error on a
+The __cpu__ uses the same numbering found in __/dev/cpu/\<cpuid\>__.
+
+The __op__ is a bit array describing what the operating measures.  In the
+order of operation:
+
+1. If __OP_INITIAL_MPERF__ is set, read the MPERF reference cycle counter
+into __mperf_initial__.
+
+2. If __OP_READ__ is set, read the value from __msr__ into __msrdata__.
+
+3. If __OP_WRITE__ is set, write the value in __msrdata__ to the MSR
+specified by __msr__.
+
+4. If __OP_POLL__ is set, loop through the following:
+	a. If __poll_max__ is zero, break out of the loop.
+	b. If __OP_POLL_MPERF__ is set, read the MPERF reference cycle
+	counter into __mperf_poll__.
+	c. Read __msr__ into __msrdata2__.  If the values differ,
+	break out of the loop.
+	d. Decrement __poll_max__ and continue the loop.
+
+5. If __OP_FINAL_MPERF__ is set, read the MPERF reference cycle
+counter into __mperf_final__.
+
+Successive operations combining __OP_READ__, __OP_POLL__, and __OP_x_MPERF__
+flags allows the user to measure how often an MSR is updated.
+
+A zero __err__ is populated by the kernel if there is an error on a
 particular operation, and will be one of __ENXIO__ (the virtual CPU does not
 exist or is offline), __EACCES__ (the requested MSR was not found in the
 allowlist), or __EROFS__ (a write operation was attempted on an MSR with a write
 mask of 0).
 
-__msr__ is the address of the model-specific register.  __msrdata__ is the
-value that will be written to or read from the MSR, respectively.
-Finally, the __wmask__ records the writemask for the MSR provided in the
-allowlist.
+__msr__ is the address of the model-specific register.
+
+__msrdata__ holds the value that will be written to or read from the MSR,
+respectively, by __OP_WRITE__ or __OP_READ__.
+
+__wmask__ records the writemask for the MSR provided in the allowlist in
+the case of __OP_WRITE__.
+
+__msrdata2__ hold the value of the final polled read in the case of
+__OP_POLL__.
 
 ## /dev/cpu/msr_safe_version
 
@@ -285,17 +331,11 @@ Requested virtual CPU does not exist or is offline.
 ### /dev/cpu/msr_batch
 
 ### **ioctl(2)**
+Verifying the batch request can result in the following errors.
 
-All of the operations in the batch will be executed.  Each operation may result
-in an __EIO__, __ENXIO__, __EACCES__, or __EROFS__ error, which will be
-recorded in the __msr_batch_op__ struct.  If any operation caused an error, the
-first such error becomes the return value for **ioctl(2)**.
-
-__E2BIG__
-Kernel unable to allocate memory to hold the array of operations.
-
-__EACCES__
-An individual operation requested an MSR that is not present in the allowlist.
+__ENOTTY__
+Invalid ioctl command.  As of this writing the only ioctl command
+supported on this device is __X86_IOC_MSR_BATCH__, defined in __msr_safe.h__.
 
 __EBADF__
 The __msr_batch__ file was not opened for reading.
@@ -304,7 +344,25 @@ __EFAULT__
 Kernel **copy_from_user()** or **copy_to_user()** failed.
 
 __EINVAL__
-Number of requested batch operations is <=0.
+Number of requested batch operations is 0.
+
+__ENOPROTOOPT__
+There is a mismatch between the major version number of the currently-loaded
+msr-safe kernel module and the version number requested by the batch struct.
+
+__E2BIG__
+Kernel unable to allocate memory to hold the array of operations.
+
+__ENOMEM__
+Kernel unable to allocate memory to hold the results of __zalloc_cpumask_var()__.
+
+If all is well, all of the operations in the batch will be executed.  If an
+individual operation results in one of the following errors, the error will
+be recorded in its __msr_batch_op__ struct.  The first of these errors will
+become the return value for **ioctl(2)**.
+
+__EACCES__
+An individual operation requested an MSR that is not present in the allowlist.
 
 __EIO__
 A general protection fault occurred.  On Intel processors this
@@ -312,13 +370,6 @@ can be caused by a) attempting to access an MSR outside of ring 0, b)
 attempting to access a non-existent or reserved MSR address, c) writing 1-bits
 to a reserved area of an MSR, d) writing a non-canonical address to MSRs that
 take memory addresses, or e) writing to MSR bits that are marked as read-only.
-
-__ENOMEM__
-Kernel unable to allocate memory to hold the results of __zalloc_cpumask_var()__.
-
-__ENOTTY__
-Invalid ioctl command.  As of this writing the only ioctl command
-supported on this device is __X86_IOC_MSR_BATCH__, defined in __msr_safe.h__.
 
 __ENXIO__
 An individual operation requested a virtual CPU does not exist or is offline.
@@ -414,124 +465,7 @@ are happy to share.
 
 # EXAMPLE CODE
 ```
-/* This example assumes the user has the following permissions:
- *
- * write        /dev/cpu/msr_allowlist
- * read/write   /dev/cpu/<cpu_number>/msr_safe
- * read         /dev/cpu/msr_batch
- *
- * Typically, only the administrator will have write permissions
- * on the allowlist.
- *
- * Production code should have more robust error handling than
- * what is shown here.
- *
- * This example should be able to run successfully on an x86
- * processor from the past ten years or so.
- *
- */
-
-
-#include <stdio.h>      // printf(3)
-#include <assert.h>     // assert(3)
-#include <fcntl.h>      // open(2)
-#include <unistd.h>     // write(2), pwrite(2), pread(2)
-#include <string.h>     // strlen(3), memset(3)
-#include <stdint.h>     // uint8_t
-#include <inttypes.h>   // PRIu8
-#include <stdlib.h>     // exit(3)
-#include <sys/ioctl.h>  // ioctl(2)
-
-#include "../msr_safe.h"   // batch data structs
-
-#define MSR_MPERF 0xE7
-
-char const *const allowlist = "0xE7 0xFFFFFFFFFFFFFFFF\n";  // MPERF
-
-static uint8_t const nCPUs = 32;
-
-void set_allowlist()
-{
-    int fd = open("/dev/cpu/msr_allowlist", O_WRONLY);
-    assert(-1 != fd);
-    ssize_t nbytes = write(fd, allowlist, strlen(allowlist));
-    assert(strlen(allowlist) == nbytes);
-    close(fd);
-}
-
-void measure_serial_latency()
-{
-    int fd[nCPUs], rc;
-    char filename[255];
-    uint64_t data[nCPUs];
-    memset(data, 0, sizeof(uint64_t)*nCPUs);
-
-    // Open each of the msr_safe devices (one per CPU)
-    for (uint8_t i = 0; i < nCPUs; i++)
-    {
-        rc = snprintf(filename, 254, "/dev/cpu/%"PRIu8"/msr_safe", i);
-        assert(-1 != rc);
-        fd[i] = open(filename, O_RDWR);
-        assert(-1 != fd[i]);
-    }
-    // Write 0 to each MPERF register
-    for (uint8_t i = 0; i < nCPUs; i++)
-    {
-        rc = pwrite(fd[i], &data[i], sizeof(uint64_t), MSR_MPERF);
-        assert(8 == rc);
-    }
-
-    // Read each MPERF register
-    for (uint8_t i = 0; i < nCPUs; i++)
-    {
-        pread(fd[i], &data[i], sizeof(uint64_t), MSR_MPERF);
-        assert(8 == rc);
-    }
-
-    // Show results
-    printf("Serial cycles from first write to last read:"
-           "%"PRIu64" (on %"PRIu8" CPUs)\n",
-           data[nCPUs - 1], nCPUs);
-}
-
-void measure_batch_latency()
-{
-    struct msr_batch_array rbatch, wbatch;
-    struct msr_batch_op r_ops[nCPUs], w_ops[nCPUs];
-    int fd, rc;
-
-    fd = open("/dev/cpu/msr_batch", O_RDONLY);
-    assert(-1 != fd);
-
-    for (uint8_t i = 0; i < nCPUs; i++)
-    {
-        r_ops[i].cpu = w_ops[i].cpu = i;
-        r_ops[i].isrdmsr = 1;
-        w_ops[i].isrdmsr = 0;
-        r_ops[i].msr = w_ops[i].msr = MSR_MPERF;
-        w_ops[i].msrdata = 0;
-    }
-    rbatch.numops = wbatch.numops = nCPUs;
-    rbatch.ops = r_ops;
-    wbatch.ops = w_ops;
-
-    rc = ioctl(fd, X86_IOC_MSR_BATCH, &wbatch);
-    assert(-1 != rc);
-    rc = ioctl(fd, X86_IOC_MSR_BATCH, &rbatch);
-    assert(-1 != rc);
-
-    printf("Batch cycles from first write to last read:"
-           "%llu (on %"PRIu8" CPUs)\n",
-           r_ops[nCPUs - 1].msrdata, nCPUs);
-}
-
-int main()
-{
-    set_allowlist();
-    measure_serial_latency();
-    measure_batch_latency();
-    return 0;
-}
+See the code examples in the **examples** directory.
 ```
 
 # Release
