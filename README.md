@@ -135,7 +135,7 @@ being a pointer to a __struct msr_batch_array__.
 struct msr_batch_array
 {
     __u32 numops;             // In: # of operations in operations array
-    __u32 version;	      // In: MSR_SAFE_VERSION_u32 (see msr_version.h)
+    __u32 version;            // In: MSR_SAFE_VERSION_u32 (see msr_version.h)
     struct msr_batch_op *ops; // In: Array[numops] of operations
 };
 ```
