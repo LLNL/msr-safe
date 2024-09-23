@@ -221,9 +221,9 @@ int msrbatch_init(int *majordev)
 
     cdev_class = class_create(
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6,4,0)
-                    THIS_MODULE,
+                     THIS_MODULE,
 #endif
-                    "msr_batch");
+                     "msr_batch");
     if (IS_ERR(cdev_class))
     {
         err = PTR_ERR(cdev_class);

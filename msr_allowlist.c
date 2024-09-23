@@ -40,8 +40,10 @@ static void delete_allowlist(void);
 static int create_allowlist(int nentries);
 static struct allowlist_entry *find_in_allowlist(u64 msr);
 static void add_to_allowlist(struct allowlist_entry *entry);
-static int parse_next_allowlist_entry(char *inbuf, char **nextinbuf, struct allowlist_entry *entry);
-static ssize_t read_allowlist(struct file *file, char __user *buf, size_t count, loff_t *ppos);
+static int parse_next_allowlist_entry(char *inbuf, char **nextinbuf,
+                                      struct allowlist_entry *entry);
+static ssize_t read_allowlist(struct file *file, char __user *buf, size_t count,
+                              loff_t *ppos);
 static struct class *cdev_class;
 static char cdev_created;
 static char cdev_registered;
@@ -85,7 +87,8 @@ static int open_allowlist(struct inode *inode, struct file *file)
  * valid, we will then delete the current white list and then perform the
  * second pass to actually create the new white list.
  */
-static ssize_t write_allowlist(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
+static ssize_t write_allowlist(struct file *file, const char __user *buf,
+                               size_t count, loff_t *ppos)
 {
     int err = 0;
     const u32 __user *tmp = (const u32 __user *)buf;
@@ -105,16 +108,16 @@ static ssize_t write_allowlist(struct file *file, const char __user *buf, size_t
         return count;
     }
 
-    if (count+1 > MAX_WLIST_BSIZE)
+    if (count + 1 > MAX_WLIST_BSIZE)
     {
         pr_err("%s: buffer of %zu bytes too large\n", __FUNCTION__, count);
         return -E2BIG;
     }
 
-    kbuf = kzalloc(count+1, GFP_KERNEL);
+    kbuf = kzalloc(count + 1, GFP_KERNEL);
     if (ZERO_OR_NULL_PTR(kbuf))
     {
-        pr_err("%s: memory alloc(%zu) failed\n", __FUNCTION__, count+1);
+        pr_err("%s: memory alloc(%zu) failed\n", __FUNCTION__, count + 1);
         return -ENOMEM;
     }
 
@@ -126,7 +129,7 @@ static ssize_t write_allowlist(struct file *file, const char __user *buf, size_t
     }
 
     /* Pass 1: */
-    for (num_entries = 0, s = kbuf, res = 1; res > 0; )
+    for (num_entries = 0, s = kbuf, res = 1; res > 0;)
     {
         res = parse_next_allowlist_entry(s, &s, 0);
         if (res < 0)
@@ -144,7 +147,8 @@ static ssize_t write_allowlist(struct file *file, const char __user *buf, size_t
 
     if (num_entries == 0)
     {
-        pr_err("%s: No valid entries found in %zu bytes of input\n", __FUNCTION__, count);
+        pr_err("%s: No valid entries found in %zu bytes of input\n", __FUNCTION__,
+               count);
         err = -ENOMSG;
         goto out_freebuffer;
     }
@@ -190,7 +194,8 @@ out_freebuffer:
     return err ? err : count;
 }
 
-static ssize_t read_allowlist(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+static ssize_t read_allowlist(struct file *file, char __user *buf, size_t count,
+                              loff_t *ppos)
 {
     loff_t idx = *ppos;
     u32 __user *tmp = (u32 __user *) buf;
@@ -212,13 +217,13 @@ static ssize_t read_allowlist(struct file *file, char __user *buf, size_t count,
 
     if (idx == 0)
     {
-        len = sprintf(kbuf, "%-10s %-18s\n" "0x%08llX 0x%016llX\n", "#MSR", "Write mask", e.msr, e.wmask);
+        len = sprintf(kbuf, "%-10s %-18s\n" "0x%08llX 0x%016llX\n", "#MSR",
+                      "Write mask", e.msr, e.wmask);
     }
     else
     {
         len = sprintf(kbuf, "0x%08llX 0x%016llX\n", e.msr, e.wmask);
     }
-
 
     if (len > count)
     {
@@ -230,7 +235,7 @@ static ssize_t read_allowlist(struct file *file, char __user *buf, size_t count,
         return -EFAULT;
     }
 
-    *ppos = idx+1;
+    *ppos = idx + 1;
     return len;
 }
 
@@ -295,13 +300,13 @@ static struct allowlist_entry *find_in_allowlist(u64 msr)
     return 0;
 }
 
-
 static void add_to_allowlist(struct allowlist_entry *entry)
 {
     hash_add(allowlist_hash, &entry->hlist, entry->msr);
 }
 
-static int parse_next_allowlist_entry(char *inbuf, char **nextinbuf, struct allowlist_entry *entry)
+static int parse_next_allowlist_entry(char *inbuf, char **nextinbuf,
+                                      struct allowlist_entry *entry)
 {
     char *s = skip_spaces(inbuf);
     int i;
@@ -360,7 +365,6 @@ static int parse_next_allowlist_entry(char *inbuf, char **nextinbuf, struct allo
     *nextinbuf = s; /* Return where we left off to caller */
     return *nextinbuf - inbuf;
 }
-
 
 #define msr_allowlist_nodename_selector _Generic(\
     (((struct class *)0)->devnode),\
@@ -428,9 +432,9 @@ int msr_allowlist_init(int *majordev)
 
     cdev_class = class_create(
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6,4,0)
-                    THIS_MODULE,
+                     THIS_MODULE,
 #endif
-                    "msr_allowlist");
+                     "msr_allowlist");
     if (IS_ERR(cdev_class))
     {
         err = PTR_ERR(cdev_class);
@@ -441,7 +445,8 @@ int msr_allowlist_init(int *majordev)
 
     cdev_class->devnode = msr_allowlist_nodename_selector;
 
-    dev = device_create(cdev_class, NULL, MKDEV(*majordev, 0), NULL, "msr_allowlist");
+    dev = device_create(cdev_class, NULL, MKDEV(*majordev, 0), NULL,
+                        "msr_allowlist");
     if (IS_ERR(dev))
     {
         err = PTR_ERR(dev);

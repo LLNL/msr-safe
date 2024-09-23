@@ -33,7 +33,7 @@
 
 #define SLURM_SPANK_MSRSAFE_BUFFER_SIZE 1024
 
-SPANK_PLUGIN(msr-safe, 1);
+SPANK_PLUGIN(msr - safe, 1);
 
 int slurm_spank_init(spank_t spank_ctx, int argc, char **argv);
 int slurm_spank_slurmd_init(spank_t spank_ctx, int argc, char **argv);
@@ -70,24 +70,30 @@ static int slurm_spank_msrsafe_read_log(FILE *log_fid)
     int err = 0;
     int character = 0;
 
-    if (log_fid == NULL) {
+    if (log_fid == NULL)
+    {
         err = 1;
     }
-    else {
-        do {
+    else
+    {
+        do
+        {
             character = fgetc(log_fid);
             if (character == '\n' ||
                 character == EOF ||
-                buffer_pos == SLURM_SPANK_MSRSAFE_BUFFER_SIZE - 1) {
+                buffer_pos == SLURM_SPANK_MSRSAFE_BUFFER_SIZE - 1)
+            {
                 buffer[buffer_pos] = '\0';
                 slurm_info("%s", buffer);
                 buffer_pos = 0;
             }
-            else {
+            else
+            {
                 buffer[buffer_pos] = character;
                 ++buffer_pos;
             }
-        } while (character != EOF);
+        }
+        while (character != EOF);
     }
     return err;
 }
@@ -121,35 +127,47 @@ int slurm_spank_job_prolog(spank_t spank_ctx, int argc, char **argv)
     char hostname[NAME_MAX];
     hostname[NAME_MAX - 1] = '\0';
     err = gethostname(hostname, NAME_MAX - 1);
-    if (err) {
+    if (err)
+    {
         slurm_info("gethostname failed.");
     }
-    if (!err) {
-        snprintf(out_log_name, NAME_MAX * 2, "/tmp/slurm-msrsave-outlog-%s.XXXXXXXXXX", hostname);
-	err = mkstemp(out_log_name);
-	if (err) {
-	    slurm_info("failed to create msrsave output log");
-	}
+    if (!err)
+    {
+        snprintf(out_log_name, NAME_MAX * 2, "/tmp/slurm-msrsave-outlog-%s.XXXXXXXXXX",
+                 hostname);
+        err = mkstemp(out_log_name);
+        if (err)
+        {
+            slurm_info("failed to create msrsave output log");
+        }
     }
-    if (!err) {
+    if (!err)
+    {
         out_log = fopen(out_log_name, "w+");
-	if (out_log == NULL) {
-	    slurm_info("failed to open %s for writing", out_log_name);
-	}
+        if (out_log == NULL)
+        {
+            slurm_info("failed to open %s for writing", out_log_name);
+        }
     }
-    if (!err) {
-        snprintf(msrsave_file, NAME_MAX * 2, "%s-%s", SLURM_SPANK_MSRSAVE_FILE_PREFIX, hostname);
-        err = msr_save(msrsave_file, allowlist_path, msr_path, num_cpu, out_log, out_log);
-        if (err) {
+    if (!err)
+    {
+        snprintf(msrsave_file, NAME_MAX * 2, "%s-%s", SLURM_SPANK_MSRSAVE_FILE_PREFIX,
+                 hostname);
+        err = msr_save(msrsave_file, allowlist_path, msr_path, num_cpu, out_log,
+                       out_log);
+        if (err)
+        {
             slurm_info("msr_save failed:");
-	}
+        }
         rewind(out_log);
         slurm_spank_msrsafe_read_log(out_log);
     }
-    if (!err) {
+    if (!err)
+    {
         slurm_info("Completed msr-safe plugin to save register values.");
     }
-    if (out_log) {
+    if (out_log)
+    {
         fclose(out_log);
         unlink(out_log_name);
     }
@@ -169,35 +187,47 @@ int slurm_spank_job_epilog(spank_t spank_ctx, int argc, char **argv)
     char hostname[NAME_MAX];
     hostname[NAME_MAX - 1] = '\0';
     err = gethostname(hostname, NAME_MAX - 1);
-    if (err) {
+    if (err)
+    {
         slurm_info("gethostname failed.");
     }
-    if (!err) {
-        snprintf(out_log_name, NAME_MAX * 2, "/tmp/slurm-msrsave-outlog-%s.XXXXXXXXXX", hostname);
-	err = mkstemp(out_log_name);
-	if (err) {
-	    slurm_info("failed to create msrsave output log");
-	}
+    if (!err)
+    {
+        snprintf(out_log_name, NAME_MAX * 2, "/tmp/slurm-msrsave-outlog-%s.XXXXXXXXXX",
+                 hostname);
+        err = mkstemp(out_log_name);
+        if (err)
+        {
+            slurm_info("failed to create msrsave output log");
+        }
     }
-    if (!err) {
+    if (!err)
+    {
         out_log = fopen(out_log_name, "w+");
-	if (out_log == NULL) {
-	    slurm_info("failed to open %s for writing", out_log_name);
-	}
+        if (out_log == NULL)
+        {
+            slurm_info("failed to open %s for writing", out_log_name);
+        }
     }
-    if (!err) {
-        snprintf(msrsave_file, NAME_MAX * 2, "%s-%s", SLURM_SPANK_MSRSAVE_FILE_PREFIX, hostname);
-        err = msr_restore(msrsave_file, allowlist_path, msr_path, num_cpu, out_log, out_log);
-        if (err) {
+    if (!err)
+    {
+        snprintf(msrsave_file, NAME_MAX * 2, "%s-%s", SLURM_SPANK_MSRSAVE_FILE_PREFIX,
+                 hostname);
+        err = msr_restore(msrsave_file, allowlist_path, msr_path, num_cpu, out_log,
+                          out_log);
+        if (err)
+        {
             slurm_info("msr_restore failed:");
-	}
+        }
         rewind(out_log);
         slurm_spank_msrsafe_read_log(out_log);
     }
-    if (!err) {
+    if (!err)
+    {
         slurm_info("Completed msr-safe plugin to restore register values.");
     }
-    if (out_log) {
+    if (out_log)
+    {
         fclose(out_log);
         unlink(out_log_name);
     }

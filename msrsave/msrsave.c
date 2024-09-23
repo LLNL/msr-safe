@@ -35,7 +35,8 @@ static int is_good_value(uint64_t write_val, uint64_t mask)
     return result;
 }
 
-static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, uint64_t **msr_offset_ptr, uint64_t **msr_mask_ptr, FILE *error_log)
+static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr,
+                               uint64_t **msr_offset_ptr, uint64_t **msr_mask_ptr, FILE *error_log)
 {
     enum {BUFFER_SIZE = 8192};
     int err = 0;
@@ -61,7 +62,8 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
     if (tmp_fd == -1)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Creation of temporary file named\"%s\" failed!: %s\n", tmp_path, strerror(errno));
+        fprintf(error_log, "Creation of temporary file named\"%s\" failed!: %s\n",
+                tmp_path, strerror(errno));
         goto exit;
     }
 
@@ -69,7 +71,8 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
     if (allowlist_fd == -1)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Open of allowlist file named \"%s\" failed!: %s\n", allowlist_path, strerror(errno));
+        fprintf(error_log, "Open of allowlist file named \"%s\" failed!: %s\n",
+                allowlist_path, strerror(errno));
         goto exit;
     }
 
@@ -78,7 +81,8 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
         if (num_read == -1)
         {
             err = errno ? errno : -1;
-            fprintf(error_log, "Read of allowlist file \"%s\" failed!: %s\n", allowlist_path, strerror(errno));
+            fprintf(error_log, "Read of allowlist file \"%s\" failed!: %s\n",
+                    allowlist_path, strerror(errno));
             goto exit;
         }
 
@@ -86,7 +90,8 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
         if (num_write != num_read)
         {
             err = errno ? errno : -1;
-            fprintf(error_log, "Write to temporary file \"%s\" failed!: %s\n", tmp_path, strerror(errno));
+            fprintf(error_log, "Write to temporary file \"%s\" failed!: %s\n", tmp_path,
+                    strerror(errno));
             goto exit;
         }
     }
@@ -96,7 +101,8 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
     if (tmp_err == -1)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Close of temporary file named\"%s\" failed!: %s\n", tmp_path, strerror(errno));
+        fprintf(error_log, "Close of temporary file named\"%s\" failed!: %s\n",
+                tmp_path, strerror(errno));
         goto exit;
     }
 
@@ -105,7 +111,8 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
     if (tmp_err == -1)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Close of allowlist file named\"%s\" failed!: %s\n", allowlist_path, strerror(errno));
+        fprintf(error_log, "Close of allowlist file named\"%s\" failed!: %s\n",
+                allowlist_path, strerror(errno));
         goto exit;
     }
 
@@ -124,16 +131,18 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
     if (allowlist_stat.st_size == 0)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Approved list file (%s) size is zero!: %s\n", tmp_path, strerror(errno));
+        fprintf(error_log, "Approved list file (%s) size is zero!: %s\n", tmp_path,
+                strerror(errno));
         goto exit;
     }
 
     /* Allocate buffer for file contents and null terminator */
-    allowlist_buffer = (char*)malloc(allowlist_stat.st_size + 1);
+    allowlist_buffer = (char *)malloc(allowlist_stat.st_size + 1);
     if (!allowlist_buffer)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Could not allocate array of size %zu!: %s\n", allowlist_stat.st_size, strerror(errno));
+        fprintf(error_log, "Could not allocate array of size %zu!: %s\n",
+                allowlist_stat.st_size, strerror(errno));
         goto exit;
     }
     allowlist_buffer[allowlist_stat.st_size] = '\0';
@@ -143,7 +152,8 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
     if (tmp_fd == -1)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Could not open allowlist temporary file \"%s\"!: %s\n", tmp_path, strerror(errno));
+        fprintf(error_log, "Could not open allowlist temporary file \"%s\"!: %s\n",
+                tmp_path, strerror(errno));
         goto exit;
     }
 
@@ -152,7 +162,9 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
     if (num_read != allowlist_stat.st_size)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Contents read from allowlist file is too small: %zu < %zu!: %s\n", num_read, allowlist_stat.st_size, strerror(errno));
+        fprintf(error_log,
+                "Contents read from allowlist file is too small: %zu < %zu!: %s\n", num_read,
+                allowlist_stat.st_size, strerror(errno));
         goto exit;
     }
 
@@ -162,7 +174,9 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
     if (tmp_err)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Unable to close temporary allowlist file called \"%s\": %s\n", tmp_path, strerror(errno));
+        fprintf(error_log,
+                "Unable to close temporary allowlist file called \"%s\": %s\n", tmp_path,
+                strerror(errno));
         goto exit;
     }
 
@@ -187,7 +201,8 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
     if (!msr_offset)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Unable to allocate msr offset data of size: %zu!: %s\n", sizeof(uint64_t) * num_msr, strerror(errno));
+        fprintf(error_log, "Unable to allocate msr offset data of size: %zu!: %s\n",
+                sizeof(uint64_t) * num_msr, strerror(errno));
         goto exit;
     }
 
@@ -195,7 +210,8 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
     if (!msr_mask)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Unable to allocate msr mask data of size: %zu!: %s\n", sizeof(uint64_t) * num_msr, strerror(errno));
+        fprintf(error_log, "Unable to allocate msr mask data of size: %zu!: %s\n",
+                sizeof(uint64_t) * num_msr, strerror(errno));
         goto exit;
     }
 
@@ -215,15 +231,18 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
             else
             {
                 err = -1;
-                fprintf(stderr, "Error: Failed to parse allowlist file named \"%s\"\n", allowlist_path);
+                fprintf(stderr, "Error: Failed to parse allowlist file named \"%s\"\n",
+                        allowlist_path);
                 goto exit;
             }
         }
-        num_scan = sscanf(allowlist_ptr, allowlist_format, msr_offset + i, msr_mask + i);
+        num_scan = sscanf(allowlist_ptr, allowlist_format, msr_offset + i,
+                          msr_mask + i);
         if (num_scan != 2)
         {
             err = -1;
-            fprintf(stderr, "Error: Failed to parse allowlist file named \"%s\"\n", allowlist_path);
+            fprintf(stderr, "Error: Failed to parse allowlist file named \"%s\"\n",
+                    allowlist_path);
             goto exit;
         }
         allowlist_ptr = strchr(allowlist_ptr, '\n');
@@ -231,7 +250,8 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
         if (!allowlist_ptr)
         {
             err = -1;
-            fprintf(stderr, "Error: Failed to parse allowlist file named \"%s\"\n", allowlist_path);
+            fprintf(stderr, "Error: Failed to parse allowlist file named \"%s\"\n",
+                    allowlist_path);
             goto exit;
         }
     }
@@ -253,7 +273,8 @@ exit:
     return err;
 }
 
-int msr_save(const char *save_path, const char *allowlist_path, const char *msr_path_format, int num_cpu, FILE *output_log, FILE *error_log)
+int msr_save(const char *save_path, const char *allowlist_path,
+             const char *msr_path_format, int num_cpu, FILE *output_log, FILE *error_log)
 {
     int err = 0;
     int tmp_err = 0;
@@ -265,7 +286,8 @@ int msr_save(const char *save_path, const char *allowlist_path, const char *msr_
     uint64_t *save_buffer = NULL;
     FILE *save_fid = NULL;
 
-    err = msr_parse_allowlist(allowlist_path, &num_msr, &msr_offset, &msr_mask, error_log);
+    err = msr_parse_allowlist(allowlist_path, &num_msr, &msr_offset, &msr_mask,
+                              error_log);
     if (err)
     {
         goto exit;
@@ -282,7 +304,9 @@ int msr_save(const char *save_path, const char *allowlist_path, const char *msr_
     if (!save_buffer)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Unable to allocate msr save state buffer of size: %zu!: %s\n", num_msr * num_cpu * sizeof(uint64_t), strerror(errno));
+        fprintf(error_log,
+                "Unable to allocate msr save state buffer of size: %zu!: %s\n",
+                num_msr * num_cpu * sizeof(uint64_t), strerror(errno));
         goto exit;
     }
 
@@ -297,7 +321,8 @@ int msr_save(const char *save_path, const char *allowlist_path, const char *msr_
         if (msr_fd == -1)
         {
             err = errno ? errno : -1;
-            fprintf(error_log, "Could not open MSR file \"%s\"!: %s\n", msr_file_name, strerror(errno));
+            fprintf(error_log, "Could not open MSR file \"%s\"!: %s\n", msr_file_name,
+                    strerror(errno));
             goto exit;
         }
         for (j = 0; j < num_msr; ++j)
@@ -306,7 +331,9 @@ int msr_save(const char *save_path, const char *allowlist_path, const char *msr_
                                        sizeof(uint64_t), msr_offset[j]);
             if (read_count != sizeof(uint64_t))
             {
-                fprintf(error_log, "Warning: Failed to read msr value 0x%zX from MSR file \"%s\"!\n", msr_offset[j], msr_file_name);
+                fprintf(error_log,
+                        "Warning: Failed to read msr value 0x%zX from MSR file \"%s\"!\n",
+                        msr_offset[j], msr_file_name);
                 errno = 0;
                 if (~(msr_mask[j]))
                 {
@@ -323,7 +350,8 @@ int msr_save(const char *save_path, const char *allowlist_path, const char *msr_
                 if (~(msr_mask[j]) == 0ULL &&
                     save_buffer[i * num_msr + j] == G_COOKIE_BAD_READ)
                 {
-                    fprintf(error_log, "Error: Extremely unlikely event, read value from MSR that matches our random 64 bit integer used to mark bad reads.\n");
+                    fprintf(error_log,
+                            "Error: Extremely unlikely event, read value from MSR that matches our random 64 bit integer used to mark bad reads.\n");
                     err = -1;
                     goto exit;
                 }
@@ -334,7 +362,8 @@ int msr_save(const char *save_path, const char *allowlist_path, const char *msr_
         if (tmp_err)
         {
             err = errno ? errno : -1;
-            fprintf(error_log, "Could not close MSR file \"%s\"!: %s\n", msr_file_name, strerror(errno));
+            fprintf(error_log, "Could not close MSR file \"%s\"!: %s\n", msr_file_name,
+                    strerror(errno));
             goto exit;
         }
     }
@@ -344,15 +373,18 @@ int msr_save(const char *save_path, const char *allowlist_path, const char *msr_
     if (!save_fid)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Could not open output file \"%s\"!: %s\n", save_path, strerror(errno));
+        fprintf(error_log, "Could not open output file \"%s\"!: %s\n", save_path,
+                strerror(errno));
         goto exit;
     }
 
-    size_t num_write = fwrite(save_buffer, sizeof(uint64_t), num_msr * num_cpu, save_fid);
+    size_t num_write = fwrite(save_buffer, sizeof(uint64_t), num_msr * num_cpu,
+                              save_fid);
     if (num_write != num_msr * num_cpu)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Could not write all values to output file \"%s\"!: %s\n", save_path, strerror(errno));
+        fprintf(error_log, "Could not write all values to output file \"%s\"!: %s\n",
+                save_path, strerror(errno));
         goto exit;
     }
 
@@ -361,7 +393,8 @@ int msr_save(const char *save_path, const char *allowlist_path, const char *msr_
     if (tmp_err)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Could not close MSR file \"%s\"!: %s\n", save_path, strerror(errno));
+        fprintf(error_log, "Could not close MSR file \"%s\"!: %s\n", save_path,
+                strerror(errno));
         goto exit;
     }
 
@@ -390,7 +423,8 @@ exit:
     return err;
 }
 
-int msr_restore(const char *restore_path, const char *allowlist_path, const char *msr_path_format, int num_cpu, FILE *output_log, FILE *error_log)
+int msr_restore(const char *restore_path, const char *allowlist_path,
+                const char *msr_path_format, int num_cpu, FILE *output_log, FILE *error_log)
 {
     int err = 0;
     int tmp_err = 0;
@@ -409,7 +443,8 @@ int msr_restore(const char *restore_path, const char *allowlist_path, const char
     struct stat allowlist_stat;
     char err_msg[NAME_MAX];
 
-    err = msr_parse_allowlist(allowlist_path, &num_msr, &msr_offset, &msr_mask, error_log);
+    err = msr_parse_allowlist(allowlist_path, &num_msr, &msr_offset, &msr_mask,
+                              error_log);
     if (err)
     {
         goto exit;
@@ -434,14 +469,16 @@ int msr_restore(const char *restore_path, const char *allowlist_path, const char
     if (tmp_err != 0)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "stat() of %s failed!: %s\n", allowlist_path, strerror(errno));
+        fprintf(error_log, "stat() of %s failed!: %s\n", allowlist_path,
+                strerror(errno));
         goto exit;
     }
 
     if (restore_stat.st_mtime < allowlist_stat.st_mtime)
     {
         err = -1;
-        fprintf(error_log, "Error: allowlist was modified after restore file was written!\n");
+        fprintf(error_log,
+                "Error: allowlist was modified after restore file was written!\n");
         goto exit;
     }
 
@@ -451,7 +488,9 @@ int msr_restore(const char *restore_path, const char *allowlist_path, const char
     if (!restore_buffer)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Unable to allocate msr restore state buffer of size: %zu!: %s\n", num_msr * num_cpu * sizeof(uint64_t), strerror(errno));
+        fprintf(error_log,
+                "Unable to allocate msr restore state buffer of size: %zu!: %s\n",
+                num_msr * num_cpu * sizeof(uint64_t), strerror(errno));
         goto exit;
     }
 
@@ -459,15 +498,18 @@ int msr_restore(const char *restore_path, const char *allowlist_path, const char
     if (!restore_fid)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Could not open restore file \"%s\"!: %s\n", restore_path, strerror(errno));
+        fprintf(error_log, "Could not open restore file \"%s\"!: %s\n", restore_path,
+                strerror(errno));
         goto exit;
     }
 
-    size_t num_read = fread(restore_buffer, sizeof(uint64_t), num_msr * num_cpu, restore_fid);
+    size_t num_read = fread(restore_buffer, sizeof(uint64_t), num_msr * num_cpu,
+                            restore_fid);
     if (num_read != num_msr * num_cpu || fgetc(restore_fid) != EOF)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Could not read all values from input file \"%s\"!: %s\n", restore_path, strerror(errno));
+        fprintf(error_log, "Could not read all values from input file \"%s\"!: %s\n",
+                restore_path, strerror(errno));
         goto exit;
     }
 
@@ -476,7 +518,8 @@ int msr_restore(const char *restore_path, const char *allowlist_path, const char
     if (tmp_err)
     {
         err = errno ? errno : -1;
-        fprintf(error_log, "Could not close MSR file \"%s\"!: %s\n", restore_path, strerror(errno));
+        fprintf(error_log, "Could not close MSR file \"%s\"!: %s\n", restore_path,
+                strerror(errno));
         goto exit;
     }
 
@@ -493,7 +536,8 @@ int msr_restore(const char *restore_path, const char *allowlist_path, const char
         if (msr_fd == -1)
         {
             err = errno ? errno : -1;
-            fprintf(error_log, "Could not open MSR file \"%s\"!: %s\n", msr_file_name, strerror(errno));
+            fprintf(error_log, "Could not open MSR file \"%s\"!: %s\n", msr_file_name,
+                    strerror(errno));
             goto exit;
         }
         for (j = 0; j < num_msr; ++j)
@@ -506,7 +550,9 @@ int msr_restore(const char *restore_path, const char *allowlist_path, const char
                 masked_val = (read_val & msr_mask[j]);
                 if (count != sizeof(uint64_t))
                 {
-		    fprintf(error_log, "Warning: Failed to read msr value at offset 0x%016zX from MSR file \"%s\"!: %s\n", msr_offset[j], msr_file_name, strerror(errno));
+                    fprintf(error_log,
+                            "Warning: Failed to read msr value at offset 0x%016zX from MSR file \"%s\"!: %s\n",
+                            msr_offset[j], msr_file_name, strerror(errno));
                     errno = 0;
                 }
                 else if (write_val != masked_val)
@@ -516,7 +562,9 @@ int msr_restore(const char *restore_path, const char *allowlist_path, const char
                     count = pwrite(msr_fd, &write_val, sizeof(uint64_t), msr_offset[j]);
                     if (count != sizeof(uint64_t))
                     {
-                        fprintf(error_log, "Warning: Failed to write msr value at offset 0x%016zX to MSR file \"%s\"!: %s\n", msr_offset[j], msr_file_name, strerror(errno));
+                        fprintf(error_log,
+                                "Warning: Failed to write msr value at offset 0x%016zX to MSR file \"%s\"!: %s\n",
+                                msr_offset[j], msr_file_name, strerror(errno));
                         errno = 0;
                     }
                     else
@@ -526,7 +574,8 @@ int msr_restore(const char *restore_path, const char *allowlist_path, const char
                             fprintf(output_log, "offset, read, restored\n");
                             do_print_header = 0;
                         }
-                        fprintf(output_log, "0x%016zX, 0x%016zX, 0x%016zX\n", msr_offset[j], read_val, write_val);
+                        fprintf(output_log, "0x%016zX, 0x%016zX, 0x%016zX\n", msr_offset[j], read_val,
+                                write_val);
                     }
                 }
             }
@@ -536,7 +585,8 @@ int msr_restore(const char *restore_path, const char *allowlist_path, const char
         if (tmp_err)
         {
             err = errno ? errno : -1;
-            fprintf(error_log, "Could not close MSR file \"%s\"!: %s\n", msr_file_name, strerror(errno));
+            fprintf(error_log, "Could not close MSR file \"%s\"!: %s\n", msr_file_name,
+                    strerror(errno));
             goto exit;
         }
     }
