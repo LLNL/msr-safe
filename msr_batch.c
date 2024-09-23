@@ -74,7 +74,6 @@ static int msrbatch_apply_allowlist(struct msr_batch_array *oa)
     return err;
 }
 
-
 static long msrbatch_ioctl(struct file *f, unsigned int ioc, unsigned long arg)
 {
     int err = 0;
