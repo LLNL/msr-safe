@@ -16,6 +16,8 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 
+#include "msr_allowlist.h"
+
 #define MAX_WLIST_BSIZE ((128 * 1024) + 1) // "+1" for null character
 
 struct allowlist_entry

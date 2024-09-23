@@ -12,6 +12,8 @@
 #include <linux/module.h>
 #include <linux/uaccess.h>
 
+#include "msr_version.h"
+
 static struct class *cdev_class;
 static char cdev_created;
 static char cdev_registered;
