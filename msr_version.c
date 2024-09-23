@@ -24,11 +24,12 @@ static int open_version(struct inode *inode, struct file *file)
     return 0;
 }
 
-static ssize_t read_version(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+static ssize_t read_version(struct file *file, char __user *buf, size_t count,
+                            loff_t *ppos)
 {
-    size_t len = strlen( THIS_MODULE->version ) + 1 < count ?
-        strlen( THIS_MODULE->version ) + 1 :
-        count;
+    size_t len = strlen(THIS_MODULE->version) + 1 < count ?
+                 strlen(THIS_MODULE->version) + 1 :
+                 count;
     if (*ppos > 0)
     {
         return 0;
@@ -128,9 +129,9 @@ int msr_version_init(int *majordev)
 
     cdev_class = class_create(
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6,4,0)
-                    THIS_MODULE,
+                     THIS_MODULE,
 #endif
-                    "msr_safe_version");
+                     "msr_safe_version");
     if (IS_ERR(cdev_class))
     {
         err = PTR_ERR(cdev_class);
@@ -141,7 +142,8 @@ int msr_version_init(int *majordev)
 
     cdev_class->devnode = msr_version_nodename_selector;
 
-    dev = device_create(cdev_class, NULL, MKDEV(*majordev, 0), NULL, "msr_safe_version");
+    dev = device_create(cdev_class, NULL, MKDEV(*majordev, 0), NULL,
+                        "msr_safe_version");
     if (IS_ERR(dev))
     {
         err = PTR_ERR(dev);

@@ -60,7 +60,8 @@ int main(int argc, char **argv)
         printf("\nCopyright (C) 2016, Intel Corporation. All rights reserved.\n\n");
         return 0;
     }
-    if (argc > 1 && (strncmp(argv[1], "--help", strlen("--help") + 1) == 0 || strncmp(argv[1], "-h", strlen("-h") + 1) == 0))
+    if (argc > 1 && (strncmp(argv[1], "--help", strlen("--help") + 1) == 0 ||
+                     strncmp(argv[1], "-h", strlen("-h") + 1) == 0))
     {
         printf(usage, argv[0]);
         return 0;
@@ -100,11 +101,13 @@ int main(int argc, char **argv)
         int num_cpu = sysconf(_SC_NPROCESSORS_ONLN);
         if (do_restore)
         {
-            err = msr_restore(file_name, msr_allowlist_path, msr_path, num_cpu, stdout, stderr);
+            err = msr_restore(file_name, msr_allowlist_path, msr_path, num_cpu, stdout,
+                              stderr);
         }
         else
         {
-            err = msr_save(file_name, msr_allowlist_path, msr_path, num_cpu, stdout, stderr);
+            err = msr_save(file_name, msr_allowlist_path, msr_path, num_cpu, stdout,
+                           stderr);
         }
     }
 

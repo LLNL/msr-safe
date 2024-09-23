@@ -94,7 +94,8 @@ static loff_t msr_seek(struct file *file, loff_t offset, int orig)
     return ret;
 }
 
-static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+static ssize_t msr_read(struct file *file, char __user *buf, size_t count,
+                        loff_t *ppos)
 {
     u32 __user *tmp = (u32 __user *) buf;
     u32 data[2];
@@ -126,7 +127,8 @@ static ssize_t msr_read(struct file *file, char __user *buf, size_t count, loff_
     return 8;
 }
 
-static ssize_t msr_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
+static ssize_t msr_write(struct file *file, const char __user *buf,
+                         size_t count, loff_t *ppos)
 {
     const u32 __user *tmp = (const u32 __user *)buf;
     u32 curdata[2];
@@ -138,7 +140,7 @@ static ssize_t msr_write(struct file *file, const char __user *buf, size_t count
 
     if (count != 8) /* single write only */
     {
-        return -EINVAL; 
+        return -EINVAL;
     }
 
     mask = msr_allowlist_writemask(reg);
@@ -211,7 +213,8 @@ static int msr_device_create(unsigned int cpu)
 {
     struct device *dev;
 
-    dev = device_create(msr_class, NULL, MKDEV(mdev_msr_safe, cpu), NULL, "msr_safe%d", cpu);
+    dev = device_create(msr_class, NULL, MKDEV(mdev_msr_safe, cpu), NULL,
+                        "msr_safe%d", cpu);
     return IS_ERR(dev) ? PTR_ERR(dev) : 0;
 }
 
@@ -229,7 +232,8 @@ static int msr_device_destroy(unsigned int cpu)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
-static int msr_class_cpu_callback(struct notifier_block *nfb, unsigned long action, void *hcpu)
+static int msr_class_cpu_callback(struct notifier_block *nfb,
+                                  unsigned long action, void *hcpu)
 {
     unsigned int cpu = (unsigned long)hcpu;
     int err = 0;
@@ -317,7 +321,8 @@ static int __init msr_init(void)
      *      number and return zero on success
      *    Return a negative errno on failure
      */
-    err = __register_chrdev(mdev_msr_safe, 0, num_possible_cpus(), "cpu/msr_safe", &msr_fops);
+    err = __register_chrdev(mdev_msr_safe, 0, num_possible_cpus(), "cpu/msr_safe",
+                            &msr_fops);
     if (err < 0)
     {
         pr_debug("unable to get major %d for msr_safe\n", mdev_msr_safe);
@@ -356,7 +361,8 @@ static int __init msr_init(void)
     }
     register_hotcpu_notifier(&msr_class_cpu_notifier);
 #else
-    err = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "x86/msr:online", msr_device_create, msr_device_destroy);
+    err = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "x86/msr:online",
+                            msr_device_create, msr_device_destroy);
     if (err < 0)
     {
         goto out_class;

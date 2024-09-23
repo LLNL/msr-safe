@@ -14,10 +14,13 @@
 
 #include "msrsave.h"
 
-void msrsave_test_mock_msr(void *buffer, size_t buffer_size, const char *path_format, int num_cpu);
-void msrsave_test_check_msr(uint64_t *buffer, size_t num_check, const char *path_format, int num_cpu);
+void msrsave_test_mock_msr(void *buffer, size_t buffer_size,
+                           const char *path_format, int num_cpu);
+void msrsave_test_check_msr(uint64_t *buffer, size_t num_check,
+                            const char *path_format, int num_cpu);
 
-void msrsave_test_mock_msr(void *buffer, size_t buffer_size, const char *path_format, int num_cpu)
+void msrsave_test_mock_msr(void *buffer, size_t buffer_size,
+                           const char *path_format, int num_cpu)
 {
     /* Create mock msr files for each CPU */
     int i;
@@ -32,7 +35,8 @@ void msrsave_test_mock_msr(void *buffer, size_t buffer_size, const char *path_fo
     }
 }
 
-void msrsave_test_check_msr(uint64_t *check_val, size_t num_check, const char *path_format, int num_cpu)
+void msrsave_test_check_msr(uint64_t *check_val, size_t num_check,
+                            const char *path_format, int num_cpu)
 {
     /* Check that values in the file match expected */
     int i, j;
@@ -78,29 +82,30 @@ int main(int argc, char **argv)
                                       0x0000000000000090ULL,
                                       0x0000000000000098ULL,
                                       0x1000000000000100ULL  /* negative offset should be skipped */
-    };
+                                     };
 
     const uint64_t allowlist_mask[] = {0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0x8000000000000000ULL,
-                                           0xFFFFFFFFFFFFFFFFULL,
-                                           0x8000000000000000ULL};
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0x8000000000000000ULL,
+                                       0xFFFFFFFFFFFFFFFFULL,
+                                       0x8000000000000000ULL
+                                      };
 
     enum {NUM_MSR = sizeof(allowlist_off) / sizeof(uint64_t)};
     assert(NUM_MSR == sizeof(allowlist_mask) / sizeof(uint64_t));
@@ -136,7 +141,8 @@ int main(int argc, char **argv)
     const char *log_file_name = "msrsave_test.log";
     FILE *log_file = fopen(log_file_name, "w");
     /* Save the current state to a file */
-    err = msr_save(test_save_path, test_allowlist_path, test_msr_path, num_cpu, log_file, log_file);
+    err = msr_save(test_save_path, test_allowlist_path, test_msr_path, num_cpu,
+                   log_file, log_file);
     assert(err == 0);
 
     /* Overwrite the mock msr files with new data */
@@ -152,7 +158,8 @@ int main(int argc, char **argv)
     msrsave_test_mock_msr(msr_val, sizeof(msr_val), test_msr_path, num_cpu);
 
     /* Restore to the original values */
-    err = msr_restore(test_save_path, test_allowlist_path, test_msr_path, num_cpu, log_file, log_file);
+    err = msr_restore(test_save_path, test_allowlist_path, test_msr_path, num_cpu,
+                      log_file, log_file);
     assert(err == 0);
 
     /* Check that the values that are writable have been restored. */
@@ -160,16 +167,19 @@ int main(int argc, char **argv)
     hval = 0x9EADBEEF;
     for (i = 0; i < NUM_MSR - 1; ++i)
     {
-        if (allowlist_mask[i] & 0xFFFFFFFF) {
+        if (allowlist_mask[i] & 0xFFFFFFFF)
+        {
             msr_val[i] = 0xDEADBEEF00000000 | i;
         }
-        else {
+        else
+        {
             lval = NUM_MSR - i;
             msr_val[i] = lval | (hval << 32);
         }
     }
 
-    msrsave_test_check_msr(msr_val, sizeof(msr_val) / sizeof(uint64_t), test_msr_path, num_cpu);
+    msrsave_test_check_msr(msr_val, sizeof(msr_val) / sizeof(uint64_t),
+                           test_msr_path, num_cpu);
 
     char this_path[NAME_MAX] = {};
     for (i = 0; i < num_cpu; ++i)
@@ -180,7 +190,8 @@ int main(int argc, char **argv)
     unlink(test_allowlist_path);
     unlink(test_save_path);
     fclose(log_file);
-    if (!err) {
+    if (!err)
+    {
         unlink(log_file_name);
     }
     return err;

@@ -15,7 +15,6 @@
  *
  */
 
-
 #include <stdio.h>      // printf(3)
 #include <assert.h>     // assert(3)
 #include <fcntl.h>      // open(2)
