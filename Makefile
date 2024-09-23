@@ -32,7 +32,7 @@ msrsave/msrsave_main.o: msrsave/msrsave_main.c msrsave/msrsave.h
 	$(CC) $(CFLAGS) -fPIC -c msrsave/msrsave_main.c -o $@
 
 msrsave/msrsave: msrsave/msrsave_main.o msrsave/msrsave.o
-	$(CC) $(CFLAGS)  $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@
 
 msrsave/msrsave_test.o: msrsave/msrsave_test.c msrsave/msrsave.h
 
