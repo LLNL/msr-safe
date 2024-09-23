@@ -261,20 +261,22 @@ static struct notifier_block __refdata msr_class_cpu_notifier =
  * now keying off of the change in the parameter types.*/
 
 #define msr_devnode_selector _Generic(\
-        (((struct class *)0)->devnode),\
-        char * (*) (struct device *, mode_t *) : msr_devnode1,\
-        char * (*) (struct device *, umode_t *) : msr_devnode2,\
-        char * (*) (const struct device *, umode_t *) : msr_devnode3\
-        )
+    (((struct class *)0)->devnode),\
+    char * (*) (struct device *, mode_t *) : msr_devnode1,\
+    char * (*) (struct device *, umode_t *) : msr_devnode2,\
+    char * (*) (const struct device *, umode_t *) : msr_devnode3\
+    )
 
 static char *msr_devnode1(struct device *dev, mode_t *mode)
 {
     return kasprintf(GFP_KERNEL, "cpu/%u/msr_safe", MINOR(dev->devt));
 }
+
 static char *msr_devnode2(struct device *dev, umode_t *mode)
 {
     return kasprintf(GFP_KERNEL, "cpu/%u/msr_safe", MINOR(dev->devt));
 }
+
 static char *msr_devnode3(const struct device *dev, umode_t *mode)
 {
     return kasprintf(GFP_KERNEL, "cpu/%u/msr_safe", MINOR(dev->devt));

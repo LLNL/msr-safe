@@ -191,10 +191,12 @@ static char *msrbatch_nodename1(struct device *dev, mode_t *mode)
 {
     return kasprintf(GFP_KERNEL, "cpu/msr_batch");
 }
+
 static char *msrbatch_nodename2(struct device *dev, umode_t *mode)
 {
     return kasprintf(GFP_KERNEL, "cpu/msr_batch");
 }
+
 static char *msrbatch_nodename3(const struct device *dev, umode_t *mode)
 {
     return kasprintf(GFP_KERNEL, "cpu/msr_batch");
