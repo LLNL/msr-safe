@@ -1,4 +1,6 @@
-include: [component: $CI_SERVER_FQDN/lc-components/id_tokens/id_tokens-component@main]
+include:
+  - component: $CI_SERVER_FQDN/lc-components/id_tokens/id_tokens-component@main
+  - local: .gitlab/subscribed-pipelines.yml
 
 variables:
   CUSTOM_CI_BUILDS_DIR: "/usr/workspace/msr/gitlab-runner"
@@ -17,6 +19,3 @@ stages:
     strategy: depend
     forward:
       pipeline_variables: true
-
-include:
-  - local: .gitlab/subscribed-pipelines.yml
