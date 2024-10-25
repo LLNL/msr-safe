@@ -3,10 +3,10 @@ stages:
   - build
   - status_update
 
-.on_cztb2:
+.on_cztb3:
   tags:
     - shell
-    - cztb2
+    - cztb3
   rules:
     # Only report failure if the pipeline failed.
     - if: '$CI_JOB_NAME =~ /status_failure/'
@@ -15,7 +15,7 @@ stages:
     - when: on_success
 
 .status_report: &status_report
-    - export context="cztb2"
+    - export context="cztb3"
     - |
       curl --url "https://api.github.com/repos/llnl/${CI_PROJECT_NAME}/statuses/${CI_COMMIT_SHA}" \
            --header 'Content-Type: application/json' \
@@ -25,8 +25,8 @@ stages:
 status_pending:
   tags:
     - shell
-    - cztb2
-  extends: [.on_cztb2]
+    - cztb3
+  extends: [.on_cztb3]
   stage: status_initiate
   script:
     - export pipeline_status="pending"
@@ -35,8 +35,8 @@ status_pending:
 status_success:
   tags:
     - shell
-    - cztb2
-  extends: [.on_cztb2]
+    - cztb3
+  extends: [.on_cztb3]
   stage: status_update
   script:
     - export pipeline_status="success"
@@ -46,8 +46,8 @@ status_success:
 status_failure:
   tags:
     - shell
-    - cztb2
-  extends: [.on_cztb2]
+    - cztb3
+  extends: [.on_cztb3]
   stage: status_update
   script:
     - export pipeline_status="failure"
@@ -55,10 +55,10 @@ status_failure:
   when: on_failure
 
 # build across power lab
-build-cztb2:
+build-cztb3:
  tags:
    - shell
-   - cztb2
+   - cztb3
  stage: build
  script:
    - git clone $MSR_SAFE_ANSIBLE
