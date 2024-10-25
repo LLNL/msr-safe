@@ -12,6 +12,8 @@
 #CFLAGS_msr_batch.o := -DDEBUG
 #CFLAGS_msr-smp.o := -DDEBUG
 
+CFLAGS := -Wall -Wextra -Werror
+
 obj-m += msr-safe.o
 msr-safe-objs := msr_entry.o msr_allowlist.o msr-smp.o msr_batch.o msr_version.o
 

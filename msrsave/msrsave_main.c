@@ -104,7 +104,7 @@ int main(int argc, char **argv)
         }
         else
         {
-            err = msr_save(file_name, msr_allowlist_path, msr_path, num_cpu, stdout, stderr);
+            err = msr_save(file_name, msr_allowlist_path, msr_path, num_cpu, stderr);
         }
     }
 

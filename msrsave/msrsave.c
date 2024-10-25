@@ -40,7 +40,7 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
     enum {BUFFER_SIZE = 8192};
     int err = 0;
     int tmp_err = 0;
-    int i;
+    size_t i;
     int tmp_fd = -1;
     int allowlist_fd = -1;
     size_t num_scan = 0;
@@ -53,7 +53,6 @@ static int msr_parse_allowlist(const char *allowlist_path, size_t *num_msr_ptr, 
     uint64_t *msr_mask = NULL;
     struct stat allowlist_stat;
     char tmp_path[NAME_MAX] = "/tmp/msrsave_allowlist_XXXXXX";
-    char err_msg[NAME_MAX];
     char copy_buffer[BUFFER_SIZE];
 
     /* Copy allowlist into temporary file */
@@ -253,11 +252,12 @@ exit:
     return err;
 }
 
-int msr_save(const char *save_path, const char *allowlist_path, const char *msr_path_format, int num_cpu, FILE *output_log, FILE *error_log)
+int msr_save(const char *save_path, const char *allowlist_path, const char *msr_path_format, int num_cpu, FILE *error_log)
 {
     int err = 0;
     int tmp_err = 0;
-    int i, j;
+    int i;
+    size_t j;
     int msr_fd = -1;
     size_t num_msr = 0;
     uint64_t *msr_offset = NULL;
@@ -394,7 +394,8 @@ int msr_restore(const char *restore_path, const char *allowlist_path, const char
 {
     int err = 0;
     int tmp_err = 0;
-    int i, j;
+    int i;
+    size_t j;
     int msr_fd = -1;
     int do_print_header = 1;
     size_t num_msr = 0;
@@ -407,7 +408,6 @@ int msr_restore(const char *restore_path, const char *allowlist_path, const char
     FILE *restore_fid = NULL;
     struct stat restore_stat;
     struct stat allowlist_stat;
-    char err_msg[NAME_MAX];
 
     err = msr_parse_allowlist(allowlist_path, &num_msr, &msr_offset, &msr_mask, error_log);
     if (err)
