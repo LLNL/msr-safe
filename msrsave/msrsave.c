@@ -256,7 +256,8 @@ int msr_save(const char *save_path, const char *allowlist_path, const char *msr_
 {
     int err = 0;
     int tmp_err = 0;
-    int i, j;
+    int i;
+    size_t j;
     int msr_fd = -1;
     size_t num_msr = 0;
     uint64_t *msr_offset = NULL;
@@ -393,7 +394,8 @@ int msr_restore(const char *restore_path, const char *allowlist_path, const char
 {
     int err = 0;
     int tmp_err = 0;
-    int i, j;
+    int i;
+    size_t j;
     int msr_fd = -1;
     int do_print_header = 1;
     size_t num_msr = 0;
