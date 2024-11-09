@@ -21,12 +21,17 @@
 #define OP_WRITE            0x0001
 #define OP_READ             0x0002
 #define OP_POLL             0x0004
+#define OP_TSC_INITIAL      0x0010
+#define OP_TSC_FINAL        0x0020
+#define OP_TSC_POLL         0x0040
+/*
 #define OP_INITIAL_MPERF    0x0010
 #define OP_FINAL_MPERF      0x0020
 #define OP_POLL_MPERF       0x0040
 #define OP_INITIAL_APERF    0x0100
 #define OP_FINAL_APERF      0x0200
 #define OP_POLL_APERF       0x0400
+*/
 
 struct msr_batch_op
 {
@@ -40,12 +45,17 @@ struct msr_batch_op
     __u32 msr;              // In: MSR Address to perform operation
     __u64 msrdata;          // In/Out: Input/Result to/from operation
     __u64 wmask;            // Out: Write mask applied to wrmsr
+    __u64 tsc_initial;      // Out: time stamp counter at op start
+    __u64 tsc_final;        // Out: time stamp counter at op completion
+    __u64 tsc_poll;         // Out: time stamp counter prior to final poll attempt
+    /*
     __u64 mperf_initial;    // Out: reference clock reading at the start of the op
     __u64 mperf_poll;       // Out: reference clock reading at start of final poll
     __u64 mperf_final;      // Out: reference clock reading at the end of r/w/p
     __u64 aperf_initial;    // Out: cycle count reading at the start of the op
     __u64 aperf_poll;       // Out: cycle count reading at start of final poll
     __u64 aperf_final;      // Out: cycle count reading at the end of r/w/p
+    */
     __u64 msrdata2;         // Out: last polled reading
 };
 
