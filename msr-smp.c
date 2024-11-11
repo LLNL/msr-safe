@@ -27,12 +27,8 @@ static void __msr_safe_batch(void *info)
     struct msr_batch_array *oa = info;
     struct msr_batch_op *op;
     int this_cpu = smp_processor_id();
-    u64 rdval, wrval, /*mperfval, aperfval,*/ tscval, pollval;
+    u64 rdval, wrval, tscval, pollval;
     u32 *rdptr=(u32 *)&rdval, *wrptr=(u32 *)&wrval,
-        /*
-        *mperfptr=(u32 *)&mperfval,
-        *aperfptr=(u32 *)&aperfval,
-        */
         *tscptr=(u32 *)&tscval,
         *pollptr=(u32 *)&pollval;
 
@@ -44,22 +40,6 @@ static void __msr_safe_batch(void *info)
         }
 
         op->err = 0;
-/*
-        if ( op->op & OP_INITIAL_MPERF ){
-            if ( rdmsr_safe( MSR_IA32_MPERF, &mperfptr[0], &mperfptr[1] )){
-                op->err = -EIO;
-                continue;
-            }
-            op->mperf_initial = mperfval;
-        }
-        if ( op->op & OP_INITIAL_APERF ){
-            if ( rdmsr_safe( MSR_IA32_APERF, &aperfptr[0], &aperfptr[1] )){
-                op->err = -EIO;
-                continue;
-            }
-            op->aperf_initial = aperfval;
-        }
-*/
         if ( op->op & OP_TSC_INITIAL ){
             if ( rdmsr_safe( MSR_TIME_STAMP_COUNTER, &tscptr[0], &tscptr[1] )){
                 op->err = -EIO;
@@ -90,22 +70,6 @@ static void __msr_safe_batch(void *info)
                     break;
                 }
                 op->poll_max--;
-                /*
-                if ( op->op & OP_POLL_MPERF ){
-                    if ( rdmsr_safe( MSR_IA32_MPERF, &mperfptr[0], &mperfptr[1] )){
-                        op->err = -EIO;
-                        continue;
-                    }
-                    op->mperf_poll = mperfval;
-                }
-                if ( op->op & OP_POLL_APERF ){
-                    if ( rdmsr_safe( MSR_IA32_APERF, &aperfptr[0], &aperfptr[1] )){
-                        op->err = -EIO;
-                        continue;
-                    }
-                    op->aperf_poll = aperfval;
-                }
-                */
                 if ( op->op & OP_TSC_POLL ){
                     if ( rdmsr_safe( MSR_TIME_STAMP_COUNTER, &tscptr[0], &tscptr[1] )){
                         op->err = -EIO;
@@ -123,24 +87,8 @@ static void __msr_safe_batch(void *info)
                 }
             }
         }
-        /*
-        if ( op->op & OP_FINAL_APERF ){
-            if ( rdmsr_safe( MSR_IA32_APERF, &aperfptr[0], &aperfptr[1] )){
-                op->err = -EIO;
-                continue;
-            }
-            op->mperf_final = aperfval;
-        }
-        if ( op->op & OP_FINAL_MPERF ){
-            if ( rdmsr_safe( MSR_IA32_MPERF, &mperfptr[0], &mperfptr[1] )){
-                op->err = -EIO;
-                continue;
-            }
-            op->mperf_final = mperfval;
-        }
-        */
         if ( op->op & OP_TSC_FINAL ){
-            if ( rdmsr_safe( MSR_IA32_MPERF, &tscptr[0], &tscptr[1] )){
+            if ( rdmsr_safe( MSR_TIME_STAMP_COUNTER, &tscptr[0], &tscptr[1] )){
                 op->err = -EIO;
                 continue;
             }

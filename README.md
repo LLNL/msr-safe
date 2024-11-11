@@ -155,16 +155,16 @@ struct msr_batch_op
 {
     __u16 cpu;          // In: CPU to execute {rd/wr}msr instruction
     __u16 op;           // In: OR at least one of the following:
-                        //   OP_WRITE, OP_READ, OP_POLL, OP_INITIAL_MPERF,
-                        //   OP_FINAL_MPERF, OP_POLL_MPERF
+                        //   OP_WRITE, OP_READ, OP_POLL, OP_TSC_INITIAL,
+                        //   OP_TSC_FINAL, OP_TSC_POLL
     __s32 err;          // Out: set if error occurred with this operation
     __u32 poll_max;     // In/Out:  Max/remaining poll attempts
     __u32 msr;          // In: MSR Address to perform operation
     __u64 msrdata;      // In/Out: Input/Result to/from operation
     __u64 wmask;        // Out: Write mask applied to wrmsr
-    __u64 mperf_initial;// Out: reference clock reading at the start of the op
-    __u64 mperf_poll;   // Out: reference clock reading at start of final poll
-    __u64 mperf_final;  // Out: reference clock reading at the end of r/w/p
+    __u64 tsc_initial;      // Out: time stamp counter at op start
+    __u64 tsc_final;        // Out: time stamp counter at op completion
+    __u64 tsc_poll;         // Out: time stamp counter prior to final poll attempt
     __u64 msrdata2;	// Out: last polled reading
 };
 ```
@@ -174,26 +174,26 @@ The __cpu__ uses the same numbering found in __/dev/cpu/\<cpuid\>__.
 The __op__ is a bit array describing what the operating measures.  In the
 order of operation:
 
-1. If __OP_INITIAL_MPERF__ is set, read the MPERF reference cycle counter
-into __mperf_initial__.
+1. If __OP_TSC_INITIAL__ is set, copy the value of the time stamp counter
+into __tsc_initial__.
 
-2. If __OP_READ__ is set, read the value from __msr__ into __msrdata__.
+2. If __OP_READ__ is set, copy the value in the MSR __msr__ into __msrdata__.
 
-3. If __OP_WRITE__ is set, write the value in __msrdata__ to the MSR
+3. If __OP_WRITE__ is set, copy the value in __msrdata__ to the MSR
 specified by __msr__.
 
 4. If __OP_POLL__ is set, loop through the following:
-	a. If __poll_max__ is zero, break out of the loop.
-	b. If __OP_POLL_MPERF__ is set, read the MPERF reference cycle
-	counter into __mperf_poll__.
-	c. Read __msr__ into __msrdata2__.  If the values differ,
-	break out of the loop.
+	a. If __poll_max__ is zero, exit the loop.
+	b. If __OP_TSC_POLL__ is set, copy the current value of the
+	time stamp counter into __tsc__poll__.
+	c. Copy the value of the MSR __msr__ into __msrdata2__.  If the values
+    of __msrdata__ and __msrdata2__ differ, break out of the loop.
 	d. Decrement __poll_max__ and continue the loop.
 
-5. If __OP_FINAL_MPERF__ is set, read the MPERF reference cycle
-counter into __mperf_final__.
+5. If __OP_TSC_FINAL__ is set, copy the value of the time stamp counter
+into __tsc_final__.
 
-Successive operations combining __OP_READ__, __OP_POLL__, and __OP_x_MPERF__
+Successive operations combining __OP_READ__, __OP_POLL__, and __OP_TSC_x__
 flags allows the user to measure how often an MSR is updated.
 
 A zero __err__ is populated by the kernel if there is an error on a
