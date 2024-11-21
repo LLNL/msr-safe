@@ -1,0 +1,54 @@
+name: linux versions
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+
+jobs:
+
+  build:
+    strategy:
+      matrix:
+        env: [ubuntu-20.04]
+        linux-tag: [v5.0]
+
+    runs-on: ${{ matrix.env }}
+
+    steps:
+      - name: Checkout msr-safe and submodules
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libelf-dev
+
+      - name: Build linux ${{ matrix.linux-tag }} headers
+        run: |
+          cd linux
+          git fetch --tags
+          git checkout ${{ matrix.linux-tag }}
+          git clean -d -f -x
+          cd ..
+          make -j clean
+          make -j -C ./linux clean
+          echo "### Build start time:  " `date`
+          echo "### gcc version:       " `gcc --version`
+          make -j -C ./linux allyesconfig
+          make -j -C ./linux modules
+          make -j -C ./linux modules_install
+
+      - name: Compile msr-safe
+        run: |
+          export CC=gcc
+          export CXX=g++
+          ${CC} --version
+          ${CXX} --version
+          uname -a
+          # build
+          make VERBOSE=1
