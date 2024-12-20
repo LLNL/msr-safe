@@ -28,6 +28,7 @@
 struct msr_batch_op
 {
     __u16 cpu;              // In: CPU to execute {rd/wr}msr instruction
+                            // FIXME
     __u16 op;               // In: OR at least one of the following:
                             //   OP_WRITE, OP_READ, OP_POLL, OP_TSC_INITIAL,
                             //   OP_TSC_FINAL, OP_TSC_POLL
@@ -37,8 +38,8 @@ struct msr_batch_op
     __u64 msrdata;          // In/Out: Input/Result to/from operation
     __u64 wmask;            // Out: Write mask applied to wrmsr
     __u64 tsc_initial;      // Out: time stamp counter at op start
-    __u64 tsc_final;        // Out: time stamp counter at op completion
     __u64 tsc_poll;         // Out: time stamp counter prior to final poll attempt
+    __u64 tsc_final;        // Out: time stamp counter at op completion
     __u64 msrdata2;         // Out: last polled reading
 };
 
