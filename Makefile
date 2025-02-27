@@ -7,10 +7,10 @@
 # Uncomment following line(s) to enable debug output from different
 # portions of kernel module.
 #
-#CFLAGS_msr_allowlist.o := -DDEBUG
-#CFLAGS_msr_entry.o := -DDEBUG
-#CFLAGS_msr_batch.o := -DDEBUG
-#CFLAGS_msr-smp.o := -DDEBUG
+CFLAGS_msr_allowlist.o := -DDEBUG
+CFLAGS_msr_entry.o := -DDEBUG
+CFLAGS_msr_batch.o := -DDEBUG
+CFLAGS_msr-smp.o := -DDEBUG
 
 obj-m += msr-safe.o
 msr-safe-objs := msr_entry.o msr_allowlist.o msr-smp.o msr_batch.o msr_version.o

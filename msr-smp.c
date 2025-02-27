@@ -21,16 +21,18 @@
 #include "msr_safe.h"
 #include "msr-smp.h"
 #define MSR_TIME_STAMP_COUNTER 0x10
+#define THERM_STATUS 0x19c
 
 static void __msr_safe_batch(void *info)
 {
     struct msr_batch_array *oa = info;
     struct msr_batch_op *op;
     int this_cpu = smp_processor_id();
-    u64 rdval, wrval, tscval, pollval;
+    u64 rdval, wrval, tscval, pollval, thermval;
     u32 *rdptr=(u32 *)&rdval, *wrptr=(u32 *)&wrval,
         *tscptr=(u32 *)&tscval,
-        *pollptr=(u32 *)&pollval;
+        *pollptr=(u32 *)&pollval,
+        *thermptr=(u32 *)&thermval;
 
     for (op = oa->ops; op < oa->ops + oa->numops; ++op)
     {
@@ -46,6 +48,13 @@ static void __msr_safe_batch(void *info)
                 continue;
             }
             op->tsc_initial = tscval;
+        }
+        if ( op->op & OP_THERM_INITIAL ){
+            if ( rdmsr_safe( THERM_STATUS, &thermptr[0], &thermptr[1] )){
+                op->err = -EIO;
+                continue;
+            }
+            op->therm_initial = thermval;
         }
         if ( op->op & OP_WRITE || op->op & OP_READ || op->op & OP_POLL ){
             if ( rdmsr_safe( op->msr, &rdptr[0], &rdptr[1] )){
@@ -93,6 +102,13 @@ static void __msr_safe_batch(void *info)
                 continue;
             }
             op->tsc_final = tscval;
+        }
+        if ( op->op & OP_THERM_FINAL ){
+            if ( rdmsr_safe( THERM_STATUS, &thermptr[0], &thermptr[1] )){
+                op->err = -EIO;
+                continue;
+            }
+            op->therm_final = thermval;
         }
     }
 }

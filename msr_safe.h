@@ -24,6 +24,11 @@
 #define OP_TSC_INITIAL      0x0010
 #define OP_TSC_FINAL        0x0020
 #define OP_TSC_POLL         0x0040
+#define OP_THERM_INITIAL    0x0100
+#define OP_THERM_FINAL      0x0200
+#define MAX_OP_VAL          0x0200
+#define SELECTOR_INITIAL    0x1000  // Selectors are not used by msr-safe.
+#define SELECTOR_FINAL      0x2000  // May be used by userspace
 
 struct msr_batch_op
 {
@@ -41,6 +46,8 @@ struct msr_batch_op
     __u64 tsc_poll;         // Out: time stamp counter prior to final poll attempt
     __u64 tsc_final;        // Out: time stamp counter at op completion
     __u64 msrdata2;         // Out: last polled reading
+    __u64 therm_initial;    // Out: THERM_STATUS
+    __u64 therm_final;      // Out: THERM_STATUS
 };
 
 struct msr_batch_array
