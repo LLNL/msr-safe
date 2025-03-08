@@ -20,19 +20,43 @@
 
 #include "msr_safe.h"
 #include "msr-smp.h"
-#define MSR_TIME_STAMP_COUNTER 0x10
-#define THERM_STATUS 0x19c
+
+// These should be in asm/msr-index.h, but let's not make assumptions.
+#ifndef MSR_IA32_TIME_STAMP_COUNTER
+#define MSR_IA32_TIME_STAMP_COUNTER 0x0010
+#endif
+
+#ifndef MSR_IA32_MPERF
+#define MSR_IA32_MPERF 0x00e7
+#endif
+
+#ifndef MSR_IA32_APERF
+#define MSR_IA32_APERF 0x00e8
+#endif
+
+#ifndef MSR_IA32_THERM_STATUS
+#define MSR_IA32_THERM_STATUS 0x019c
+#endif
+
+#ifndef MSR_IA32_PACKAGE_THERM_STATUS
+#define MSR_IA32_PACKAGE_THERM_STATUS 0x01b1
+#endif
 
 static void __msr_safe_batch(void *info)
 {
     struct msr_batch_array *oa = info;
     struct msr_batch_op *op;
     int this_cpu = smp_processor_id();
-    u64 rdval, wrval, tscval, pollval, thermval;
-    u32 *rdptr=(u32 *)&rdval, *wrptr=(u32 *)&wrval,
-        *tscptr=(u32 *)&tscval,
+    u64 rdval, wrval, pollval;
+    u64 tscval, aperfval, mperfval, thermval, pthermval;
+    u32 *rdptr=(u32 *)&rdval,
+        *wrptr=(u32 *)&wrval,
         *pollptr=(u32 *)&pollval,
-        *thermptr=(u32 *)&thermval;
+        *tscptr=(u32 *)&tscval,
+        *aperfptr=(u32 *)&aperfval,
+        *mperfptr=(u32 *)&mperfval,
+        *thermptr=(u32 *)&thermval,
+        *pthermptr=(u32 *)&pthermval;
 
     for (op = oa->ops; op < oa->ops + oa->numops; ++op)
     {
@@ -42,20 +66,6 @@ static void __msr_safe_batch(void *info)
         }
 
         op->err = 0;
-        if ( op->op & OP_TSC_INITIAL ){
-            if ( rdmsr_safe( MSR_TIME_STAMP_COUNTER, &tscptr[0], &tscptr[1] )){
-                op->err = -EIO;
-                continue;
-            }
-            op->tsc_initial = tscval;
-        }
-        if ( op->op & OP_THERM_INITIAL ){
-            if ( rdmsr_safe( THERM_STATUS, &thermptr[0], &thermptr[1] )){
-                op->err = -EIO;
-                continue;
-            }
-            op->therm_initial = thermval;
-        }
         if ( op->op & OP_WRITE || op->op & OP_READ || op->op & OP_POLL ){
             if ( rdmsr_safe( op->msr, &rdptr[0], &rdptr[1] )){
                 op->err = -EIO;
@@ -79,13 +89,6 @@ static void __msr_safe_batch(void *info)
                     break;
                 }
                 op->poll_max--;
-                if ( op->op & OP_TSC_POLL ){
-                    if ( rdmsr_safe( MSR_TIME_STAMP_COUNTER, &tscptr[0], &tscptr[1] )){
-                        op->err = -EIO;
-                        continue;
-                    }
-                    op->tsc_poll = tscval;
-                }
                 if ( rdmsr_safe( op->msr, &pollptr[0], &pollptr[1] )){
                     op->err = -EIO;
                     continue;
@@ -96,19 +99,40 @@ static void __msr_safe_batch(void *info)
                 }
             }
         }
-        if ( op->op & OP_TSC_FINAL ){
-            if ( rdmsr_safe( MSR_TIME_STAMP_COUNTER, &tscptr[0], &tscptr[1] )){
+        if ( op->op & OP_TSC ){
+            if ( rdmsr_safe( MSR_IA32_TIME_STAMP_COUNTER, &tscptr[0], &tscptr[1] )){
                 op->err = -EIO;
                 continue;
             }
-            op->tsc_final = tscval;
+            op->tsc = tscval;
         }
-        if ( op->op & OP_THERM_FINAL ){
-            if ( rdmsr_safe( THERM_STATUS, &thermptr[0], &thermptr[1] )){
+        if ( op->op & OP_APERF ){
+            if ( rdmsr_safe( MSR_IA32_APERF, &aperfptr[0], &aperfptr[1] )){
                 op->err = -EIO;
                 continue;
             }
-            op->therm_final = thermval;
+            op->aperf = aperfval;
+        }
+        if ( op->op & OP_MPERF ){
+            if ( rdmsr_safe( MSR_IA32_MPERF, &mperfptr[0], &mperfptr[1] )){
+                op->err = -EIO;
+                continue;
+            }
+            op->mperf = mperfval;
+        }
+        if ( op->op & OP_THERM ){
+            if ( rdmsr_safe( MSR_IA32_THERM_STATUS, &thermptr[0], &thermptr[1] )){
+                op->err = -EIO;
+                continue;
+            }
+            op->therm = thermval;
+        }
+        if ( op->op & OP_PTHERM ){
+            if ( rdmsr_safe( MSR_IA32_PACKAGE_THERM_STATUS, &pthermptr[0], &pthermptr[1] )){
+                op->err = -EIO;
+                continue;
+            }
+            op->ptherm = pthermval;
         }
     }
 }
