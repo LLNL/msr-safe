@@ -26,6 +26,15 @@
 #define OP_TSC              0x0020
 #define OP_THERM            0x0040
 #define OP_PTHERM           0x0080
+#define DELTA_MPERF         0x0100
+#define DELTA_APERF         0x0200
+#define DELTA_TSC           0x0400
+#define DELTA_THERM         0x0800
+#define DELTA_PTHERM        0x1000
+#define DELTA_MSRDATA       0x2000
+#define MAX_OP_VAL          0x4000
+
+#define OP_ALL_MODS         ( OP_MPERF | OP_APERF | OP_TSC | OP_THERM | OP_PTHERM )
 
 struct msr_batch_op
 {
@@ -56,17 +65,23 @@ struct msr_batch_op
                             //
                             //   OP_PTHERM  Record the package temperature (degrees C away from TCC)
                             //
+                            //   DELTA_*    Userspace postprocessing.  Ignored by the kernel.
+                            //
+                            //
     __s32 err;              // Out: set if error occurred with this operation
     __u32 poll_max;         // In/Out:  Max/remaining poll attempts
     __u32 msr;              // In: MSR Address to perform operation
-    __u64 msrdata;          // In/Out: Input/Result to/from operation
-    __u64 msrdata2;         // Out: last polled reading
     __u64 wmask;            // Out: Write mask applied to value used in OP_WRITE
+    __u64 msrdata;          // In/Out: Input/Result to/from operation
+
+    // The following are only populated if the relevant op flags are set
+    __u64 msrdata2;         // Out: last polled reading
     __u64 tsc;              // Out: time stamp counter at op completion
     __u64 mperf;            // Out: MPERF value at op completion
     __u64 aperf;            // Out: APERF value at op completion
     __u64 therm;            // Out: THERM_STATUS
     __u64 ptherm;           // Out: PACKAGE_THERM_STATUS
+    __u64 tag;              // Userspace accounting, not used by the kernel
 };
 
 struct msr_batch_array
@@ -75,6 +90,87 @@ struct msr_batch_array
     __u32 version;              // In: MSR_SAFE_VERSION_u32 (see msr_version.h)
     struct msr_batch_op *ops;   // In: Array[numops] of operations
 };
+
+#ifdef MSR_SAFE_USERSPACE
+// Requires --std=c23 and <stdint.h>
+typedef enum : uint64_t {
+    op_field_arridx_CPU,
+    op_field_arridx_OP,
+    op_field_arridx_ERR,
+    op_field_arridx_POLL_MAX,
+    op_field_arridx_WMASK,
+    op_field_arridx_MSR,
+    op_field_arridx_MSRDATA,
+    op_field_arridx_MSRDATA2,
+    op_field_arridx_MPERF,
+    op_field_arridx_APERF,
+    op_field_arridx_TSC,
+    op_field_arridx_THERM,
+    op_field_arridx_PTHERM,
+    op_field_arridx_TAG,
+    // The remainder do not appear in the msr_batch_op struct
+    op_field_arridx_DELTA_MPERF,
+    op_field_arridx_DELTA_APERF,
+    op_field_arridx_DELTA_TSC,
+    op_field_arridx_DELTA_THERM,
+    op_field_arridx_DELTA_PTHERM,
+    op_field_arridx_DELTA_MSRDATA,
+    op_field_arridx_MAX_IDX,
+
+} op_field_arridx_t;
+
+typedef enum : uint64_t {
+    op_field_bitidx_CPU             = 1 << op_field_arridx_CPU,
+    op_field_bitidx_OP              = 1 << op_field_arridx_OP,
+    op_field_bitidx_ERR             = 1 << op_field_arridx_ERR,
+    op_field_bitidx_POLL_MAX        = 1 << op_field_arridx_POLL_MAX,
+    op_field_bitidx_WMASK           = 1 << op_field_arridx_WMASK,
+    op_field_bitidx_MSR             = 1 << op_field_arridx_MSR,
+    op_field_bitidx_MSRDATA         = 1 << op_field_arridx_MSRDATA,
+    op_field_bitidx_MSRDATA2        = 1 << op_field_arridx_MSRDATA2,
+    op_field_bitidx_MPERF           = 1 << op_field_arridx_MPERF,
+    op_field_bitidx_APERF           = 1 << op_field_arridx_APERF,
+    op_field_bitidx_TSC             = 1 << op_field_arridx_TSC,
+    op_field_bitidx_THERM           = 1 << op_field_arridx_THERM,
+    op_field_bitidx_PTHERM          = 1 << op_field_arridx_PTHERM,
+    op_field_bitidx_TAG             = 1 << op_field_arridx_TAG,
+    // The remainder do not appear in the msr_batch_op struct
+    op_field_bitidx_DELTA_MPERF     = 1 << op_field_arridx_DELTA_MPERF,
+    op_field_bitidx_DELTA_APERF     = 1 << op_field_arridx_DELTA_APERF,
+    op_field_bitidx_DELTA_TSC       = 1 << op_field_arridx_DELTA_TSC,
+    op_field_bitidx_DELTA_THERM     = 1 << op_field_arridx_DELTA_THERM,
+    op_field_bitidx_DELTA_PTHERM    = 1 << op_field_arridx_DELTA_PTHERM,
+    op_field_bitidx_DELTA_MSRDATA   = 1 << op_field_arridx_DELTA_MSRDATA,
+    op_field_bitidx_MAX_IDX         = 1 << op_field_arridx_MAX_IDX
+} op_field_bitidx_t;
+
+static const char * const opfield2str[ op_field_arridx_MAX_IDX ] = {
+    [op_field_arridx_CPU            ] = "cpu",
+    [op_field_arridx_OP             ] = "op",
+    [op_field_arridx_ERR            ] = "err",
+    [op_field_arridx_POLL_MAX       ] = "poll_max",
+    [op_field_arridx_WMASK          ] = "wmask",
+    [op_field_arridx_MSR            ] = "msr",
+    [op_field_arridx_MSRDATA        ] = "msrdata",
+    [op_field_arridx_MSRDATA2       ] = "msrdata2",
+    [op_field_arridx_MPERF          ] = "mperf",
+    [op_field_arridx_APERF          ] = "aperf",
+    [op_field_arridx_TSC            ] = "tsc",
+    [op_field_arridx_THERM          ] = "therm",
+    [op_field_arridx_PTHERM         ] = "ptherm",
+    [op_field_arridx_TAG            ] = "tag",
+    // The remainder do not appear in the msr_batch_op struct
+    [op_field_arridx_DELTA_MPERF    ] = "dmperf",
+    [op_field_arridx_DELTA_APERF    ] = "daperf",
+    [op_field_arridx_DELTA_TSC      ] = "dtsc",
+    [op_field_arridx_DELTA_THERM    ] = "dtherm",
+    [op_field_arridx_DELTA_PTHERM   ] = "dptherm",
+    [op_field_arridx_DELTA_MSRDATA  ] = "dmsrdata",
+};
+
+
+
+#endif // MSR_SAFE_USERSPACE
 
 #define X86_IOC_MSR_BATCH   _IOWR('c', 0xA2, struct msr_batch_array)
 
