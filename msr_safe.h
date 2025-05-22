@@ -18,21 +18,28 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 
-#define OP_WRITE            0x0001
-#define OP_READ             0x0002
-#define OP_POLL             0x0004
-#define OP_MPERF            0x0008
-#define OP_APERF            0x0010
-#define OP_TSC              0x0020
-#define OP_THERM            0x0040
-#define OP_PTHERM           0x0080
-#define DELTA_MPERF         0x0100
-#define DELTA_APERF         0x0200
-#define DELTA_TSC           0x0400
-#define DELTA_THERM         0x0800
-#define DELTA_PTHERM        0x1000
-#define DELTA_MSRDATA       0x2000
-#define MAX_OP_VAL          0x4000
+typedef enum : uint16_t {
+    OP_WRITE            = 0x0001,
+    OP_READ             = 0x0002,
+    OP_POLL             = 0x0004,
+    OP_MPERF            = 0x0008,
+
+    OP_APERF            = 0x0010,
+    OP_TSC              = 0x0020,
+    OP_THERM            = 0x0040,
+    OP_PTHERM           = 0x0080,
+
+    // The DELTA* flags are hints for userspace postprocessing
+    // and are ignored by the kernel.
+    DELTA_MPERF         = 0x0100,
+    DELTA_APERF         = 0x0200,
+    DELTA_TSC           = 0x0400,
+    DELTA_THERM         = 0x0800,
+
+    DELTA_PTHERM        = 0x1000,
+    DELTA_MSRDATA       = 0x2000,
+    MAX_OP_VAL          = 0x4000,
+} op_flag_t;
 
 #define OP_ALL_MODS         ( OP_MPERF | OP_APERF | OP_TSC | OP_THERM | OP_PTHERM )
 
@@ -168,6 +175,22 @@ static const char * const opfield2str[ op_field_arridx_MAX_IDX ] = {
     [op_field_arridx_DELTA_MSRDATA  ] = "dmsrdata",
 };
 
+static const char * const opflags2str[ MAX_OP_VAL ] = {
+    [OP_WRITE]      = "OP_WRITE",
+    [OP_READ]       = "OP_READ",
+    [OP_POLL]       = "OP_POLL",
+    [OP_MPERF]      = "OP_MPERF",
+    [OP_APERF]      = "OP_APERF",
+    [OP_TSC]        = "OP_TSC",
+    [OP_THERM]      = "OP_THERM",
+    [OP_PTHERM]     = "OP_PTHERM",
+    [DELTA_MPERF]   = "DELTA_MPERF",
+    [DELTA_APERF]   = "DELTA_APERF",
+    [DELTA_TSC]     = "DELTA_TSC",
+    [DELTA_THERM]   = "DELTA_THERM",
+    [DELTA_PTHERM]  = "DELTA_PTHERM",
+    [DELTA_MSRDATA] = "DELTA_MSRDATA",
+};
 
 
 #endif // MSR_SAFE_USERSPACE
