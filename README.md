@@ -54,6 +54,33 @@ Use **rmmod(8)** to unload msr-safe.
 sudo rmmod msr-safe
 ```
 
+# DKMS
+
+Copy or clone the repo into /usr/src as the specific directory `msr-safe-git`
+
+```console
+$ sudo git clone https://github.com/LLNL/msr-safe /usr/src/msr-safe-git
+```
+
+Than add it to DKMS:
+
+```console
+$ sudo dkms add -m msr-safe -v git
+```
+
+Try to build and install it:
+
+```console
+$ sudo dkms build -m msr-safe -v git
+$ sudo dkms install -m msr-safe -v git
+```
+
+Remove it with:
+
+```console
+$ sudo dkms remove -m msr-safe -v git --all
+```
+
 # DESCRIPTION
 ## /dev/cpu/msr_allowlist  
 
