@@ -32,7 +32,7 @@ cd msr-safe
 make
 sudo insmod ./msr-safe.ko
 sudo chmod g+rw /dev/cpu/*/msr_safe /dev/cpu/msr_*
-sudo chgrp msr-user /dev/cpu/*/msr_safe /dev/cpu/msr_batch /dev/cpu/msr_version
+sudo chgrp msr-user /dev/cpu/*/msr_safe /dev/cpu/msr_batch /dev/cpu/msr_safe_version
 sudo chgrp msr-admin /dev/cpu/msr_allowlist
 ```
 
@@ -79,6 +79,23 @@ Remove it with:
 
 ```console
 $ sudo dkms remove -m msr-safe -v git --all
+```
+
+# Udev
+
+Rules to adjust permissions on the device files and restore default allowlist:
+
+```console
+$ cat <<EOR | sudo tee /etc/udev/rules.d/99-msr_safe.rules >/dev/null
+# Rules to adjust group and permission for all device files.
+SUBSYSTEM=="msr_safe",         ACTION=="add", GROUP="msr-user",  MODE="0660"
+SUBSYSTEM=="msr_batch",        ACTION=="add", GROUP="msr-user",  MODE="0660"
+SUBSYSTEM=="msr_safe_version", ACTION=="add", GROUP="msr-user",  MODE="0440"
+SUBSYSTEM=="msr_allowlist",    ACTION=="add", GROUP="msr-admin", MODE="0660"
+
+# Restore default allowlist
+SUBSYSTEM=="msr_allowlist", ACTION=="add", RUN+="/bin/sh -c 'cat /etc/msr-safe/default_allowlist >/dev/cpu/msr_allowlist'"
+EOR
 ```
 
 # DESCRIPTION
