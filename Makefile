@@ -12,14 +12,19 @@
 #CFLAGS_msr_batch.o := -DDEBUG
 #CFLAGS_msr-smp.o := -DDEBUG
 
+KERNELVER ?= $(shell uname -r)
+
 obj-m += msr-safe.o
 msr-safe-objs := msr_entry.o msr_allowlist.o msr-smp.o msr_batch.o msr_version.o
 
-all: msrsave/msrsave
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+all: module msrsave/msrsave
+	make -C /lib/modules/$(KERNELVER)/build M=$(PWD) modules
+
+module:
+	make -C /lib/modules/$(KERNELVER)/build M=$(PWD) modules
 
 clean:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+	make -C /lib/modules/$(KERNELVER)/build M=$(PWD) clean
 	rm -f msrsave/msrsave.o msrsave/msrsave msrsave/msrsave_test msrsave/spank_msrsafe.o msrsave/libspank_msrsafe.so
 
 check: msrsave/msrsave_test
@@ -84,4 +89,4 @@ spack-install:
 	$(INSTALL) msr_safe.h $(DESTDIR)/include
 
 .SUFFIXES: .c .o
-.PHONY: all clean install spank install-spank
+.PHONY: all module clean install spank install-spank
